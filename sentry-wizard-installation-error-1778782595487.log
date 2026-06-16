@@ -1,0 +1,49 @@
+npm warn ERESOLVE overriding peer dependency
+npm warn While resolving: @neondatabase/auth-ui@0.1.0-alpha.11
+npm warn Found: @neondatabase/auth@0.2.0-beta.1
+npm warn node_modules/@neondatabase/auth
+npm warn   @neondatabase/auth@"^0.2.0-beta.1" from the root project
+npm warn
+npm warn Could not resolve dependency:
+npm warn peer @neondatabase/auth@">=0.1.0-alpha.8" from @neondatabase/auth-ui@0.1.0-alpha.11
+npm warn node_modules/@neondatabase/auth-ui
+npm warn   @neondatabase/auth-ui@"0.1.0-alpha.11" from @neondatabase/auth@0.2.0-beta.1
+npm warn   node_modules/@neondatabase/auth
+npm warn
+npm warn Conflicting peer dependency: @neondatabase/auth@0.1.0-beta.21
+npm warn node_modules/@neondatabase/auth
+npm warn   peer @neondatabase/auth@">=0.1.0-alpha.8" from @neondatabase/auth-ui@0.1.0-alpha.11
+npm warn   node_modules/@neondatabase/auth-ui
+npm warn     @neondatabase/auth-ui@"0.1.0-alpha.11" from @neondatabase/auth@0.2.0-beta.1
+npm warn     node_modules/@neondatabase/auth
+npm warn ERESOLVE overriding peer dependency
+npm warn While resolving: better-call@1.3.5
+npm warn Found: zod@3.25.76
+npm warn node_modules/zod
+npm warn   peer zod@"^3.25.76 || ^4.1.8" from @ai-sdk/gateway@3.0.104
+npm warn   node_modules/@ai-sdk/gateway
+npm warn     @ai-sdk/gateway@"3.0.104" from ai@6.0.168
+npm warn     node_modules/ai
+npm warn   7 more (@ai-sdk/provider-utils, @daveyplate/better-auth-ui, ...)
+npm warn
+npm warn Could not resolve dependency:
+npm warn peerOptional zod@"^4.0.0" from better-call@1.3.5
+npm warn node_modules/better-call
+npm warn   peer better-call@"1.3.5" from @better-auth/core@1.6.9
+npm warn   node_modules/@better-auth/core
+npm warn   2 more (@better-auth/passkey, better-auth)
+npm warn
+npm warn Conflicting peer dependency: zod@4.4.3
+npm warn node_modules/zod
+npm warn   peerOptional zod@"^4.0.0" from better-call@1.3.5
+npm warn   node_modules/better-call
+npm warn     peer better-call@"1.3.5" from @better-auth/core@1.6.9
+npm warn     node_modules/@better-auth/core
+npm warn     2 more (@better-auth/passkey, better-auth)
+npm error code ENOTEMPTY
+npm error syscall rename
+npm error path /Users/danielrafique/Library/Mobile Documents/com~apple~CloudDocs/Projects/plott/node_modules/aria-query 2
+npm error dest /Users/danielrafique/Library/Mobile Documents/com~apple~CloudDocs/Projects/plott/node_modules/.aria-query 2-ZMBNYzap
+npm error errno -66
+npm error ENOTEMPTY: directory not empty, rename '/Users/danielrafique/Library/Mobile Documents/com~apple~CloudDocs/Projects/plott/node_modules/aria-query 2' -> '/Users/danielrafique/Library/Mobile Documents/com~apple~CloudDocs/Projects/plott/node_modules/.aria-query 2-ZMBNYzap'
+npm error A complete log of this run can be found in: /Users/danielrafique/.npm/_logs/2026-05-14T18_16_29_822Z-debug-0.log

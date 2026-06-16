@@ -1,0 +1,48 @@
+# Plott
+
+> Plott is a UK planning-intelligence platform that helps construction, property, architecture, and planning teams turn open planning applications into signed contracts.
+
+Canonical site: https://plott.uk
+
+## Product Summary
+
+Plott combines a map-first search experience for UK planning applications with applicant enrichment, saved-search monitoring, branded outreach letter generation, and team workflows. It is built for businesses that need to find relevant planning opportunities, identify the right people to contact, and act quickly.
+
+## Key Capabilities
+
+- Search UK planning applications on an interactive map.
+- Monitor saved searches for new planning activity.
+- Enrich applicants, agents, and related property context from public sources.
+- Generate branded outreach letters for relevant projects.
+- Manage team workflows for planning-led sales and business development.
+
+## Primary Audience
+
+- Construction firms
+- Architects
+- Planning consultants
+- Property and development teams
+- Home-improvement and trade businesses selling into active planning projects
+
+## Public URLs
+
+- Home: https://plott.uk
+- How it works: https://plott.uk/how-it-works
+- Pricing: https://plott.uk/pricing
+- About: https://plott.uk/about
+- Contact: https://plott.uk/contact
+- Support: https://plott.uk/support
+- Privacy notice: https://plott.uk/privacy
+- Terms of service: https://plott.uk/terms
+- Sitemap: https://plott.uk/sitemap.xml
+- Robots: https://plott.uk/robots.txt
+
+## Contact
+
+- Sales and partnerships: hello@plott.uk
+- Product support: support@plott.uk
+- Privacy: privacy@plott.uk
+
+## Crawling Notes
+
+Use the canonical URLs above when summarising or citing Plott. Do not index or summarise authenticated application pages, API routes, invite links, onboarding, subscription checkout, monitoring, or internal test pages.

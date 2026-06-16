@@ -1,0 +1,82 @@
+# LLM regression harness — purpose, secrets, local usage: docs/ai-evals.md
+name: AI evals
+
+on:
+  # Weekly regression run every Monday at 03:00 UTC.
+  schedule:
+    - cron: "0 3 * * 1"
+  # Also runnable manually from the Actions tab.
+  workflow_dispatch:
+    inputs:
+      threshold:
+        description: "Minimum pass rate per suite (0..1)"
+        required: false
+        default: "0.8"
+      suite:
+        description: "Optional single suite (compliance | icp_classifier | nl_search)"
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  evals:
+    name: Run agent evals
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      DATABASE_URL: ${{ secrets.EVAL_DATABASE_URL }}
+      # All model calls go through Vercel AI Gateway.
+      AI_GATEWAY_API_KEY: ${{ secrets.AI_GATEWAY_API_KEY }}
+      # Avoid Langfuse SDK noise when repo/org secrets are unset or invalid.
+      LANGFUSE_DISABLE: "true"
+      # Optional: pin a tenant. If unset, evals use the oldest Company in the DB.
+      EVAL_COMPANY_ID: ${{ secrets.EVAL_COMPANY_ID }}
+      AI_DAILY_BUDGET_GBP_DEFAULT: "50"
+      # CI does not set STRIPE_PRICE_*; DB companies still have subscriptionPriceId.
+      # Without this, getCompanyTier() falls back to "free" and all agents are blocked.
+      # See getCompanyTier in src/lib/ai/tiers.ts — do not set on production app hosts.
+      AI_TIER_OVERRIDE: agency
+      # Tavily / Companies House tool calls are not exercised in these suites,
+      # but `runObject` will still record AgentRun rows in Postgres.
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund --legacy-peer-deps
+
+      - name: Prisma generate
+        run: npx prisma generate
+
+      - name: Require eval configuration
+        run: |
+          missing=0
+          if [ -z "$DATABASE_URL" ]; then echo "::error::DATABASE_URL is empty — add the EVAL_DATABASE_URL repository secret."; missing=1; fi
+          if [ -z "$AI_GATEWAY_API_KEY" ]; then echo "::error::AI_GATEWAY_API_KEY is empty — add the repository secret."; missing=1; fi
+          exit "$missing"
+
+      - name: Run evals
+        run: |
+          set +e
+          npm run evals -- \
+            --threshold "${{ github.event.inputs.threshold || '0.8' }}" \
+            ${{ github.event.inputs.suite && format('--suite {0}', github.event.inputs.suite) || '' }} \
+            --report "$RUNNER_TEMP/ai-eval-report.md"
+          eval_exit=$?
+          if [ -f "$RUNNER_TEMP/ai-eval-report.md" ]; then
+            cat "$RUNNER_TEMP/ai-eval-report.md" >> "$GITHUB_STEP_SUMMARY"
+          fi
+          exit "$eval_exit"
+
+      - name: Upload eval report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai-eval-report
+          path: ${{ runner.temp }}/ai-eval-report.md
+          if-no-files-found: ignore

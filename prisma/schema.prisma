@@ -1,0 +1,407 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id               String    @id @map("id")
+  email            String?   @unique @map("email")
+  name             String?   @map("name")
+  emailVerifiedAt  DateTime? @map("email_verified_at")
+  signatureSvg     String?   @map("signature_svg")
+  signatureBlobUrl String?   @map("signature_blob_url")
+  signatoryTitle   String?   @map("signatory_title")
+  emailPdfOnPrint  Boolean   @default(false) @map("email_pdf_on_print")
+  activeCompanyId  String?   @map("active_company_id")
+  /// Last dashboard search state (bounds + filters + cached results) so the
+  /// map restores instantly on return. Shape validated in the API, not the DB.
+  dashboardState   Json?     @map("dashboard_state")
+  updatedAt        DateTime? @default(now()) @map("updated_at")
+  createdAt        DateTime? @default(now()) @map("created_at")
+
+  activeCompany      Company?            @relation("UserActiveCompany", fields: [activeCompanyId], references: [id])
+  memberships        Membership[]
+  letters            Letter[]
+  reminders          Reminder[]
+  invitesSent        Invite[]            @relation("InvitesCreatedBy")
+  agentRuns          AgentRun[]
+  approvalsCreated   AgentApproval[]     @relation("AgentApprovalApprover")
+  pinnedApplications PinnedApplication[]
+
+  @@map("users")
+}
+
+model Company {
+  id                             String    @id @default(cuid()) @map("id")
+  name                           String    @map("name")
+  slug                           String    @unique @map("slug")
+  addressLines                   String?   @map("address_lines")
+  phone                          String?   @map("phone")
+  email                          String?   @map("email")
+  websiteUrl                     String?   @map("website_url")
+  logoBlobUrl                    String?   @map("logo_blob_url")
+  logoBlobPathname               String?   @map("logo_blob_pathname")
+  letterFooter                   String?   @map("letter_footer")
+  stripeCustomerId               String?   @unique @map("stripe_customer_id")
+  stripeSubscriptionId           String?   @unique @map("stripe_subscription_id")
+  subscriptionStatus             String    @default("none") @map("subscription_status")
+  subscriptionPriceId            String?   @map("subscription_price_id")
+  subscriptionCurrentPeriodEnd   DateTime? @map("subscription_current_period_end")
+  trialEndsAt                    DateTime? @map("trial_ends_at")
+  aiEnabled                      Boolean   @default(true) @map("ai_enabled")
+  aiDailyBudgetGbp               Decimal   @default(5) @map("ai_daily_budget_gbp") @db.Decimal(10, 2)
+  aiMonthlySpendGbp              Decimal   @default(0) @map("ai_monthly_spend_gbp") @db.Decimal(10, 2)
+  aiSpendResetAt                 DateTime? @map("ai_spend_reset_at")
+  autoEmailPdf                   Boolean   @default(false) @map("auto_email_pdf")
+  pdfEmailRecipients             String[]  @default([]) @map("pdf_email_recipients")
+  onboardingCompletedAt          DateTime? @map("onboarding_completed_at")
+  /// Set when we send the post-checkout “subscription welcome” email (idempotency).
+  subscriptionWelcomeEmailSentAt DateTime? @map("subscription_welcome_email_sent_at")
+  createdAt                      DateTime  @default(now()) @map("created_at")
+  updatedAt                      DateTime  @updatedAt @map("updated_at")
+
+  memberships        Membership[]
+  activeFor          User[]              @relation("UserActiveCompany")
+  letters            Letter[]
+  templates          LetterTemplate[]
+  savedSearches      SavedSearch[]
+  pinnedApplications PinnedApplication[]
+  reminders          Reminder[]
+  invites            Invite[]
+  agentRuns          AgentRun[]
+  agentApprovals     AgentApproval[]
+  icpProfile         IcpProfile?
+  applicantResearch  ApplicantResearch[]
+
+  @@map("companies")
+}
+
+model Membership {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  companyId String   @map("company_id")
+  role      String   @default("owner") @map("role")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, companyId])
+  @@index([companyId])
+  @@map("memberships")
+}
+
+model Invite {
+  id          String    @id @default(cuid())
+  companyId   String    @map("company_id")
+  email       String    @map("email")
+  role        String    @default("member") @map("role")
+  token       String    @unique @map("token")
+  createdById String    @map("created_by_id")
+  acceptedAt  DateTime? @map("accepted_at")
+  expiresAt   DateTime  @map("expires_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  createdBy User    @relation("InvitesCreatedBy", fields: [createdById], references: [id])
+
+  @@index([companyId])
+  @@index([email])
+  @@map("invites")
+}
+
+model LetterTemplate {
+  id        String   @id @default(cuid())
+  companyId String   @map("company_id")
+  name      String   @map("name")
+  subject   String   @map("subject")
+  bodyHtml  String   @map("body_html")
+  /**
+   * "outreach" (default) or "appeal_pitch". Matches Letter.purpose.
+   */
+  kind      String   @default("outreach") @map("kind")
+  isDefault Boolean  @default(false) @map("is_default")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+  @@map("letter_templates")
+}
+
+model Letter {
+  id                     String    @id @default(cuid())
+  companyId              String    @map("company_id")
+  userId                 String    @map("user_id")
+  applicationRef         String?   @map("application_ref")
+  planningEntity         BigInt?   @map("planning_entity")
+  siteAddress            String?   @map("site_address")
+  recipientName          String    @map("recipient_name")
+  addressLines           String    @map("address_lines")
+  subject                String    @map("subject")
+  bodyHtml               String    @map("body_html")
+  pdfBlobUrl             String?   @map("pdf_blob_url")
+  pdfBlobPathname        String?   @map("pdf_blob_pathname")
+  status                 String    @default("draft") @map("status")
+  /**
+   * "outreach" (approved apps) or "appeal_pitch" (refused apps).
+   */
+  purpose                String    @default("outreach") @map("purpose")
+  sentAt                 DateTime? @map("sent_at")
+  /**
+   * When set, automated PDF-to-inbox delivery has already run for this letter
+   * (dedupes approve / printed / sent triggers).
+   */
+  pdfAttachedEmailSentAt DateTime? @map("pdf_attached_email_sent_at")
+  deletedAt              DateTime? @map("deleted_at")
+  createdAt              DateTime  @default(now()) @map("created_at")
+  updatedAt              DateTime  @updatedAt @map("updated_at")
+
+  company   Company    @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reminders Reminder[]
+
+  @@index([companyId])
+  @@index([userId])
+  @@index([planningEntity])
+  @@map("letters")
+}
+
+model SavedSearch {
+  id                         String    @id @default(cuid())
+  companyId                  String    @map("company_id")
+  name                       String    @map("name")
+  bbox                       Json      @map("bbox")
+  filters                    Json      @map("filters")
+  frequency                  String    @default("weekly") @map("frequency")
+  lastRunAt                  DateTime? @map("last_run_at")
+  lastRunCount               Int       @default(0) @map("last_run_count")
+  lastSeenIds                BigInt[]  @default([]) @map("last_seen_ids")
+  notifyEmails               String[]  @default([]) @map("notify_emails")
+  autoOutreach               Boolean   @default(false) @map("auto_outreach")
+  autoApproveBelowConfidence Float?    @map("auto_approve_below_confidence")
+  createdAt                  DateTime  @default(now()) @map("created_at")
+  updatedAt                  DateTime  @updatedAt @map("updated_at")
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+  @@map("saved_searches")
+}
+
+model PinnedApplication {
+  id                 String    @id @default(cuid())
+  companyId          String    @map("company_id")
+  userId             String    @map("user_id")
+  reference          String    @map("reference")
+  councilId          String?   @map("council_id")
+  planningEntity     BigInt?   @map("planning_entity")
+  siteAddress        String?   @map("site_address")
+  description        String?   @map("description")
+  status             String?   @map("status")
+  decision           String?   @map("decision")
+  decisionDate       String?   @map("decision_date")
+  targetDecisionDate DateTime? @map("target_decision_date")
+  sourceUrl          String?   @map("source_url")
+  notifyEmails       String[]  @default([]) @map("notify_emails")
+  frequency          String    @default("daily") @map("frequency")
+  paused             Boolean   @default(false) @map("paused")
+  lastCheckedAt      DateTime? @map("last_checked_at")
+  lastNotifiedAt     DateTime? @map("last_notified_at")
+  nextCheckAt        DateTime? @map("next_check_at")
+  lastSnapshotJson   Json?     @map("last_snapshot_json")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+
+  company Company                  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  user    User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  events  PinnedApplicationEvent[]
+
+  @@unique([companyId, reference, councilId])
+  @@index([companyId])
+  @@index([userId])
+  @@index([lastCheckedAt])
+  @@index([nextCheckAt])
+  @@map("pinned_applications")
+}
+
+model PinnedApplicationEvent {
+  id                  String    @id @default(cuid())
+  pinnedApplicationId String    @map("pinned_application_id")
+  changeType          String    @map("change_type")
+  beforeJson          Json?     @map("before_json")
+  afterJson           Json      @map("after_json")
+  notifiedAt          DateTime? @map("notified_at")
+  createdAt           DateTime  @default(now()) @map("created_at")
+
+  pinnedApplication PinnedApplication @relation(fields: [pinnedApplicationId], references: [id], onDelete: Cascade)
+
+  @@index([pinnedApplicationId])
+  @@index([createdAt])
+  @@map("pinned_application_events")
+}
+
+model Reminder {
+  id         String    @id @default(cuid())
+  companyId  String    @map("company_id")
+  userId     String    @map("user_id")
+  letterId   String?   @map("letter_id")
+  dueAt      DateTime  @map("due_at")
+  note       String?   @map("note")
+  done       Boolean   @default(false) @map("done")
+  notifiedAt DateTime? @map("notified_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  letter  Letter? @relation(fields: [letterId], references: [id], onDelete: SetNull)
+
+  @@index([companyId])
+  @@index([userId])
+  @@index([dueAt])
+  @@map("reminders")
+}
+
+model StripeEvent {
+  id        String   @id @map("id")
+  type      String   @map("type")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("stripe_events")
+}
+
+model AgentRun {
+  id               String    @id @default(cuid())
+  companyId        String    @map("company_id")
+  userId           String?   @map("user_id")
+  kind             String    @map("kind")
+  status           String    @default("running") @map("status")
+  model            String    @map("model")
+  inputJson        Json      @map("input_json")
+  outputJson       Json?     @map("output_json")
+  errorMessage     String?   @map("error_message")
+  traceId          String?   @map("trace_id")
+  promptTokens     Int       @default(0) @map("prompt_tokens")
+  completionTokens Int       @default(0) @map("completion_tokens")
+  totalTokens      Int       @default(0) @map("total_tokens")
+  costGbp          Decimal   @default(0) @map("cost_gbp") @db.Decimal(10, 4)
+  toolCalls        Int       @default(0) @map("tool_calls")
+  durationMs       Int       @default(0) @map("duration_ms")
+  promptHash       String?   @map("prompt_hash")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  completedAt      DateTime? @map("completed_at")
+
+  company   Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  user      User?           @relation(fields: [userId], references: [id], onDelete: SetNull)
+  approvals AgentApproval[]
+
+  @@index([companyId])
+  @@index([userId])
+  @@index([kind])
+  @@index([createdAt])
+  @@map("agent_runs")
+}
+
+model AgentApproval {
+  id             String    @id @default(cuid())
+  companyId      String    @map("company_id")
+  agentRunId     String    @map("agent_run_id")
+  kind           String    @map("kind")
+  status         String    @default("pending") @map("status")
+  subjectRef     String?   @map("subject_ref")
+  planningEntity BigInt?   @map("planning_entity")
+  draftJson      Json      @map("draft_json")
+  issuesJson     Json?     @map("issues_json")
+  confidence     Float?    @map("confidence")
+  approvedById   String?   @map("approved_by_id")
+  approvedAt     DateTime? @map("approved_at")
+  executedAt     DateTime? @map("executed_at")
+  rejectedAt     DateTime? @map("rejected_at")
+  rejectionNote  String?   @map("rejection_note")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  company    Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  agentRun   AgentRun @relation(fields: [agentRunId], references: [id], onDelete: Cascade)
+  approvedBy User?    @relation("AgentApprovalApprover", fields: [approvedById], references: [id])
+
+  @@index([companyId])
+  @@index([status])
+  @@index([kind])
+  @@map("agent_approvals")
+}
+
+model IcpProfile {
+  id                 String   @id @default(cuid())
+  companyId          String   @unique @map("company_id")
+  description        String   @map("description")
+  keywords           String[] @default([]) @map("keywords")
+  preferredStatuses  String[] @default([]) @map("preferred_statuses")
+  excludedKeywords   String[] @default([]) @map("excluded_keywords")
+  minProjectValueGbp Int?     @map("min_project_value_gbp")
+  /**
+   * When true, run the refusal-appeals pipeline on refused applications.
+   */
+  targetRefusals     Boolean  @default(false) @map("target_refusals")
+  /**
+   * Free-text description of the appeal service being offered (e.g. "planning solicitor").
+   */
+  appealServiceType  String?  @map("appeal_service_type")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+  createdAt          DateTime @default(now()) @map("created_at")
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@map("icp_profiles")
+}
+
+model ApplicantResearch {
+  id             String   @id @default(cuid())
+  companyId      String   @map("company_id")
+  normalisedName String   @map("normalised_name")
+  displayName    String   @map("display_name")
+  briefingJson   Json     @map("briefing_json")
+  confidence     String   @default("low") @map("confidence")
+  fetchedAt      DateTime @default(now()) @map("fetched_at")
+  expiresAt      DateTime @map("expires_at")
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@unique([companyId, normalisedName])
+  @@index([companyId])
+  @@map("applicant_research")
+}
+
+model ApplicationEnrichment {
+  planningEntity           BigInt    @id @map("planning_entity")
+  applicationRef           String?   @map("application_ref")
+  organisationEntity       String?   @map("organisation_entity")
+  applicantName            String?   @map("applicant_name")
+  applicantAddress         String?   @map("applicant_address")
+  applicantEmail           String?   @map("applicant_email")
+  applicantEmailSource     String?   @map("applicant_email_source")
+  applicantEmailConfidence Int?      @map("applicant_email_confidence")
+  applicantEmailStatus     String?   @map("applicant_email_status")
+  agentName                String?   @map("agent_name")
+  agentAddress             String?   @map("agent_address")
+  agentPhone               String?   @map("agent_phone")
+  agentEmail               String?   @map("agent_email")
+  caseOfficer              String?   @map("case_officer")
+  ward                     String?   @map("ward")
+  receivedDate             DateTime? @map("received_date")
+  validatedDate            DateTime? @map("validated_date")
+  targetDate               DateTime? @map("target_date")
+  source                   String    @map("source")
+  confidence               String    @default("low") @map("confidence")
+  fetchedAt                DateTime  @default(now()) @map("fetched_at")
+  expiresAt                DateTime  @map("expires_at")
+
+  @@index([applicationRef])
+  @@index([organisationEntity])
+  @@map("application_enrichment")
+}

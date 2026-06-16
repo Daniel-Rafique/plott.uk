@@ -1,0 +1,111 @@
+@import "tailwindcss";
+
+:root {
+  --background: #fafafa;
+  --foreground: #18181b;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-brand: #b09e7e;
+  --color-brand-dark: #8f7e62;
+  --color-brand-light: #d4c9ba;
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  --font-display: var(--font-display);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
+}
+
+/* Editorial marketing tokens — used by site-header, home sections, pricing,
+   about. Keep these small; most styling lives inline with Tailwind classes. */
+.editorial-chapter-label {
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+}
+
+.editorial-hairline {
+  border-top: 1px solid rgb(24 24 27 / 0.12);
+}
+
+.editorial-hairline-dark {
+  border-top: 1px solid rgb(250 250 249 / 0.14);
+}
+
+/* Route progress bar shimmer animation */
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(400%);
+  }
+}
+
+.animate-shimmer {
+  animation: shimmer 1.5s ease-in-out infinite;
+}
+
+/* TipTap rich text editor styles */
+.tiptap {
+  outline: none;
+}
+
+.tiptap p {
+  margin: 0.75em 0;
+}
+
+.tiptap p:first-child {
+  margin-top: 0;
+}
+
+.tiptap p:last-child {
+  margin-bottom: 0;
+}
+
+.tiptap strong {
+  font-weight: 600;
+}
+
+.tiptap em {
+  font-style: italic;
+}
+
+.tiptap ul,
+.tiptap ol {
+  margin: 0.75em 0;
+  padding-left: 1.5em;
+}
+
+.tiptap ul {
+  list-style-type: disc;
+}
+
+.tiptap ol {
+  list-style-type: decimal;
+}
+
+.tiptap li {
+  margin: 0.25em 0;
+}
+
+.tiptap a {
+  color: #059669;
+  text-decoration: underline;
+}
+
+.tiptap p.is-editor-empty:first-child::before {
+  color: #a1a1aa;
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  pointer-events: none;
+}
