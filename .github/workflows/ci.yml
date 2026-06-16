@@ -17,6 +17,10 @@ jobs:
     env:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/plott_ci
       NEXT_PUBLIC_APP_URL: http://localhost:3000
+      # Build-time imports touch Neon Auth config; provide non-production
+      # placeholders so module evaluation succeeds in CI.
+      NEON_AUTH_BASE_URL: https://example.neon.tech
+      NEON_AUTH_COOKIE_SECRET: ci-cookie-secret-not-for-prod
       LANGFUSE_DISABLE: "true"
     steps:
       - uses: actions/checkout@v4
