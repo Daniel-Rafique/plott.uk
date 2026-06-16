@@ -20,7 +20,7 @@ jobs:
       # Build-time imports touch Neon Auth config; provide non-production
       # placeholders so module evaluation succeeds in CI.
       NEON_AUTH_BASE_URL: https://example.neon.tech
-      NEON_AUTH_COOKIE_SECRET: ci-cookie-secret-not-for-prod
+      NEON_AUTH_COOKIE_SECRET: ci-cookie-secret-0123456789-abcdefghijklmnopqrstuvwxyz
       LANGFUSE_DISABLE: "true"
     steps:
       - uses: actions/checkout@v4
