@@ -55,6 +55,66 @@ async function verifyPassword(email: string | null, password: unknown) {
   return !result.error;
 }
 
+async function deleteNeonAuthUser(userId: string): Promise<
+  | { ok: true }
+  | { ok: false; status: number; error: string }
+> {
+  const selfDelete = await auth.deleteUser().catch((error) => ({
+    data: null,
+    error: {
+      message: error instanceof Error ? error.message : "Could not delete account.",
+      status: 500,
+    },
+  }));
+  if (!selfDelete.error) return { ok: true };
+
+  const apiKey = process.env.NEON_API_KEY;
+  const projectId = process.env.NEON_PROJECT_ID;
+  const selfDeleteMessage = selfDelete.error.message ?? "Could not delete account.";
+  const selfDeleteStatus = selfDelete.error.status ?? 500;
+  if (selfDeleteStatus !== 404 && !/not found/i.test(selfDeleteMessage)) {
+    return {
+      ok: false,
+      status: selfDeleteStatus,
+      error: selfDeleteMessage,
+    };
+  }
+
+  if (!apiKey || !projectId) {
+    return {
+      ok: false,
+      status: 501,
+      error:
+        "Neon Auth self-delete is unavailable for this project. Add NEON_API_KEY and NEON_PROJECT_ID so Plott can delete the Neon Auth user via the Neon management API.",
+    };
+  }
+
+  const res = await fetch(
+    `https://api.neon.tech/v2/projects/${encodeURIComponent(projectId)}/auth/users/${encodeURIComponent(userId)}`,
+    {
+      method: "DELETE",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+      },
+    },
+  );
+  if (res.status === 204 || res.status === 404) {
+    return { ok: true };
+  }
+
+  const body = (await res.json().catch(() => null)) as
+    | { message?: string; error?: string }
+    | null;
+  return {
+    ok: false,
+    status: res.status,
+    error:
+      body?.message ??
+      body?.error ??
+      `Neon Auth management API delete failed with status ${res.status}.`,
+  };
+}
+
 export async function PATCH(req: Request) {
   const ctx = await getTenantContext({
     requireVerified: true,
@@ -151,11 +211,11 @@ export async function DELETE(req: Request) {
     select: { companyId: true },
   });
 
-  const authDelete = await auth.deleteUser();
-  if (authDelete.error) {
+  const authDelete = await deleteNeonAuthUser(ctx.user.id);
+  if (!authDelete.ok) {
     return NextResponse.json(
-      { error: authDelete.error.message ?? "Could not delete account." },
-      { status: authDelete.error.status ?? 500 },
+      { error: authDelete.error },
+      { status: authDelete.status },
     );
   }
 
