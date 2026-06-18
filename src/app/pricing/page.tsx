@@ -1,6 +1,4 @@
 import type { Metadata } from "next";
-import { SiteHeader } from "@/components/site-header";
-import { SiteFooter } from "@/components/site-footer";
 import { loadPlans } from "@/lib/pricing";
 import {
   breadcrumbJsonLd,
@@ -68,16 +66,14 @@ export default async function PricingPage() {
   ];
 
   return (
-    <div className="flex min-h-screen flex-col bg-white">
-      <SiteHeader />
+    <>
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={jsonLdScriptProps(pricingJsonLd)}
       />
-      <main className="flex-1">
+      <main className="flex-1 bg-white">
         <PricingContent plans={plans} />
       </main>
-      <SiteFooter />
-    </div>
+    </>
   );
 }

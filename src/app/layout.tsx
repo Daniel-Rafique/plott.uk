@@ -5,6 +5,7 @@ import { Geist, Geist_Mono, Playfair_Display } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import { MarketingShell } from "@/lib/animation/marketing-shell";
 import { MarketingCapturePopup } from "@/components/marketing/email-capture";
+import { PublicSiteShell } from "@/components/public-site-shell";
 import { RouteProgress } from "@/components/route-progress";
 import {
   DEFAULT_OG_IMAGE,
@@ -170,7 +171,9 @@ export default function RootLayout({
         <Suspense fallback={null}>
           <RouteProgress />
         </Suspense>
-        <MarketingShell>{children}</MarketingShell>
+        <MarketingShell>
+          <PublicSiteShell>{children}</PublicSiteShell>
+        </MarketingShell>
         <MarketingCapturePopup />
         <Analytics />
         <Script

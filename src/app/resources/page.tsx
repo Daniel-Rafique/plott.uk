@@ -1,7 +1,5 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { SiteFooter } from "@/components/site-footer";
-import { SiteHeader } from "@/components/site-header";
 import {
   breadcrumbJsonLd,
   jsonLdScriptProps,
@@ -26,13 +24,12 @@ const resourcesJsonLd = breadcrumbJsonLd([
 
 export default function ResourcesPage() {
   return (
-    <div className="flex min-h-screen flex-col bg-white">
-      <SiteHeader />
+    <>
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={jsonLdScriptProps(resourcesJsonLd)}
       />
-      <main className="flex-1">
+      <main className="flex-1 bg-white">
         <section className="bg-zinc-950 px-6 py-28 text-white md:py-36">
           <div className="mx-auto max-w-6xl">
             <p className="editorial-chapter-label text-brand-light">
@@ -73,7 +70,6 @@ export default function ResourcesPage() {
           </div>
         </section>
       </main>
-      <SiteFooter />
-    </div>
+    </>
   );
 }

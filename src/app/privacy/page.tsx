@@ -1,7 +1,5 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { SiteHeader } from "@/components/site-header";
-import { SiteFooter } from "@/components/site-footer";
 import {
   articleJsonLd,
   breadcrumbJsonLd,
@@ -36,13 +34,12 @@ const privacyJsonLd = [
 
 export default function PrivacyPage() {
   return (
-    <div className="flex min-h-screen flex-col bg-white">
-      <SiteHeader />
+    <>
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={jsonLdScriptProps(privacyJsonLd)}
       />
-      <main className="flex-1">
+      <main className="flex-1 bg-white">
         <div className="mx-auto w-full max-w-4xl px-6 py-24 md:py-32">
           <header className="editorial-hairline max-w-2xl pt-10">
             <p className="editorial-chapter-label text-brand-dark">
@@ -291,7 +288,6 @@ export default function PrivacyPage() {
           </div>
         </div>
       </main>
-      <SiteFooter />
-    </div>
+    </>
   );
 }

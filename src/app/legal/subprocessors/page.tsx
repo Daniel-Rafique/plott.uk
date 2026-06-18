@@ -1,7 +1,5 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { SiteHeader } from "@/components/site-header";
-import { SiteFooter } from "@/components/site-footer";
 
 export const metadata: Metadata = {
   title: "Sub-processors",
@@ -16,9 +14,7 @@ const LAST_UPDATED = "16 June 2026";
 
 export default function SubprocessorsPage() {
   return (
-    <div className="flex min-h-screen flex-col bg-white">
-      <SiteHeader />
-      <main className="flex-1">
+    <main className="flex-1 bg-white">
         <div className="mx-auto w-full max-w-4xl px-6 py-24 md:py-32">
           <header className="editorial-hairline max-w-2xl pt-10">
             <p className="editorial-chapter-label text-brand-dark">Legal</p>
@@ -111,7 +107,5 @@ export default function SubprocessorsPage() {
           </div>
         </div>
       </main>
-      <SiteFooter />
-    </div>
   );
 }

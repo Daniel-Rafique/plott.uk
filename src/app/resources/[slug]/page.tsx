@@ -1,8 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { AnswerResourcePage } from "@/components/marketing/answer-resource-page";
-import { SiteFooter } from "@/components/site-footer";
-import { SiteHeader } from "@/components/site-header";
 import {
   articleJsonLd,
   breadcrumbJsonLd,
@@ -56,16 +54,14 @@ export default async function ResourceDetailPage({ params }: Props) {
   ];
 
   return (
-    <div className="flex min-h-screen flex-col bg-white">
-      <SiteHeader />
+    <>
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={jsonLdScriptProps(jsonLd)}
       />
-      <main className="flex-1">
+      <main className="flex-1 bg-white">
         <AnswerResourcePage resource={resource} />
       </main>
-      <SiteFooter />
-    </div>
+    </>
   );
 }

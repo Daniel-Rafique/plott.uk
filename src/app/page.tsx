@@ -1,5 +1,3 @@
-import { SiteHeader } from "@/components/site-header";
-import { SiteFooter } from "@/components/site-footer";
 import { HomePageContent } from "@/components/home/home-page-content";
 import {
   breadcrumbJsonLd,
@@ -45,20 +43,16 @@ const homeJsonLd = [
 
 export default function HomePage() {
   return (
-    <div className="flex min-h-screen flex-col bg-zinc-50">
-      <SiteHeader />
+    <>
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={jsonLdScriptProps(homeJsonLd)}
       />
-      <div className="flex min-w-0 w-full flex-1 flex-col overflow-x-clip">
-        <main className="flex-1">
-          <HomePageContent
-            heroFontClassName="font-[family-name:var(--font-display)]"
-          />
-        </main>
-        <SiteFooter />
-      </div>
-    </div>
+      <main className="flex-1">
+        <HomePageContent
+          heroFontClassName="font-[family-name:var(--font-display)]"
+        />
+      </main>
+    </>
   );
 }

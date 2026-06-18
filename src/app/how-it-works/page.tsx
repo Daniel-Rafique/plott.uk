@@ -1,5 +1,3 @@
-import { SiteHeader } from "@/components/site-header";
-import { SiteFooter } from "@/components/site-footer";
 import { HowItWorksContent } from "./how-it-works-content";
 import {
   breadcrumbJsonLd,
@@ -49,16 +47,14 @@ const howItWorksJsonLd = [
 
 export default function HowItWorksPage() {
   return (
-    <div className="flex min-h-screen flex-col bg-white">
-      <SiteHeader />
+    <>
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={jsonLdScriptProps(howItWorksJsonLd)}
       />
-      <main className="flex-1">
+      <main className="flex-1 bg-white">
         <HowItWorksContent />
       </main>
-      <SiteFooter />
-    </div>
+    </>
   );
 }
