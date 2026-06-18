@@ -13,6 +13,7 @@ import { useTextReveal } from "@/lib/animation/use-text-reveal";
 import { useGsapReveal } from "@/lib/animation/use-gsap-reveal";
 import { StackingSections } from "@/lib/animation/stacking-sections";
 import { authClient } from "@/lib/auth/client";
+import { EmailCapture } from "@/components/marketing/email-capture";
 
 const Map3DHero = dynamic(
   () => import("./map3d-hero").then((m) => m.Map3DHero),
@@ -203,6 +204,14 @@ export function HomePageContent({ heroFontClassName }: Props) {
             >
               Compare plans
             </Link>
+          </div>
+          <div data-reveal className="mx-auto mt-12 max-w-2xl text-left">
+            <EmailCapture
+              source="home_inline"
+              leadMagnet="UK Planning Lead Checklist"
+              title="Get the UK Planning Lead Checklist"
+              description="Qualify applications, enrich applicant context and start privacy-aware outreach with a short checklist built for UK planning leads."
+            />
           </div>
         </div>
       </section>

@@ -356,6 +356,41 @@ model OutreachEmailSuppression {
   @@map("outreach_email_suppressions")
 }
 
+model MarketingLead {
+  id                    String    @id @default(cuid())
+  email                 String    @map("email")
+  name                  String?   @map("name")
+  company               String?   @map("company")
+  source                String    @map("source")
+  path                  String?   @map("path")
+  leadMagnet            String?   @map("lead_magnet")
+  utmSource             String?   @map("utm_source")
+  utmMedium             String?   @map("utm_medium")
+  utmCampaign           String?   @map("utm_campaign")
+  utmTerm               String?   @map("utm_term")
+  utmContent            String?   @map("utm_content")
+  consentText           String    @map("consent_text")
+  consentedAt           DateTime  @map("consented_at")
+  ipHash                String?   @map("ip_hash")
+  userAgentHash         String?   @map("user_agent_hash")
+  unsubscribedAt        DateTime? @map("unsubscribed_at")
+  suppressedAt          DateTime? @map("suppressed_at")
+  resendAudienceId      String?   @map("resend_audience_id")
+  resendContactId       String?   @map("resend_contact_id")
+  resendSyncedAt        DateTime? @map("resend_synced_at")
+  resendSyncError       String?   @map("resend_sync_error")
+  lastSubmittedAt       DateTime  @default(now()) @map("last_submitted_at")
+  submissionCount       Int       @default(1) @map("submission_count")
+  createdAt             DateTime  @default(now()) @map("created_at")
+  updatedAt             DateTime  @updatedAt @map("updated_at")
+
+  @@unique([email])
+  @@index([source])
+  @@index([path])
+  @@index([resendSyncedAt])
+  @@map("marketing_leads")
+}
+
 model IcpProfile {
   id                 String   @id @default(cuid())
   companyId          String   @unique @map("company_id")

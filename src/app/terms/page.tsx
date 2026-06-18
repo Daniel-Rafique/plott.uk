@@ -2,7 +2,12 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
-import { publicPageMetadata } from "@/lib/seo";
+import {
+  articleJsonLd,
+  breadcrumbJsonLd,
+  jsonLdScriptProps,
+  publicPageMetadata,
+} from "@/lib/seo";
 
 export const metadata: Metadata = publicPageMetadata({
   title: "Terms of Service",
@@ -15,10 +20,28 @@ export const dynamic = "force-dynamic";
 
 const LAST_UPDATED = "21 April 2026";
 
+const termsJsonLd = [
+  breadcrumbJsonLd([
+    { name: "Home", path: "/" },
+    { name: "Terms of Service", path: "/terms" },
+  ]),
+  articleJsonLd({
+    headline: "Plott Terms of Service",
+    description:
+      "The legal agreement governing customer use of the Plott planning intelligence platform.",
+    path: "/terms",
+    datePublished: "2026-04-21",
+  }),
+];
+
 export default function TermsPage() {
   return (
     <div className="flex min-h-screen flex-col bg-white">
       <SiteHeader />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={jsonLdScriptProps(termsJsonLd)}
+      />
       <main className="flex-1">
         <div className="mx-auto w-full max-w-4xl px-6 py-24 md:py-32">
           <header className="editorial-hairline max-w-2xl pt-10">

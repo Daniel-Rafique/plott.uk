@@ -2,7 +2,12 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
-import { publicPageMetadata } from "@/lib/seo";
+import {
+  articleJsonLd,
+  breadcrumbJsonLd,
+  jsonLdScriptProps,
+  publicPageMetadata,
+} from "@/lib/seo";
 
 export const metadata: Metadata = publicPageMetadata({
   title: "Privacy Notice",
@@ -15,10 +20,28 @@ export const dynamic = "force-dynamic";
 
 const LAST_UPDATED = "21 April 2026";
 
+const privacyJsonLd = [
+  breadcrumbJsonLd([
+    { name: "Home", path: "/" },
+    { name: "Privacy Notice", path: "/privacy" },
+  ]),
+  articleJsonLd({
+    headline: "Plott Privacy Notice",
+    description:
+      "How Plott collects, uses, protects and stores personal data under UK GDPR.",
+    path: "/privacy",
+    datePublished: "2026-04-21",
+  }),
+];
+
 export default function PrivacyPage() {
   return (
     <div className="flex min-h-screen flex-col bg-white">
       <SiteHeader />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={jsonLdScriptProps(privacyJsonLd)}
+      />
       <main className="flex-1">
         <div className="mx-auto w-full max-w-4xl px-6 py-24 md:py-32">
           <header className="editorial-hairline max-w-2xl pt-10">

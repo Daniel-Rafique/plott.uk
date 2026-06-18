@@ -3,6 +3,7 @@ import { Suspense } from "react";
 import { Geist, Geist_Mono, Playfair_Display } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import { MarketingShell } from "@/lib/animation/marketing-shell";
+import { MarketingCapturePopup } from "@/components/marketing/email-capture";
 import { RouteProgress } from "@/components/route-progress";
 import {
   DEFAULT_OG_IMAGE,
@@ -10,6 +11,8 @@ import {
   SITE_URL,
   canonicalAlternates,
   indexRobots,
+  jsonLdScriptProps,
+  webSiteJsonLd,
 } from "@/lib/seo";
 import "mapbox-gl/dist/mapbox-gl.css";
 import "./globals.css";
@@ -149,11 +152,15 @@ export default function RootLayout({
       <head>
         <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+          dangerouslySetInnerHTML={jsonLdScriptProps(jsonLd)}
         />
         <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }}
+          dangerouslySetInnerHTML={jsonLdScriptProps(organizationJsonLd)}
+        />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={jsonLdScriptProps(webSiteJsonLd())}
         />
       </head>
       <body className="flex flex-col bg-zinc-50 text-zinc-900">
@@ -161,6 +168,7 @@ export default function RootLayout({
           <RouteProgress />
         </Suspense>
         <MarketingShell>{children}</MarketingShell>
+        <MarketingCapturePopup />
         <Analytics />
       </body>
     </html>

@@ -1,7 +1,12 @@
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { AboutContent } from "./about-content";
-import { publicPageMetadata } from "@/lib/seo";
+import {
+  breadcrumbJsonLd,
+  faqJsonLd,
+  jsonLdScriptProps,
+  publicPageMetadata,
+} from "@/lib/seo";
 
 export const metadata = publicPageMetadata({
   title: "About",
@@ -18,10 +23,33 @@ export const metadata = publicPageMetadata({
 
 export const dynamic = "force-dynamic";
 
+const aboutJsonLd = [
+  breadcrumbJsonLd([
+    { name: "Home", path: "/" },
+    { name: "About", path: "/about" },
+  ]),
+  faqJsonLd([
+    {
+      question: "Where is Plott built?",
+      answer:
+        "Plott is built in Britain for UK construction, property and planning teams.",
+    },
+    {
+      question: "How many local planning authorities does Plott cover?",
+      answer:
+        "Plott covers all 337 UK local planning authorities.",
+    },
+  ]),
+];
+
 export default function AboutPage() {
   return (
     <div className="flex min-h-screen flex-col bg-white">
       <SiteHeader />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={jsonLdScriptProps(aboutJsonLd)}
+      />
       <main className="flex-1">
         <AboutContent />
       </main>

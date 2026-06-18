@@ -57,6 +57,12 @@ export function SiteHeader() {
           Pricing
         </Link>
         <Link
+          href="/resources"
+          className="transition-colors hover:text-zinc-950"
+        >
+          Resources
+        </Link>
+        <Link
           href="/privacy"
           className="transition-colors hover:text-zinc-950"
         >

@@ -28,6 +28,7 @@ export const LIMITS = {
   aiResearch: { limit: 20, window: "1 h" },
   outreachContact: { limit: 20, window: "1 h" },
   contact: { limit: 5, window: "1 h" },
+  marketingSubscribe: { limit: 6, window: "1 h" },
 } as const satisfies Record<string, LimitDef>;
 
 export type LimitAction = keyof typeof LIMITS;
