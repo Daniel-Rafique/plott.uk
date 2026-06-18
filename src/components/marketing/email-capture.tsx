@@ -2,12 +2,15 @@
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { usePathname } from "next/navigation";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { X } from "lucide-react";
 import posthog from "posthog-js";
 import { authClient } from "@/lib/auth/client";
 import { cn } from "@/lib/utils";
 
 type CaptureVariant = "inline" | "popup";
+type CaptureDismissReason = "form" | "success";
+type PopupState = "hidden" | "launcher" | "expanded";
 
 type EmailCaptureProps = {
   variant?: CaptureVariant;
@@ -17,7 +20,7 @@ type EmailCaptureProps = {
   description: string;
   className?: string;
   onSuccess?: () => void;
-  onDismiss?: () => void;
+  onDismiss?: (reason: CaptureDismissReason) => void;
 };
 
 const CONSENT_COPY =
@@ -155,7 +158,7 @@ export function EmailCapture({
           {variant === "popup" ? (
             <button
               type="button"
-              onClick={onDismiss}
+              onClick={() => onDismiss?.("success")}
               className="rounded-full border border-zinc-200 p-2 text-zinc-500 transition hover:border-zinc-400 hover:text-zinc-900"
               aria-label="Dismiss success message"
             >
@@ -193,7 +196,7 @@ export function EmailCapture({
         {variant === "popup" ? (
           <button
             type="button"
-            onClick={onDismiss}
+            onClick={() => onDismiss?.("form")}
             className="rounded-full border border-zinc-200 p-2 text-zinc-500 transition hover:border-zinc-400 hover:text-zinc-900"
             aria-label="Dismiss email signup"
           >
@@ -272,7 +275,8 @@ export function EmailCapture({
 export function MarketingCapturePopup() {
   const pathname = usePathname();
   const { data: session } = authClient.useSession();
-  const [open, setOpen] = useState(false);
+  const prefersReducedMotion = useReducedMotion();
+  const [popupState, setPopupState] = useState<PopupState>("hidden");
   const [dismissed, setDismissed] = useState(false);
 
   const allowed = useMemo(() => {
@@ -292,7 +296,9 @@ export function MarketingCapturePopup() {
     if (!allowed || session?.user || dismissed) return;
     if (recentlyStored(DISMISSED_KEY) || recentlyStored(SUBSCRIBED_KEY)) return;
 
-    const show = () => setOpen(true);
+    const show = () => {
+      setPopupState((current) => (current === "hidden" ? "launcher" : current));
+    };
     const delay = window.setTimeout(show, pathname === "/pricing" ? 8000 : 45_000);
     const onScroll = () => {
       const scrollable = document.documentElement.scrollHeight - window.innerHeight;
@@ -315,28 +321,104 @@ export function MarketingCapturePopup() {
   function dismiss() {
     storeNow(DISMISSED_KEY);
     setDismissed(true);
-    setOpen(false);
+    setPopupState("hidden");
     posthog.capture("marketing_capture_dismissed", {
       source: "site_popup",
       path: pathname,
     });
   }
 
-  if (!open || !allowed || session?.user) return null;
+  function expand() {
+    setPopupState("expanded");
+    posthog.capture("marketing_capture_opened", {
+      source: "site_popup",
+      path: pathname,
+    });
+  }
+
+  function collapse() {
+    setPopupState("launcher");
+  }
+
+  function handleCaptureDismiss(reason: CaptureDismissReason) {
+    if (reason === "success") {
+      dismiss();
+      return;
+    }
+    collapse();
+  }
+
+  if (!allowed || session?.user || popupState === "hidden") return null;
+
+  const launcherMotion = prefersReducedMotion
+    ? { initial: false, animate: { opacity: 1 }, exit: { opacity: 0 } }
+    : {
+        initial: { opacity: 0, y: 18, scale: 0.98 },
+        animate: { opacity: 1, y: 0, scale: 1 },
+        exit: { opacity: 0, y: 12, scale: 0.98 },
+        transition: { duration: 0.28, ease: [0.22, 1, 0.36, 1] },
+      };
+  const cardMotion = prefersReducedMotion
+    ? { initial: false, animate: { opacity: 1 }, exit: { opacity: 0 } }
+    : {
+        initial: { opacity: 0, y: 24, scale: 0.96, filter: "blur(8px)" },
+        animate: { opacity: 1, y: 0, scale: 1, filter: "blur(0px)" },
+        exit: { opacity: 0, y: 16, scale: 0.98, filter: "blur(6px)" },
+        transition: { duration: 0.36, ease: [0.16, 1, 0.3, 1] },
+      };
 
   return (
     <div className="fixed inset-x-0 bottom-0 z-[80] px-4 pb-4 sm:left-auto sm:right-6 sm:max-w-md sm:px-0 sm:pb-6">
-      <EmailCapture
-        variant="popup"
-        source="site_popup"
-        leadMagnet="UK Planning Lead Checklist"
-        title="Get the UK Planning Lead Checklist"
-        description="Qualify new planning applications, enrich contacts and start privacy-aware outreach with a short practical checklist."
-        onDismiss={dismiss}
-        onSuccess={() => {
-          storeNow(DISMISSED_KEY);
-        }}
-      />
+      <AnimatePresence mode="wait">
+        {popupState === "launcher" ? (
+          <motion.div key="launcher" {...launcherMotion}>
+            <div className="flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={expand}
+                className="group rounded-full border border-zinc-200/80 bg-white/90 px-4 py-3 text-left shadow-[0_18px_60px_rgb(24_24_27_/_0.16)] backdrop-blur-xl transition hover:-translate-y-0.5 hover:border-brand/50 hover:bg-white hover:shadow-[0_22px_70px_rgb(24_24_27_/_0.2)]"
+                aria-label="Open free planning checklist signup"
+              >
+                <span className="flex items-center gap-3">
+                  <span className="flex h-9 w-9 items-center justify-center rounded-full bg-zinc-950 text-[11px] font-semibold uppercase tracking-[0.16em] text-white">
+                    Free
+                  </span>
+                  <span>
+                    <span className="block text-[11px] font-semibold uppercase tracking-[0.2em] text-brand-dark">
+                      Planning checklist
+                    </span>
+                    <span className="mt-0.5 block text-[13px] font-medium text-zinc-900">
+                      Open the resource
+                    </span>
+                  </span>
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={dismiss}
+                className="rounded-full border border-zinc-200 bg-white/90 p-2.5 text-zinc-500 shadow-sm backdrop-blur-xl transition hover:border-zinc-400 hover:text-zinc-900"
+                aria-label="Dismiss planning checklist prompt"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          </motion.div>
+        ) : (
+          <motion.div key="expanded" {...cardMotion}>
+            <EmailCapture
+              variant="popup"
+              source="site_popup"
+              leadMagnet="UK Planning Lead Checklist"
+              title="Get the UK Planning Lead Checklist"
+              description="Qualify new planning applications, enrich contacts and start privacy-aware outreach with a short practical checklist."
+              onDismiss={handleCaptureDismiss}
+              onSuccess={() => {
+                storeNow(DISMISSED_KEY);
+              }}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

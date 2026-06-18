@@ -3,6 +3,7 @@
 import { usePathname } from "next/navigation";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
+import { TidioWidget } from "@/components/tidio-widget";
 
 const PUBLIC_SHELL_EXACT_PATHS = new Set([
   "/",
@@ -40,6 +41,7 @@ export function PublicSiteShell({ children }: { children: React.ReactNode }) {
         {children}
         <SiteFooter />
       </div>
+      <TidioWidget />
     </div>
   );
 }
