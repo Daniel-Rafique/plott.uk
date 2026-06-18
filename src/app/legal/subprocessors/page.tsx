@@ -8,8 +8,6 @@ export const metadata: Metadata = {
   robots: { index: false, follow: true },
 };
 
-export const dynamic = "force-dynamic";
-
 const LAST_UPDATED = "16 June 2026";
 
 export default function SubprocessorsPage() {

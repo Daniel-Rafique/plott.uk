@@ -13,8 +13,6 @@ export const metadata = publicPageMetadata({
   path: "/support",
 });
 
-export const dynamic = "force-dynamic";
-
 const supportJsonLd = [
   breadcrumbJsonLd([
     { name: "Home", path: "/" },

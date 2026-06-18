@@ -17,8 +17,6 @@ export const metadata: Metadata = publicPageMetadata({
     "Questions about the product, pricing, or working with us? A human will reply within one working day.",
 });
 
-export const dynamic = "force-dynamic";
-
 const contactJsonLd = [
   breadcrumbJsonLd([
     { name: "Home", path: "/" },

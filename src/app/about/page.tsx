@@ -19,8 +19,6 @@ export const metadata = publicPageMetadata({
     "Map-first planning intelligence for UK construction firms.",
 });
 
-export const dynamic = "force-dynamic";
-
 const aboutJsonLd = [
   breadcrumbJsonLd([
     { name: "Home", path: "/" },

@@ -22,7 +22,7 @@ export const metadata: Metadata = publicPageMetadata({
     "Simple, transparent pricing. Start from £99/month with a 3-day trial.",
 });
 
-export const dynamic = "force-dynamic";
+export const revalidate = 3600;
 
 export default async function PricingPage() {
   const plans = await loadPlans();

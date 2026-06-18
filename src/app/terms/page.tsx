@@ -14,8 +14,6 @@ export const metadata: Metadata = publicPageMetadata({
   path: "/terms",
 });
 
-export const dynamic = "force-dynamic";
-
 const LAST_UPDATED = "21 April 2026";
 
 const termsJsonLd = [

@@ -16,8 +16,6 @@ export const metadata = publicPageMetadata({
     "Draw your patch, resolve the people, then approve branded letters or email drafts. Plus autonomous monitoring of your saved searches.",
 });
 
-export const dynamic = "force-dynamic";
-
 const howItWorksJsonLd = [
   breadcrumbJsonLd([
     { name: "Home", path: "/" },
