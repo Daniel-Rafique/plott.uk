@@ -57,7 +57,10 @@ async function renderLetterPdfResponse(
       where: { id: letter.id },
       data: { pdfBlobUrl: blob.url, pdfBlobPathname: blob.pathname },
     });
-    return NextResponse.json({ url: blob.url });
+    return NextResponse.json({
+      url: `/api/letter/${letter.id}/stored-pdf`,
+      blobUrl: blob.url,
+    });
   }
 
   const disposition = options.disposition ?? "inline";

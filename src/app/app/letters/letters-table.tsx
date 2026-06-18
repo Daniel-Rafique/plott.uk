@@ -570,11 +570,11 @@ export function LettersTable({ rows: initial }: { rows: Row[] }) {
                     />
                     {r.pdfBlobUrl && (
                       <a
-                        href={`/api/letter/pdf?id=${r.id}`}
+                        href={`/api/letter/${r.id}/stored-pdf`}
                         target="_blank"
                         rel="noreferrer"
                         className="rounded-md p-1.5 text-zinc-600 hover:bg-zinc-100"
-                        title="Open PDF"
+                        title="Open stored PDF"
                       >
                         <FileText className="h-4 w-4" aria-hidden />
                       </a>
