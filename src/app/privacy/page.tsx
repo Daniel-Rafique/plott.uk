@@ -6,6 +6,9 @@ import {
   jsonLdScriptProps,
   publicPageMetadata,
 } from "@/lib/seo";
+import { AnimatedMarketingHero } from "@/components/marketing/animated-marketing-hero";
+import { RevealGroup } from "@/lib/animation/reveal";
+import { PRIVACY_HERO } from "@/lib/marketing/images";
 
 export const metadata: Metadata = publicPageMetadata({
   title: "Privacy Notice",
@@ -38,20 +41,22 @@ export default function PrivacyPage() {
         dangerouslySetInnerHTML={jsonLdScriptProps(privacyJsonLd)}
       />
       <main className="flex-1 bg-white">
-        <div className="mx-auto w-full max-w-4xl px-6 py-24 md:py-32">
-          <header className="editorial-hairline max-w-2xl pt-10">
-            <p className="editorial-chapter-label text-brand-dark">
-              Legal
-            </p>
-            <h1 className="mt-6 font-[family-name:var(--font-display)] text-[clamp(40px,6vw,72px)] font-normal leading-[1.05] tracking-tight text-zinc-950">
-              Privacy Notice
-            </h1>
-            <p className="mt-4 text-[13px] text-zinc-500">
-              Last updated: {LAST_UPDATED}
-            </p>
-          </header>
+        <AnimatedMarketingHero
+          eyebrow="Legal"
+          title="Privacy Notice"
+          description="How Plott collects, uses, protects and stores personal data under UK GDPR, written in plain English for customers and teams."
+          image={PRIVACY_HERO}
+          meta={`Last updated: ${LAST_UPDATED}`}
+          align="center"
+        />
 
-          <article className="mt-16 space-y-12 text-[15px] leading-relaxed text-zinc-700">
+        <div className="mx-auto w-full max-w-4xl px-6 py-20 md:py-28">
+          <RevealGroup
+            as="article"
+            selector="section"
+            className="space-y-12 text-[15px] leading-relaxed text-zinc-700"
+            stagger={0.05}
+          >
             <section className="editorial-hairline pt-8">
               <h2 className="font-[family-name:var(--font-display)] text-[28px] font-normal tracking-tight text-zinc-950">
                 1. Who we are
@@ -274,7 +279,7 @@ export default function PrivacyPage() {
                 .
               </p>
             </section>
-          </article>
+          </RevealGroup>
 
           <div className="mt-20 border-t border-zinc-200 pt-8">
             <Link

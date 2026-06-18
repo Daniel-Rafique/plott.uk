@@ -12,10 +12,12 @@ import { useTextReveal } from "./use-text-reveal";
 
 type RevealGroupProps<T extends ElementType> = {
   as?: T;
+  selector?: string;
   stagger?: number;
   y?: number;
   duration?: number;
   start?: string;
+  batch?: boolean;
 } & Omit<ComponentPropsWithoutRef<T>, "ref" | "as">;
 
 /**
@@ -24,15 +26,24 @@ type RevealGroupProps<T extends ElementType> = {
  */
 export function RevealGroup<T extends ElementType = "div">({
   as,
+  selector,
   stagger,
   y,
   duration,
   start,
+  batch,
   children,
   ...rest
 }: RevealGroupProps<T>) {
   const Tag = (as ?? "div") as ElementType;
-  const ref = useGsapReveal<HTMLElement>({ stagger, y, duration, start });
+  const ref = useGsapReveal<HTMLElement>({
+    selector,
+    stagger,
+    y,
+    duration,
+    start,
+    batch,
+  });
   return createElement(Tag, { ref, ...rest }, children);
 }
 

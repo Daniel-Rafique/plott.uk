@@ -6,6 +6,9 @@ import {
   publicPageMetadata,
 } from "@/lib/seo";
 import { resourcePages } from "@/lib/resources";
+import { AnimatedMarketingHero } from "@/components/marketing/animated-marketing-hero";
+import { RevealGroup } from "@/lib/animation/reveal";
+import { RESOURCES_HERO } from "@/lib/marketing/images";
 
 export const metadata: Metadata = publicPageMetadata({
   title: "Resources",
@@ -30,27 +33,28 @@ export default function ResourcesPage() {
         dangerouslySetInnerHTML={jsonLdScriptProps(resourcesJsonLd)}
       />
       <main className="flex-1 bg-white">
-        <section className="bg-zinc-950 px-6 py-28 text-white md:py-36">
-          <div className="mx-auto max-w-6xl">
-            <p className="editorial-chapter-label text-brand-light">
-              Resources
-            </p>
-            <h1 className="mt-6 max-w-4xl font-[family-name:var(--font-display)] text-[clamp(44px,6vw,84px)] font-normal leading-[1.04] tracking-tight">
-              Practical answers for planning-led growth.
-            </h1>
-            <p className="mt-6 max-w-2xl text-[15px] leading-relaxed text-zinc-300">
-              Short, direct guides for builders, architects and consultants who
-              want to turn planning applications into compliant conversations.
-            </p>
-          </div>
-        </section>
+        <AnimatedMarketingHero
+          eyebrow="Resources"
+          title="Practical answers for"
+          accent="planning-led growth."
+          description="Short, direct guides for builders, architects and consultants who want to turn planning applications into compliant conversations."
+          image={RESOURCES_HERO}
+        />
 
-        <section className="px-6 py-20 md:py-28">
-          <div className="mx-auto grid max-w-6xl gap-6 md:grid-cols-3">
+        <section
+          data-stack
+          data-bg="#ffffff"
+          className="relative px-6 py-20 md:py-28"
+        >
+          <RevealGroup
+            className="mx-auto grid max-w-6xl gap-6 md:grid-cols-3"
+            stagger={0.08}
+          >
             {resourcePages.map((resource) => (
               <Link
                 key={resource.slug}
                 href={`/resources/${resource.slug}`}
+                data-reveal
                 className="group rounded-3xl border border-zinc-200 bg-white p-7 shadow-sm transition hover:-translate-y-1 hover:border-brand/50 hover:shadow-lg"
               >
                 <p className="editorial-chapter-label text-brand-dark">
@@ -67,7 +71,7 @@ export default function ResourcesPage() {
                 </p>
               </Link>
             ))}
-          </div>
+          </RevealGroup>
         </section>
       </main>
     </>

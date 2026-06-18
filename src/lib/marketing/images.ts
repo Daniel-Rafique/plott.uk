@@ -67,6 +67,24 @@ export const HOW_IT_WORKS_HERO: MarketingImage = {
   },
 };
 
+export const RESOURCES_HERO: MarketingImage = {
+  src: unsplash("1450101499163-c8848c66ca85"),
+  alt: "A desk covered with paper notes, maps and planning research — practical answers for construction growth teams.",
+  credit: {
+    name: "Kelly Sikkema",
+    url: "https://unsplash.com/@kellysikkema",
+  },
+};
+
+export const PRIVACY_HERO: MarketingImage = {
+  src: unsplash("1554224155-6726b3ff858f"),
+  alt: "A neat legal desk with documents and a pen — Plott's privacy and data protection commitments.",
+  credit: {
+    name: "Scott Graham",
+    url: "https://unsplash.com/@homajob",
+  },
+};
+
 export const HOW_IT_WORKS_AGENT_SECTION: MarketingImage = {
   src: unsplash("1454537468202-b7ff71d51c2e"),
   alt: "Tower Bridge and the City of London at dusk — pipelines that keep running after you have gone home.",
