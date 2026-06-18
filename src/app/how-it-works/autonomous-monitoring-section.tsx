@@ -284,8 +284,10 @@ export function AutonomousMonitoringSection() {
               >
                 Save any polygon and our autonomous agent takes over. It
                 re-runs your search every 48 hours, detects new applications,
-                enriches them automatically, and delivers a weekly digest
-                straight to your inbox — so you never miss a lead.
+                enriches them automatically, prepares letter and email outreach
+                drafts, and delivers a weekly digest straight to your inbox. If
+                email outreach is enabled, public business contacts still stay
+                behind compliance checks, suppression checks, and human approval.
               </p>
 
               <ul ref={listRef} className="mt-10 space-y-4">

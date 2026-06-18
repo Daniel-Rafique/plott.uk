@@ -51,13 +51,13 @@ const CHAPTERS: ChapterData[] = [
   },
   {
     number: "03",
-    kicker: "Ship a branded letter",
-    title: "Print-ready letters in under thirty seconds.",
-    body: "Generate a branded A4 PDF with your logo, signature and company address. One letter at a time — or a bulk ZIP of 50+ personalised letters ready for the post room.",
+    kicker: "Send approved outreach",
+    title: "Letters and email drafts, ready for review.",
+    body: "Generate a branded A4 PDF or an email draft for a public business contact. Human approval, compliance checks, suppression handling and Resend audit details sit between every draft and every send.",
     bullets: [
-      "Your letterhead, their details",
-      "Single-click or bulk-export workflows",
-      "Outputs are audit-friendly and GDPR-aware",
+      "Your letterhead or email template, their details",
+      "Single-click PDFs, bulk export, or approve-and-send email",
+      "Outputs are audit-friendly, GDPR-aware and suppression-checked",
     ],
     image: HOME_CHAPTERS.letter,
     accent: "from-purple-900/30",
@@ -179,14 +179,14 @@ export function HowItWorks() {
             ref={headingRef}
             className="mt-6 font-[family-name:var(--font-display)] text-[clamp(36px,5vw,68px)] font-normal leading-[1.1] tracking-tight text-zinc-950"
           >
-            From patch to posted letter in three unhurried steps.
+            From patch to approved outreach in three unhurried steps.
           </h2>
           <p
             data-reveal
             className="mt-6 max-w-xl text-[15px] leading-relaxed text-zinc-600"
           >
             No exports, no spreadsheet gymnastics, no six-tab research. Every
-            step that used to take a junior a morning now takes seconds.
+            step from lead discovery to letter or email review now takes seconds.
           </p>
         </div>
 

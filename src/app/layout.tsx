@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import Script from "next/script";
 import { Suspense } from "react";
 import { Geist, Geist_Mono, Playfair_Display } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
@@ -32,6 +33,8 @@ const playfair = Playfair_Display({
   subsets: ["latin"],
   display: "swap",
 });
+
+const GOOGLE_ANALYTICS_ID = "G-WFM1S5S5H7";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
@@ -170,6 +173,18 @@ export default function RootLayout({
         <MarketingShell>{children}</MarketingShell>
         <MarketingCapturePopup />
         <Analytics />
+        <Script
+          src={`https://www.googletagmanager.com/gtag/js?id=${GOOGLE_ANALYTICS_ID}`}
+          strategy="afterInteractive"
+        />
+        <Script id="google-analytics" strategy="afterInteractive">
+          {`
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){window.dataLayer.push(arguments);}
+            gtag('js', new Date());
+            gtag('config', '${GOOGLE_ANALYTICS_ID}');
+          `}
+        </Script>
       </body>
     </html>
   );

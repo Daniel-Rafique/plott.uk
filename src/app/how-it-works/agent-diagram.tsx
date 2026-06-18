@@ -20,8 +20,15 @@ export const AGENT_STEPS = [
   },
   {
     number: "04",
+    title: "Queue outreach",
+    description:
+      "Prepare letter and email drafts for human review before anything is sent",
+  },
+  {
+    number: "05",
     title: "Deliver digest",
-    description: "Weekly summary with enriched leads ready to action",
+    description:
+      "Weekly summary with enriched leads and approved outreach options",
   },
 ] as const;
 
@@ -41,6 +48,10 @@ export const AGENT_FEATURES = [
   {
     title: "Weekly digest emails",
     description: "summary delivered straight to your inbox",
+  },
+  {
+    title: "Approved prospect emails",
+    description: "opt-in Resend sending only after compliance and review",
   },
 ] as const;
 

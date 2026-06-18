@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import Link from "next/link";
-import { ArrowRight, Map, Users, FileText } from "lucide-react";
+import { ArrowRight, Map, Users, MailCheck } from "lucide-react";
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { RevealGroup, RevealHeading } from "@/lib/animation/reveal";
@@ -42,15 +42,15 @@ const STEPS = [
   },
   {
     number: "03",
-    icon: FileText,
-    title: "Ship a branded letter",
-    subtitle: "Print-ready PDFs in one click",
+    icon: MailCheck,
+    title: "Send approved outreach",
+    subtitle: "Letters or email, always human-approved",
     description:
-      "Generate a personalised A4 letter with your logo, signature, and company address. One at a time or bulk-export a ZIP of 50+ letters ready for the post room. Every output is audit-friendly, GDPR-aware, and formatted for UK Royal Mail.",
+      "Generate a personalised A4 letter or review an email draft for a publicly available business address. Email sending is opt-in at workspace level, checked for compliance, routed through a human approval queue, and synced through Resend with audit details recorded.",
     details: [
-      "Customisable letterhead templates with merge fields",
-      "Single-click or bulk-export workflows",
-      "AI compliance check before send",
+      "Customisable letterhead and email templates with merge fields",
+      "Single-click PDFs, bulk letter export, or approve-and-send email",
+      "Compliance guardrails, suppression checks, and sent audit trail",
     ],
   },
 ];
@@ -58,13 +58,13 @@ const STEPS = [
 const DIAGRAM_STEPS = [
   { label: "Draw polygon", time: "~2 seconds", Icon: Map, step: 1 },
   { label: "Enrichment cascade", time: "~5 seconds", Icon: Users, step: 2 },
-  { label: "Letter generation", time: "~3 seconds", Icon: FileText, step: 3 },
+  { label: "Outreach review", time: "~3 seconds", Icon: MailCheck, step: 3 },
 ];
 
 const DIAGRAM_STATS = [
   { value: "337", label: "UK planning authorities" },
   { value: "78%", label: "agent name hit rate" },
-  { value: "<10s", label: "to print-ready letter" },
+  { value: "<10s", label: "to a letter or email draft" },
 ];
 
 function ProcessDiagram() {
@@ -264,7 +264,7 @@ function ProcessDiagram() {
 
         <div data-summary className="mt-12 text-center">
           <p className="text-sm font-medium text-brand-dark">
-            Total time: ~10 seconds from search to print-ready letter
+            Total time: ~10 seconds from search to human-approved outreach draft
           </p>
         </div>
       </div>
@@ -377,7 +377,8 @@ export function HowItWorksContent() {
               className="mx-auto mt-6 max-w-xl text-[15px] leading-relaxed text-zinc-600"
             >
               Start your 3-day trial and draw your
-              first polygon in under a minute.
+              first polygon in under a minute. Letters and email outreach both
+              stay behind your review step.
             </p>
             <div
               data-reveal

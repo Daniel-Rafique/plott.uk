@@ -11,11 +11,11 @@ import {
 export const metadata = publicPageMetadata({
   title: "How it works",
   description:
-    "From map to posted letter in three steps. Draw your patch, we resolve the people, you ship branded outreach — with an autonomous agent watching your saved searches around the clock.",
+    "From map to approved outreach in three steps. Draw your patch, resolve the people, then review branded letters or compliant email drafts before anything is sent.",
   path: "/how-it-works",
-  openGraphTitle: "How Plott works — Map to letter in 30 seconds",
+  openGraphTitle: "How Plott works — Map to approved outreach in 30 seconds",
   openGraphDescription:
-    "Draw your patch, we resolve the people, you ship branded outreach. Plus autonomous monitoring of your saved searches.",
+    "Draw your patch, resolve the people, then approve branded letters or email drafts. Plus autonomous monitoring of your saved searches.",
 });
 
 export const dynamic = "force-dynamic";
@@ -28,7 +28,7 @@ const howItWorksJsonLd = [
   howToJsonLd({
     name: "How to turn planning applications into outreach with Plott",
     description:
-      "Use Plott to draw a target patch, enrich planning applicants, and produce branded outreach letters.",
+      "Use Plott to draw a target patch, enrich planning applicants, and produce branded letters or human-approved email outreach drafts.",
     path: "/how-it-works",
     steps: [
       {
@@ -40,8 +40,8 @@ const howItWorksJsonLd = [
         text: "Plott enriches each planning application with applicant, agent and property context from lawful planning and ownership sources.",
       },
       {
-        name: "Ship a branded letter",
-        text: "Generate an audit-friendly, branded outreach letter or keep a saved search running for new opportunities.",
+        name: "Review approved outreach",
+        text: "Generate an audit-friendly branded letter or email draft, then approve the message before any optional Resend email is sent.",
       },
     ],
   }),

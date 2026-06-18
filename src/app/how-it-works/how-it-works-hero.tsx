@@ -228,16 +228,16 @@ export function HowItWorksHero() {
           ref={headlineRef}
           className="mt-6 font-[family-name:var(--font-display)] text-[clamp(36px,6vw,72px)] font-normal leading-[1.05] tracking-tight text-white drop-shadow-[0_2px_28px_rgba(0,0,0,0.5)]"
         >
-          From map to posted letter
+          From map to approved outreach
           <span className="mt-1 block text-brand-light/90">in thirty seconds.</span>
         </h1>
         <p
           ref={ledeRef}
           className="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-zinc-200/90"
         >
-          Three steps to turn any UK planning application into personalised
-          outreach — plus an autonomous agent that monitors your saved searches
-          around the clock.
+          Three steps to turn any UK planning application into a personalised
+          letter or reviewed email draft — plus an autonomous agent that
+          monitors your saved searches around the clock.
         </p>
         <p
           ref={creditRef}

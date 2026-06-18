@@ -42,12 +42,13 @@ export function AboutContent() {
                 intent is declared — yet most construction firms still find
                 out about projects too late to win them. Plott
                 collapses the week-long research cycle into a thirty-second
-                workflow: see the site, know the applicant, post the letter.
+                workflow: see the site, know the applicant, approve the
+                outreach.
               </p>
               <p data-reveal className="mt-5 text-[15px] leading-relaxed text-zinc-600">
                 Our north star is simple — if your team can&apos;t get from
-                an interesting polygon on a map to a branded, posted letter
-                in under five minutes, we&apos;re not done yet.
+                an interesting polygon on a map to a branded letter or reviewed
+                email draft in under five minutes, we&apos;re not done yet.
               </p>
             </div>
           </RevealGroup>
