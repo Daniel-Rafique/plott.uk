@@ -69,7 +69,7 @@ async function deleteNeonAuthUser(userId: string): Promise<
   if (!selfDelete.error) return { ok: true };
 
   const apiKey = process.env.NEON_API_KEY;
-  const projectId = process.env.NEON_PROJECT_ID;
+  const projectId = process.env.PLANNING_NEON_PROJECT_ID;
   const selfDeleteMessage = selfDelete.error.message ?? "Could not delete account.";
   const selfDeleteStatus = selfDelete.error.status ?? 500;
   if (selfDeleteStatus !== 404 && !/not found/i.test(selfDeleteMessage)) {
@@ -85,7 +85,7 @@ async function deleteNeonAuthUser(userId: string): Promise<
       ok: false,
       status: 501,
       error:
-        "Neon Auth self-delete is unavailable for this project. Add NEON_API_KEY and NEON_PROJECT_ID so Plott can delete the Neon Auth user via the Neon management API.",
+        "Neon Auth self-delete is unavailable for this project. Plott can remove the local account data, but deleting the Neon Auth user through the management API requires NEON_API_KEY and PLANNING_NEON_PROJECT_ID. NEON_AUTH_COOKIE_SECRET signs session cookies and cannot authorize Neon API calls.",
     };
   }
 
