@@ -38,6 +38,8 @@ const AGENT_OUTREACH_TEMPLATE_ID =
   process.env.RESEND_AGENT_OUTREACH_TEMPLATE_ID ??
   "plott-agent-prospect-outreach";
 const RESEND_TEMPLATE_STRING_LIMIT = 2_000;
+export const BUSINESS_ADDRESS =
+  process.env.BUSINESS_ADDRESS ?? "10 Buckhold Road London, SW18 4FW";
 
 /** Brand color palette */
 const BRAND = {
@@ -381,6 +383,7 @@ export async function sendOutreachEmail(args: {
         OUTREACH_BODY_HTML: safeBodyHtml,
         COMPANY_NAME: args.companyName,
         FOOTER_NOTE: footerNote,
+        BUSINESS_ADDRESS,
       },
     },
     tags: [
@@ -659,7 +662,8 @@ function brandedShell(args: {
       <p style="margin:0 0 8px 0;font-size:11px;text-transform:uppercase;letter-spacing:0.1em;color:${BRAND.main};font-weight:600;">Plott</p>
       <p style="margin:0;font-size:11px;color:#a1a1aa;line-height:1.6;">
         Turn UK planning applications into outreach.<br/>
-        ${escapeHtml(footerText)}
+        ${escapeHtml(footerText)}<br/>
+        ${escapeHtml(BUSINESS_ADDRESS)}
       </p>
     </div>
   </div>

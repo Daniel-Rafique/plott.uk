@@ -138,15 +138,38 @@ export function EmailCapture({
     return (
       <div
         className={cn(
-          "rounded-3xl border border-emerald-200 bg-emerald-50 p-6 text-emerald-950",
-          variant === "popup" && "bg-white",
+          "rounded-3xl border border-emerald-200 bg-emerald-50 p-6 text-emerald-950 md:p-8",
+          variant === "popup" && "border-zinc-800 bg-white shadow-2xl",
           className,
         )}
       >
-        <p className="editorial-chapter-label text-emerald-700">Subscribed</p>
-        <p className="mt-3 text-[15px] leading-relaxed">
-          Thanks. We will send the resource and occasional practical Plott
-          updates to {email}.
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="editorial-chapter-label text-emerald-700">
+              Check your inbox
+            </p>
+            <h2 className="mt-3 font-[family-name:var(--font-display)] text-[28px] font-normal leading-tight tracking-tight text-zinc-950">
+              Your resource is on its way.
+            </h2>
+          </div>
+          {variant === "popup" ? (
+            <button
+              type="button"
+              onClick={onDismiss}
+              className="rounded-full border border-zinc-200 p-2 text-zinc-500 transition hover:border-zinc-400 hover:text-zinc-900"
+              aria-label="Dismiss success message"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          ) : null}
+        </div>
+        <p className="mt-4 text-[15px] leading-relaxed text-zinc-700">
+          Thanks. We sent {leadMagnet.toLowerCase()} to{" "}
+          <span className="font-semibold text-zinc-950">{email}</span>. You can
+          also expect occasional practical Plott updates.
+        </p>
+        <p className="mt-4 text-[12px] leading-relaxed text-zinc-500">
+          If it does not arrive in a minute or two, check spam or promotions.
         </p>
       </div>
     );
@@ -312,7 +335,6 @@ export function MarketingCapturePopup() {
         onDismiss={dismiss}
         onSuccess={() => {
           storeNow(DISMISSED_KEY);
-          setOpen(false);
         }}
       />
     </div>

@@ -5,7 +5,10 @@ import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import { prisma } from "@/lib/prisma";
 import { logger } from "@/lib/logger";
 import { getPostHogClient } from "@/lib/posthog-server";
-import { syncMarketingLeadToResend } from "@/lib/resend-marketing";
+import {
+  sendMarketingLeadSuccessEmail,
+  syncMarketingLeadToResend,
+} from "@/lib/resend-marketing";
 
 export const runtime = "nodejs";
 
@@ -188,5 +191,28 @@ export async function POST(req: Request) {
     });
   }
 
-  return NextResponse.json({ ok: true });
+  let successEmailSent = false;
+  try {
+    const successEmail = await sendMarketingLeadSuccessEmail({
+      email: lead.email,
+      leadMagnet: lead.leadMagnet,
+    });
+    successEmailSent = !("skipped" in successEmail);
+    if ("skipped" in successEmail) {
+      logger.warn(
+        { reason: successEmail.reason, leadId: lead.id },
+        "marketing_lead_success_email_skipped",
+      );
+    }
+  } catch (err) {
+    logger.warn(
+      {
+        err: err instanceof Error ? err.message : String(err),
+        leadId: lead.id,
+      },
+      "marketing_lead_success_email_failed",
+    );
+  }
+
+  return NextResponse.json({ ok: true, successEmailSent });
 }
