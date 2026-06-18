@@ -5,11 +5,13 @@ import {
   CreditCard,
   Mail,
   PenLine,
+  ShieldCheck,
   Sparkles,
   UsersRound,
 } from "lucide-react";
 
 const nav = [
+  { href: "/app/settings/account", label: "Account", icon: ShieldCheck },
   { href: "/app/settings/branding", label: "Branding", icon: Building2 },
   { href: "/app/settings/signature", label: "Signature", icon: PenLine },
   { href: "/app/settings/templates", label: "Templates", icon: Mail },

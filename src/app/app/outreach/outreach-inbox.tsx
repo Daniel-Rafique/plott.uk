@@ -247,8 +247,8 @@ export function OutreachInbox({
       </Dialog>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(260px,320px)_1fr]">
-      <aside className="rounded-xl border border-zinc-200 bg-white shadow-sm">
-        <div className="flex items-center gap-2 border-b border-zinc-100 p-3">
+      <aside className="overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm">
+        <div className="flex flex-wrap items-center gap-1.5 border-b border-zinc-100 p-3">
           {STATUS_FILTERS.map((f) => (
             <button
               key={f.id}
@@ -318,7 +318,7 @@ export function OutreachInbox({
         </div>
       </aside>
 
-      <section className="min-h-[60vh] rounded-xl border border-zinc-200 bg-white p-5 shadow-sm">
+      <section className="min-w-0 min-h-[60vh] rounded-xl border border-zinc-200 bg-white p-5 shadow-sm">
         {!selected ? (
           <p className="text-sm text-zinc-500">Select an approval to review.</p>
         ) : (

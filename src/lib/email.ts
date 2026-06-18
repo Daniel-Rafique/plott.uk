@@ -575,6 +575,34 @@ export async function sendVerificationEmail(args: {
   });
 }
 
+export async function sendSecondFactorCodeEmail(args: {
+  to: string;
+  code: string;
+  expiresInMinutes?: number;
+}): Promise<void> {
+  const minutes = args.expiresInMinutes ?? 10;
+  const digits = args.code
+    .split("")
+    .map(
+      (c) =>
+        `<span style="display:inline-block;min-width:40px;padding:14px 6px;margin:0 4px;border-radius:10px;background:linear-gradient(180deg,#fafafa,#f4f4f5);border:1px solid #e4e4e7;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:24px;font-weight:700;letter-spacing:0.1em;text-align:center;color:#18181b;">${escapeHtml(c)}</span>`,
+    )
+    .join("");
+  const body = `
+    <p style="margin:0 0 12px 0;font-size:15px;color:#3f3f46;line-height:1.65;">
+      Enter this code to finish signing in to Plott.
+    </p>
+    <div style="margin:28px 0;text-align:center;">${digits}</div>
+    <p style="margin:0;font-size:13px;color:#71717a;line-height:1.6;text-align:center;">
+      This code expires in ${minutes} minutes. If you didn't try to sign in, change your password and contact support.
+    </p>`;
+  await resendSend({
+    to: args.to,
+    subject: `${args.code} is your Plott sign-in code`,
+    html: brandedShell({ heading: "Confirm your sign-in", body }),
+  });
+}
+
 export async function sendContactSubmissionEmail(args: {
   source: "contact" | "support";
   fromName: string;
@@ -631,6 +659,31 @@ export async function sendPasswordResetEmail(args: {
     to: args.to,
     subject: "Reset your Plott password",
     html: brandedShell({ heading: "Reset your password", body }),
+  });
+}
+
+export async function sendMagicLinkEmail(args: {
+  to: string;
+  linkUrl: string;
+  expiresInMinutes?: number;
+}): Promise<void> {
+  const minutes = args.expiresInMinutes ?? 15;
+  const body = `
+    <p style="margin:0 0 20px 0;font-size:15px;color:#3f3f46;line-height:1.65;">
+      Click the button below to finish signing in to Plott.
+    </p>
+    <p style="margin:28px 0;text-align:center;">
+      ${ctaButton(args.linkUrl, "Sign in to Plott")}
+    </p>
+    <p style="margin:0 0 8px 0;font-size:12px;color:#71717a;line-height:1.6;">Or paste this link into your browser:</p>
+    <p style="margin:0 0 20px 0;font-size:12px;color:${BRAND.dark};word-break:break-all;line-height:1.5;">${escapeHtml(args.linkUrl)}</p>
+    <p style="margin:0;font-size:13px;color:#71717a;line-height:1.6;text-align:center;">
+      This link expires in ${minutes} minutes. If you didn't request it, you can safely ignore this email.
+    </p>`;
+  await resendSend({
+    to: args.to,
+    subject: "Sign in to Plott",
+    html: brandedShell({ heading: "Your Plott sign-in link", body }),
   });
 }
 

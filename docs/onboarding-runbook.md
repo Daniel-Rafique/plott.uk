@@ -26,8 +26,9 @@ With "Require email verification" on, Neon Auth returns the session but refuses 
 - Events:
   - `send.otp`
   - `send.password_reset`
+  - `send.magic_link`
   - `user.before_create` (optional; we use it to block disposable domains — currently a passthrough)
-- Copy the signing key and set it as `NEON_AUTH_WEBHOOK_SIGNING_KEY` in Vercel (all envs).
+  - `user.created`
 
 Our handler verifies the Ed25519 signature against `${NEON_AUTH_BASE_URL}/.well-known/jwks.json`, so as long as `NEON_AUTH_BASE_URL` is correct no extra JWKS configuration is needed.
 
@@ -58,7 +59,6 @@ Resend dashboard -> **Emails** shows delivery status; we log the Resend message 
 | --- | --- | --- |
 | `NEON_AUTH_BASE_URL` | Vercel + `.env` | Existing. Base URL of the Neon Auth service. |
 | `NEON_AUTH_COOKIE_SECRET` | Vercel + `.env` | Existing. 32+ char random. |
-| `NEON_AUTH_WEBHOOK_SIGNING_KEY` | Vercel + `.env` | **New.** Copied from the webhook config in the Neon Console. |
 | `RESEND_API_KEY` | Vercel + `.env` | Existing. |
 | `EMAIL_FROM` | Vercel + `.env` | **New.** Branded From header; must match a verified Resend domain. |
 | `STRIPE_TRIAL_DAYS` | Vercel + `.env` | Defaults to 14 in `api/stripe/checkout`. |

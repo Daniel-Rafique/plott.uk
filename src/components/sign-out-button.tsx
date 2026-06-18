@@ -12,6 +12,9 @@ export function SignOutButton() {
   async function handleSignOut() {
     setError(null);
     setPending(true);
+    await fetch("/api/auth/second-factor/clear", { method: "POST" }).catch(
+      () => null,
+    );
     const res = await authClient.signOut();
     setPending(false);
     if (res.error) {

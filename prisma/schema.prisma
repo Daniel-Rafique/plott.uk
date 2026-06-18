@@ -12,6 +12,7 @@ model User {
   email            String?   @unique @map("email")
   name             String?   @map("name")
   emailVerifiedAt  DateTime? @map("email_verified_at")
+  twoFactorEmailEnabled Boolean @default(false) @map("two_factor_email_enabled")
   signatureSvg     String?   @map("signature_svg")
   signatureBlobUrl String?   @map("signature_blob_url")
   signatoryTitle   String?   @map("signatory_title")
@@ -31,6 +32,7 @@ model User {
   agentRuns          AgentRun[]
   approvalsCreated   AgentApproval[]     @relation("AgentApprovalApprover")
   pinnedApplications PinnedApplication[]
+  securityChallenges AccountSecurityChallenge[]
 
   @@map("users")
 }
@@ -95,6 +97,22 @@ model Membership {
   @@unique([userId, companyId])
   @@index([companyId])
   @@map("memberships")
+}
+
+model AccountSecurityChallenge {
+  id         String    @id @default(cuid())
+  userId     String    @map("user_id")
+  purpose    String    @map("purpose")
+  codeHash   String    @map("code_hash")
+  expiresAt  DateTime  @map("expires_at")
+  attempts   Int       @default(0) @map("attempts")
+  consumedAt DateTime? @map("consumed_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, purpose, expiresAt])
+  @@map("account_security_challenges")
 }
 
 model Invite {

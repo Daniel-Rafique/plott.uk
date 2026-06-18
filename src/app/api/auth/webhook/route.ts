@@ -2,8 +2,10 @@
  * Neon Auth webhook receiver. Configured in the Neon Console to subscribe to:
  *   - send.otp              -> branded verification code email via Resend
  *   - send.password_reset   -> branded password reset email via Resend
+ *   - send.magic_link       -> branded magic-link sign-in email via Resend
  *   - user.before_create    -> (currently a passthrough; hook for disposable-
  *                              domain blocking / CRM logging)
+ *   - user.created          -> account creation audit log
  *
  * Returning `{ handled: true }` / 200 tells Neon Auth to skip its default
  * delivery. See docs/onboarding-runbook.md for setup.
@@ -12,6 +14,7 @@ import { NextResponse } from "next/server";
 import {
   sendVerificationEmail,
   sendPasswordResetEmail,
+  sendMagicLinkEmail,
 } from "@/lib/email";
 import {
   verifyNeonWebhook,
@@ -108,7 +111,7 @@ export async function POST(req: Request) {
             { status: 400 },
           );
         }
-        await sendPasswordResetEmail({ to: email, resetUrl: linkUrl });
+        await sendMagicLinkEmail({ to: email, linkUrl });
         logger.info({ email }, "neon_auth_webhook_magic_link_sent");
         return NextResponse.json({ handled: true });
       }

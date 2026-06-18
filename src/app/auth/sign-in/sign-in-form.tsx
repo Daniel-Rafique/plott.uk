@@ -64,6 +64,28 @@ export function SignInForm({
   const [otpCode, setOtpCode] = useState("");
   const [verifyPending, setVerifyPending] = useState(false);
   const [savedPassword, setSavedPassword] = useState<string | null>(null);
+  const [googlePending, setGooglePending] = useState(false);
+
+  async function signInWithGoogle() {
+    setError(null);
+    setInfo(null);
+    setGooglePending(true);
+    try {
+      const res = await authClient.signIn.social({
+        provider: "google",
+        callbackURL: postSignInTarget,
+      });
+      if (res.error) {
+        setError(res.error.message ?? "Google sign-in failed. Try again.");
+        setGooglePending(false);
+      }
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Google sign-in failed. Try again.",
+      );
+      setGooglePending(false);
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -208,6 +230,20 @@ export function SignInForm({
       onSubmit={(e) => void handleSubmit(e)}
       className="flex flex-col gap-4"
     >
+      <button
+        type="button"
+        disabled={googlePending || pending}
+        onClick={() => void signInWithGoogle()}
+        className="inline-flex items-center justify-center gap-2 rounded-full border border-zinc-300 bg-white py-2.5 text-sm font-semibold text-zinc-800 transition hover:bg-zinc-50 disabled:opacity-60"
+      >
+        <span className="text-base font-bold text-blue-600">G</span>
+        {googlePending ? "Opening Google..." : "Continue with Google"}
+      </button>
+      <div className="flex items-center gap-3 text-xs text-zinc-400">
+        <span className="h-px flex-1 bg-zinc-200" />
+        <span>or</span>
+        <span className="h-px flex-1 bg-zinc-200" />
+      </div>
       <div className="flex flex-col gap-1.5">
         <label htmlFor="email" className="text-sm font-medium">
           Email

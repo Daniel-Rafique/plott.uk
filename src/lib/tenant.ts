@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { getSessionUser, type SessionUser } from "@/lib/auth/session";
 import { choosePreferredMembership } from "@/lib/tenant-selection";
 import { hasSubscriptionAccess } from "@/lib/subscription-entitlement";
+import { userNeedsSecondFactor } from "@/lib/auth/second-factor";
 import type { Company, Membership, User } from "@prisma/client";
 
 function isProductionRuntime(): boolean {
@@ -121,6 +122,7 @@ export type TenantContextOptions = {
    * per-tenant work should pass `{ requireVerified: true }`.
    */
   requireVerified?: boolean;
+  requireSecondFactor?: boolean;
 };
 
 /**
@@ -134,6 +136,13 @@ export async function getTenantContext(
   if (!user) return null;
   if (opts.requireVerified && !user.emailVerified) return null;
   const { company, membership } = await ensureUserAndPersonalCompany(user);
+  if (
+    opts.requireVerified &&
+    opts.requireSecondFactor !== false &&
+    (await userNeedsSecondFactor(user.id))
+  ) {
+    return null;
+  }
   return { user, company, membership };
 }
 

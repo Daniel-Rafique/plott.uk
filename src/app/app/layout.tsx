@@ -8,6 +8,7 @@ import {
 import { isAdminEmail } from "@/lib/admin";
 import { privatePageMetadata } from "@/lib/seo";
 import { getCompanyPlanFeatures } from "@/lib/plan-features";
+import { userNeedsSecondFactor } from "@/lib/auth/second-factor";
 
 export const dynamic = "force-dynamic";
 
@@ -23,6 +24,9 @@ export default async function AppSectionLayout({
   const resolved = await resolveStage();
   if (resolved.stage !== "ready") {
     redirect(redirectForStage(resolved));
+  }
+  if (await userNeedsSecondFactor(resolved.dbUser.id)) {
+    redirect("/auth/two-factor");
   }
   const ctx = {
     user: resolved.user,
