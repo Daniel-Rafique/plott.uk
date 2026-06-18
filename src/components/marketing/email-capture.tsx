@@ -2,7 +2,12 @@
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { usePathname } from "next/navigation";
-import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import {
+  AnimatePresence,
+  motion,
+  useReducedMotion,
+  type HTMLMotionProps,
+} from "framer-motion";
 import { X } from "lucide-react";
 import posthog from "posthog-js";
 import { authClient } from "@/lib/auth/client";
@@ -350,21 +355,21 @@ export function MarketingCapturePopup() {
 
   if (!allowed || session?.user || popupState === "hidden") return null;
 
-  const launcherMotion = prefersReducedMotion
+  const launcherMotion: HTMLMotionProps<"div"> = prefersReducedMotion
     ? { initial: false, animate: { opacity: 1 }, exit: { opacity: 0 } }
     : {
         initial: { opacity: 0, y: 18, scale: 0.98 },
         animate: { opacity: 1, y: 0, scale: 1 },
         exit: { opacity: 0, y: 12, scale: 0.98 },
-        transition: { duration: 0.28, ease: [0.22, 1, 0.36, 1] },
+        transition: { duration: 0.28, ease: "easeOut" },
       };
-  const cardMotion = prefersReducedMotion
+  const cardMotion: HTMLMotionProps<"div"> = prefersReducedMotion
     ? { initial: false, animate: { opacity: 1 }, exit: { opacity: 0 } }
     : {
         initial: { opacity: 0, y: 24, scale: 0.96, filter: "blur(8px)" },
         animate: { opacity: 1, y: 0, scale: 1, filter: "blur(0px)" },
         exit: { opacity: 0, y: 16, scale: 0.98, filter: "blur(6px)" },
-        transition: { duration: 0.36, ease: [0.16, 1, 0.3, 1] },
+        transition: { duration: 0.36, ease: "easeOut" },
       };
 
   return (
