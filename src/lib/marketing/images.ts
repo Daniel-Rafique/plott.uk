@@ -67,6 +67,15 @@ export const HOW_IT_WORKS_HERO: MarketingImage = {
   },
 };
 
+export const PRICING_HERO: MarketingImage = {
+  src: unsplash("1497366811353-6870744d04b2"),
+  alt: "A polished workspace overlooking a city skyline — clear pricing for teams turning planning data into pipeline.",
+  credit: {
+    name: "S O C I A L . C U T",
+    url: "https://unsplash.com/@socialcut",
+  },
+};
+
 export const RESOURCES_HERO: MarketingImage = {
   src: unsplash("1450101499163-c8848c66ca85"),
   alt: "A desk covered with paper notes, maps and planning research — practical answers for construction growth teams.",
