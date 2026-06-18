@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import type Stripe from "stripe";
 import { prisma } from "@/lib/prisma";
 import { getStripe } from "@/lib/stripe";
-import { getPostHogClient } from "@/lib/posthog-server";
+import { captureServerEvent } from "@/lib/posthog-server";
 import { logger } from "@/lib/logger";
 import { invalidateStripeMetaCache } from "@/lib/ai/tiers";
 import {
@@ -143,7 +143,7 @@ export async function POST(req: Request) {
         const sub = await stripe.subscriptions.retrieve(subId);
         const companyId =
           session.metadata?.companyId ?? session.client_reference_id ?? "";
-        getPostHogClient().capture({
+        await captureServerEvent({
           distinctId: session.metadata?.userId ?? companyId,
           event: "subscription_activated",
           properties: {
@@ -243,7 +243,7 @@ export async function POST(req: Request) {
             trialEndsAt: sub.trial_end ? new Date(sub.trial_end * 1000) : null,
           },
         });
-        getPostHogClient().capture({
+        await captureServerEvent({
           distinctId: sub.metadata?.userId ?? companyId,
           event: "subscription_cancelled",
           properties: {

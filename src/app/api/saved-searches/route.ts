@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getTenantContext } from "@/lib/tenant";
 import { prisma } from "@/lib/prisma";
-import { getPostHogClient } from "@/lib/posthog-server";
+import { captureServerEvent } from "@/lib/posthog-server";
 import { lastSeenIdsToNumbers } from "@/lib/planning-entity-bigint";
 import { clampBboxToSearchable } from "@/lib/planning-data";
 import { getCompanyPlan } from "@/lib/pricing";
@@ -106,7 +106,7 @@ export async function POST(req: Request) {
             : [],
     },
   });
-  getPostHogClient().capture({
+  await captureServerEvent({
     distinctId: ctx.user.email ?? ctx.user.id,
     event: "saved_search_created",
     properties: {

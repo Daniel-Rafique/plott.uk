@@ -3,7 +3,7 @@ import { requireSubscribedTenant } from "@/lib/tenant";
 import { renderLetterHtml, type LetterInput } from "@/lib/letter-renderer";
 import { prisma } from "@/lib/prisma";
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
-import { getPostHogClient } from "@/lib/posthog-server";
+import { captureServerEvent } from "@/lib/posthog-server";
 import { planningEntityToDb } from "@/lib/planning-entity-bigint";
 
 export const runtime = "nodejs";
@@ -177,7 +177,7 @@ export async function POST(req: Request) {
       },
     });
     letterId = created.id;
-    getPostHogClient().capture({
+    await captureServerEvent({
       distinctId: ctx.user.email ?? ctx.user.id,
       event: "letter_created",
       properties: {

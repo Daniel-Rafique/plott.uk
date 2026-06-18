@@ -11,7 +11,7 @@ import {
   snapshotFromPlanwireApplication,
 } from "@/lib/pinned-applications";
 import { fetchPlanwireApplication } from "@/lib/planwire";
-import { getPostHogClient } from "@/lib/posthog-server";
+import { captureServerEvent } from "@/lib/posthog-server";
 
 export const runtime = "nodejs";
 
@@ -205,7 +205,7 @@ export async function POST(req: Request) {
     },
   });
 
-  getPostHogClient().capture({
+  await captureServerEvent({
     distinctId: ctx.user.email ?? ctx.user.id,
     event: "pinned_application_created",
     properties: {

@@ -4,7 +4,7 @@ import { z } from "zod";
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import { prisma } from "@/lib/prisma";
 import { logger } from "@/lib/logger";
-import { getPostHogClient } from "@/lib/posthog-server";
+import { captureServerEvent } from "@/lib/posthog-server";
 import {
   sendMarketingLeadSuccessEmail,
   syncMarketingLeadToResend,
@@ -51,20 +51,9 @@ function hashAuditValue(value: string | null | undefined) {
   return createHash("sha256").update(`${salt}:${value}`).digest("hex");
 }
 
-function safeCapture(event: string, distinctId: string, properties: Record<string, unknown>) {
+async function safeCapture(event: string, distinctId: string, properties: Record<string, unknown>) {
   if (!process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN) return;
-  try {
-    getPostHogClient().capture({
-      event,
-      distinctId,
-      properties,
-    });
-  } catch (err) {
-    logger.warn(
-      { err: err instanceof Error ? err.message : String(err), event },
-      "posthog_marketing_capture_failed",
-    );
-  }
+  await captureServerEvent({ event, distinctId, properties });
 }
 
 export async function POST(req: Request) {
@@ -99,7 +88,7 @@ export async function POST(req: Request) {
   });
 
   if (existing?.suppressedAt) {
-    safeCapture("marketing_lead_suppressed_submission", data.email, {
+    await safeCapture("marketing_lead_suppressed_submission", data.email, {
       source: data.source,
       path: data.path,
       lead_magnet: data.leadMagnet,
@@ -151,7 +140,7 @@ export async function POST(req: Request) {
         },
       });
 
-  safeCapture("marketing_lead_submitted", data.email, {
+  await safeCapture("marketing_lead_submitted", data.email, {
     source: data.source,
     path: data.path,
     lead_magnet: data.leadMagnet,
