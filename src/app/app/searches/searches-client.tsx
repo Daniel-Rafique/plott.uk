@@ -407,10 +407,15 @@ export function SavedSearchesClient({
                       className="h-3.5 w-3.5"
                     />
                     <Sparkles className="h-3 w-3 shrink-0" />
-                    <span className="leading-tight">Auto-draft letters</span>
+                    <span className="leading-tight">
+                      Draft letters and emails for review
+                    </span>
                   </label>
                   {r.autoOutreach ? (
-                    <div className="mt-2 pl-[22px]">
+                    <div className="mt-2 space-y-2 pl-[22px]">
+                      <p className="rounded-md bg-white/80 px-2 py-1 text-[10px] font-medium text-indigo-800 ring-1 ring-indigo-100">
+                        Review queue: letters + email drafts
+                      </p>
                       <select
                         value={confidenceToOption(r.autoApproveBelowConfidence)}
                         onChange={(e) => {
@@ -422,10 +427,20 @@ export function SavedSearchesClient({
                         }}
                         className="w-full rounded-md border border-zinc-200 bg-white px-2 py-1 text-[11px]"
                       >
-                        <option value="review">Review every letter</option>
-                        <option value="safe">Create safe drafts automatically</option>
-                        <option value="most">Create most drafts automatically</option>
+                        <option value="review">
+                          Review every letter draft
+                        </option>
+                        <option value="safe">
+                          Auto-create low-risk letter drafts
+                        </option>
+                        <option value="most">
+                          Auto-create most letter drafts
+                        </option>
                       </select>
+                      <p className="text-[10px] leading-relaxed text-indigo-700">
+                        Emails always stay in Outreach for human approval before
+                        sending.
+                      </p>
                     </div>
                   ) : null}
                 </div>
@@ -434,7 +449,9 @@ export function SavedSearchesClient({
                   <div className="flex items-center gap-2 text-[11px] font-medium text-zinc-500">
                     <Lock className="h-3 w-3 shrink-0" />
                     <Sparkles className="h-3 w-3 shrink-0" />
-                    <span className="leading-tight">Auto-draft letters</span>
+                    <span className="leading-tight">
+                      Draft letters and emails for review
+                    </span>
                   </div>
                   <p className="mt-1.5 text-[10px] leading-relaxed text-zinc-500">
                     Autonomous outreach requires the{" "}

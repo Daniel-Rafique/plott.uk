@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import posthog from "posthog-js";
 import type { PaidPlanId } from "@/lib/stripe/plan-prices";
 
 type ClientPlan = {
@@ -95,6 +96,11 @@ export function SubscribePanel({
   const startCheckout = useCallback(async (plan: ClientPlan["id"]) => {
     setLoadingPlan(plan);
     setError(null);
+    posthog.capture("checkout_initiated", {
+      plan,
+      can_start_intro_trial: canStartIntroTrial,
+      is_returning_subscriber: isReturningSubscriber,
+    });
     try {
       const res = await fetch("/api/stripe/checkout", {
         method: "POST",

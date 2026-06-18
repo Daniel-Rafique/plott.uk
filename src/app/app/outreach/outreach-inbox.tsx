@@ -280,6 +280,7 @@ export function OutreachInbox({
               {visible.map((a) => {
                 const draft = a.draft as OutreachDraft | null;
                 const isActive = a.id === selected?.id;
+                const hasEmail = Boolean(recipientEmail(draft));
                 return (
                   <li key={a.id}>
                     <button
@@ -302,6 +303,12 @@ export function OutreachInbox({
                       <p className="line-clamp-1 text-xs text-zinc-500">
                         {draft?.subject ?? "(no subject)"}
                       </p>
+                      {hasEmail ? (
+                        <span className="mt-2 inline-flex items-center gap-1 rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-indigo-700">
+                          <Mail className="h-3 w-3" />
+                          Email available
+                        </span>
+                      ) : null}
                     </button>
                   </li>
                 );
@@ -362,12 +369,23 @@ export function OutreachInbox({
             )}
 
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_280px]">
-              <article
-                className="prose prose-sm max-w-none rounded-lg border border-zinc-200 bg-zinc-50 p-4"
-                dangerouslySetInnerHTML={{
-                  __html: sanitizeHtmlFragment(selectedDraft?.bodyHtml ?? ""),
-                }}
-              />
+              <div className="rounded-lg border border-zinc-200 bg-zinc-50">
+                <div className="border-b border-zinc-200 bg-white px-4 py-3">
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500">
+                    Outreach draft
+                  </p>
+                  <p className="mt-1 text-xs text-zinc-600">
+                    Review once, then approve as a letter draft or send via
+                    email when an email address is available.
+                  </p>
+                </div>
+                <article
+                  className="prose prose-sm max-w-none p-4"
+                  dangerouslySetInnerHTML={{
+                    __html: sanitizeHtmlFragment(selectedDraft?.bodyHtml ?? ""),
+                  }}
+                />
+              </div>
               <aside className="space-y-3">
                 {selectedDraft?.recipient?.addressLines && (
                   <div className="rounded-md border border-zinc-200 bg-white p-3">
@@ -454,7 +472,7 @@ export function OutreachInbox({
                     className="inline-flex items-center gap-1.5 rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
                   >
                     <Mail className="h-4 w-4" />
-                    Approve & send email
+                    Approve & send via email
                   </button>
                 ) : null}
               </div>

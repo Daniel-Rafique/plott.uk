@@ -67,9 +67,10 @@ function getTelemetrySettings(
   };
   if (ctx.userId) {
     metadata.userId = ctx.userId;
+    metadata.posthog_distinct_id = ctx.userId;
   }
   return {
-    isEnabled: !isLangfuseDisabledByEnv(),
+    isEnabled: true,
     functionId: traceName ?? kind,
     metadata,
   };

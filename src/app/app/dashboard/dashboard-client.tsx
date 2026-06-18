@@ -678,6 +678,10 @@ export function DashboardClient({ features }: { features: PlanFeatures }) {
             method: "DELETE",
           });
           if (!res.ok) throw new Error("Could not unpin application");
+          posthog.capture("application_unpinned", {
+            reference: application.reference,
+            planning_entity: application.entity ?? null,
+          });
           toast.success("Application unpinned");
         } catch (err) {
           setPinnedApplications((prev) => ({ ...prev, [key]: existing }));
@@ -734,6 +738,11 @@ export function DashboardClient({ features }: { features: PlanFeatures }) {
             [key]: data.pinnedApplication!,
           }));
         }
+        posthog.capture("application_pinned", {
+          reference: application.reference,
+          planning_entity: application.entity ?? null,
+          site_address: application["address-text"] ?? null,
+        });
         toast.success("Application pinned. We'll email you when it changes.");
       } catch (err) {
         setPinnedApplications((prev) => {
@@ -1548,7 +1557,10 @@ export function DashboardClient({ features }: { features: PlanFeatures }) {
               )}
               {results.length > 0 && features.canExportCsv && (
                 <button
-                  onClick={() => downloadCsv(results)}
+                  onClick={() => {
+                    downloadCsv(results);
+                    posthog.capture("csv_exported", { count: results.length });
+                  }}
                   className="flex items-center gap-1.5 text-xs font-medium text-blue-600 hover:text-blue-700"
                 >
                   <Download className="h-3 w-3" /> Export
@@ -1935,6 +1947,15 @@ export function DashboardClient({ features }: { features: PlanFeatures }) {
                 });
                 if (res.ok) {
                   setSaveSearchOpen(false);
+                  posthog.capture("search_saved", {
+                    name: saveSearchName.trim(),
+                    has_filters:
+                      developmentTypes.length > 0 ||
+                      applicationTypes.length > 0 ||
+                      statuses.length > 0 ||
+                      Boolean(decisionFrom) ||
+                      Boolean(decisionTo),
+                  });
                   toast.success("Search saved. We'll send weekly digests.");
                 } else {
                   const data = await res.json().catch(() => ({}));

@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { storeBlob } from "@/lib/blob";
 import { renderLetterPdfBuffer } from "@/lib/letter-pdf";
 import { stripHtmlToText } from "@/lib/letter-renderer";
+import { captureServerEvent } from "@/lib/posthog-server";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -43,6 +44,17 @@ async function renderLetterPdfResponse(
     footerText:
       ctx.company.letterFooter ??
       "This letter was generated for business outreach regarding public planning records. Direct marketing must comply with UK GDPR and PECR.",
+  });
+
+  void captureServerEvent({
+    distinctId: ctx.user.email ?? ctx.user.id,
+    event: "letter_pdf_downloaded",
+    properties: {
+      letter_id: letterId,
+      company_id: ctx.company.id,
+      disposition: options.save ? "save" : (options.disposition ?? "inline"),
+      planning_reference: letter.applicationRef ?? null,
+    },
   });
 
   if (options.save) {

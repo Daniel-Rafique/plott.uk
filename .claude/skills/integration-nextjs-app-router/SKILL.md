@@ -3,7 +3,7 @@ name: integration-nextjs-app-router
 description: PostHog integration for Next.js App Router applications
 metadata:
   author: PostHog
-  version: 1.12.1
+  version: 1.23.2
 ---
 
 # PostHog integration for Next.js App Router
@@ -14,20 +14,20 @@ This skill helps you add PostHog analytics to Next.js App Router applications.
 
 Follow these steps in order to complete the integration:
 
-1. `basic-integration-1.0-begin.md` - PostHog Setup - Begin ← **Start here**
-2. `basic-integration-1.1-edit.md` - PostHog Setup - Edit
-3. `basic-integration-1.2-revise.md` - PostHog Setup - Revise
-4. `basic-integration-1.3-conclude.md` - PostHog Setup - Conclusion
+1. `references/1-begin.md` - PostHog Setup - Begin ← **Start here**
+2. `references/2-edit.md` - PostHog Setup - Edit
+3. `references/3-revise.md` - PostHog Setup - Revise
+4. `references/4-conclude.md` - PostHog Setup - Conclusion
 
 ## Reference files
 
 - `references/EXAMPLE.md` - Next.js App Router example project code
+- `references/1-begin.md` - Start the event tracking setup process by analyzing the project and creating an event tracking plan
+- `references/2-edit.md` - Implement PostHog event tracking in the identified files, following best practices and the example project
+- `references/3-revise.md` - Review and fix any errors in the PostHog integration implementation
+- `references/4-conclude.md` - Review and fix any errors in the PostHog integration implementation
 - `references/next-js.md` - Next.js - docs
 - `references/identify-users.md` - Identify users - docs
-- `references/basic-integration-1.0-begin.md` - PostHog setup - begin
-- `references/basic-integration-1.1-edit.md` - PostHog setup - edit
-- `references/basic-integration-1.2-revise.md` - PostHog setup - revise
-- `references/basic-integration-1.3-conclude.md` - PostHog setup - conclusion
 
 The example project shows the target implementation pattern. Consult the documentation for API details.
 
