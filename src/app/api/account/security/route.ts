@@ -70,6 +70,7 @@ async function deleteNeonAuthUser(userId: string): Promise<
 
   const apiKey = process.env.NEON_API_KEY;
   const projectId = process.env.PLANNING_NEON_PROJECT_ID;
+  const branchId = process.env.PLANNING_NEON_BRANCH_ID;
   const selfDeleteMessage = selfDelete.error.message ?? "Could not delete account.";
   const selfDeleteStatus = selfDelete.error.status ?? 500;
   if (selfDeleteStatus !== 404 && !/not found/i.test(selfDeleteMessage)) {
@@ -80,17 +81,17 @@ async function deleteNeonAuthUser(userId: string): Promise<
     };
   }
 
-  if (!apiKey || !projectId) {
+  if (!apiKey || !projectId || !branchId) {
     return {
       ok: false,
       status: 501,
       error:
-        "Neon Auth self-delete is unavailable for this project. Plott can remove the local account data, but deleting the Neon Auth user through the management API requires NEON_API_KEY and PLANNING_NEON_PROJECT_ID. NEON_AUTH_COOKIE_SECRET signs session cookies and cannot authorize Neon API calls.",
+        "Neon Auth self-delete is unavailable for this project. Plott can remove the local account data, but deleting the Neon Auth user through the branch-scoped management API requires NEON_API_KEY, PLANNING_NEON_PROJECT_ID, and PLANNING_NEON_BRANCH_ID. NEON_AUTH_COOKIE_SECRET signs session cookies and cannot authorize Neon API calls.",
     };
   }
 
   const res = await fetch(
-    `https://api.neon.tech/v2/projects/${encodeURIComponent(projectId)}/auth/users/${encodeURIComponent(userId)}`,
+    `https://console.neon.tech/api/v2/projects/${encodeURIComponent(projectId)}/branches/${encodeURIComponent(branchId)}/auth/users/${encodeURIComponent(userId)}`,
     {
       method: "DELETE",
       headers: {
