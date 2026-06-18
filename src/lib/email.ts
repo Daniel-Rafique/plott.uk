@@ -6,7 +6,6 @@
  * to match the Plott marketing site aesthetic.
  */
 
-import { stripHtmlToText } from "@/lib/letter-renderer";
 import { sanitizeHtmlFragment } from "@/lib/sanitize-html";
 
 type EmailAttachment = {
@@ -19,16 +18,26 @@ type EmailAttachment = {
 type SendArgs = {
   to: string;
   subject: string;
-  html: string;
+  html?: string;
   text?: string;
   replyTo?: string;
   attachments?: EmailAttachment[];
+  tags?: { name: string; value: string }[];
+  template?: {
+    id: string;
+    variables?: Record<string, string | number>;
+  };
 };
 
 const FROM =
   process.env.EMAIL_FROM ??
   process.env.RESEND_FROM ??
   "Plott <hello@plott.uk>";
+
+const AGENT_OUTREACH_TEMPLATE_ID =
+  process.env.RESEND_AGENT_OUTREACH_TEMPLATE_ID ??
+  "plott-agent-prospect-outreach";
+const RESEND_TEMPLATE_STRING_LIMIT = 2_000;
 
 /** Brand color palette */
 const BRAND = {
@@ -52,10 +61,17 @@ async function resendSend(args: SendArgs): Promise<string | null> {
     from: FROM,
     to: [args.to],
     subject: args.subject,
-    html: args.html,
-    text: args.text,
     reply_to: args.replyTo,
   };
+  if (args.template) {
+    payload.template = args.template;
+  } else {
+    payload.html = args.html;
+    payload.text = args.text;
+  }
+  if (args.tags && args.tags.length > 0) {
+    payload.tags = args.tags;
+  }
   if (args.attachments && args.attachments.length > 0) {
     payload.attachments = args.attachments.map((a) => ({
       filename: a.filename,
@@ -348,30 +364,29 @@ export async function sendOutreachEmail(args: {
   replyTo?: string | null;
 }): Promise<{ id: string | null }> {
   const safeBodyHtml = sanitizeHtmlFragment(args.bodyHtml);
-  const text = stripHtmlToText(safeBodyHtml);
-  const body = `
-    <div style="margin:0 0 20px 0;font-size:15px;color:#3f3f46;line-height:1.65;">
-      ${safeBodyHtml}
-    </div>
-    <p style="margin:24px 0 0 0;font-size:12px;color:#71717a;line-height:1.6;">
-      Sent by ${escapeHtml(args.companyName)} via Plott. If you would prefer not
-      to receive further messages, reply with &quot;remove&quot;.
-    </p>`;
+  if (safeBodyHtml.length > RESEND_TEMPLATE_STRING_LIMIT) {
+    throw new Error(
+      "Agent outreach email body exceeds Resend template variable limit",
+    );
+  }
+  const footerNote =
+    "Business outreach regarding public planning records. Reply 'remove' to opt out.";
   const id = await resendSend({
     to: args.to,
     subject: args.subject,
-    html: brandedShell({
-      heading: args.subject,
-      body,
-      footerText:
-        "Business outreach regarding public planning records. Reply 'remove' to opt out.",
-    }),
-    text: [
-      text,
-      "",
-      `Sent by ${args.companyName} via Plott.`,
-      "If you would prefer not to receive further messages, reply with \"remove\".",
-    ].join("\n"),
+    template: {
+      id: AGENT_OUTREACH_TEMPLATE_ID,
+      variables: {
+        RECIPIENT_NAME: args.recipientName,
+        OUTREACH_BODY_HTML: safeBodyHtml,
+        COMPANY_NAME: args.companyName,
+        FOOTER_NOTE: footerNote,
+      },
+    },
+    tags: [
+      { name: "plott_owner", value: "agent" },
+      { name: "plott_channel", value: "prospect_outreach" },
+    ],
     replyTo: args.replyTo ?? undefined,
   });
   return { id };
