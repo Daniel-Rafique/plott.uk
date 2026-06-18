@@ -38,7 +38,7 @@ The Autonomous Outreach Pipeline automatically drafts personalised outreach lett
 | **ICP configured** | Settings → AI → Ideal Customer Profile section |
 | **Saved search with auto-outreach** | Searches → toggle "Auto-draft outreach letters" |
 | **Company branding** | Settings → Branding (logo, company name, address) |
-| **Inngest + cron (production)** | Vercel: `CRON_SECRET`, `INNGEST_EVENT_KEY`, `INNGEST_SIGNING_KEY`; Inngest app must sync **`/api/inngest`**. Without this, cron cannot queue outreach work. See [Verifying the pipeline](#verifying-the-pipeline-operators) below. |
+| **Vercel Workflows + cron (production)** | Vercel: `CRON_SECRET`; the deployed app must include the `workflow` package and `withWorkflow(nextConfig)`. Without this, cron cannot queue durable outreach work. See [Verifying the pipeline](#verifying-the-pipeline-operators) below. |
 
 ---
 
@@ -295,16 +295,16 @@ Use this to confirm autonomous outreach is wired end-to-end in a **deployed** en
 
 1. **Vercel** — Cron invocations for `/api/cron/saved-searches` return **200** (not 401). Ensure `CRON_SECRET` is set and matches the cron configuration.
 2. **Vercel logs** — Search for these logger event names from `src/app/api/cron/saved-searches/route.ts`:
-   - `cron_outreach_events_dispatched` — events were sent to Inngest (`eventCount` in context).
-   - `cron_inngest_dispatch_failed` — Inngest rejected or `INNGEST_EVENT_KEY` missing/invalid; fix keys and redeploy. New leads are **not** marked seen until dispatch succeeds (next cron retries).
+   - `cron_outreach_workflows_started` — Vercel Workflows were started (`workflowCount` in context).
+   - `cron_workflow_dispatch_failed` — Workflow startup failed; fix the deployment and redeploy. New leads are **not** marked seen until dispatch succeeds (next cron retries).
    - `cron_outreach_skipped_requires_agency_tier` — workspace is not on Agency for outbound events.
    - `cron_outreach_skipped_ai_disabled` — turn on AI for the workspace.
    - `cron_no_new_applications` — no new PlanWire rows since last run (expected in quiet areas).
    - `cron_saved_search_results` — inspect `newCount` / `totalFound`.
-3. **Inngest** — Events named `outreach/lead.discovered` appear, and function **`outreach-lead-discovered`** runs. The app URL must include **`/api/inngest`** as the sync endpoint with a valid signing key (`INNGEST_SIGNING_KEY`).
+3. **Vercel Workflows** — Workflow runs for `outreachLeadWorkflow` or `refusalAppealWorkflow` appear in Workflow inspection tools/logs.
 4. **Database** — `AgentApproval` rows with `kind = outreach_letter` for the company (what `/app/outreach` lists).
 
-**Manual cron trigger (e.g. staging):** `GET /api/cron/saved-searches` with header `Authorization: Bearer <CRON_SECRET>`. You still need the Inngest dev server or cloud app processing `/api/inngest` for approvals to appear.
+**Manual cron trigger (e.g. staging):** `GET /api/cron/saved-searches` with header `Authorization: Bearer <CRON_SECRET>`. The route starts the same Vercel Workflows that production cron would start.
 
 ---
 
@@ -317,7 +317,7 @@ Use this to confirm autonomous outreach is wired end-to-end in a **deployed** en
 | No drafts appearing | Wrong subscription plan | Outreach requires the Agency plan — upgrade in Settings → Billing |
 | No drafts appearing | No new applications | Pipeline only processes *new* leads since the last run |
 | No drafts appearing | Saved search doesn't have auto-outreach | Searches → enable "Auto-draft outreach letters" toggle |
-| No drafts appearing | Inngest or cron misconfigured | Set `CRON_SECRET`, `INNGEST_EVENT_KEY`, `INNGEST_SIGNING_KEY`; register `/api/inngest` in Inngest. Check logs for `cron_inngest_dispatch_failed` |
+| No drafts appearing | Workflow or cron misconfigured | Set `CRON_SECRET`, confirm the app is deployed with Workflow SDK support, and check logs for `cron_workflow_dispatch_failed` |
 | All leads being dropped | ICP too restrictive | Broaden your description or remove some excluded keywords |
 | Irrelevant leads appearing | ICP too broad | Add more excluded keywords, be more specific in description |
 | Letters missing addresses | Enrichment failed | Some LPAs don't publish applicant addresses — this is expected |
@@ -343,7 +343,7 @@ A: The pipeline will still draft a letter addressed to "Sir or Madam" with the s
 
 **Q: Can I run the pipeline manually?**
 
-A: The schedule is automated, but operators can trigger **`GET /api/cron/saved-searches`** with `Authorization: Bearer <CRON_SECRET>` (e.g. staging). You still need Inngest running against **`/api/inngest`** for drafts to reach the database.
+A: The schedule is automated, but operators can trigger **`GET /api/cron/saved-searches`** with `Authorization: Bearer <CRON_SECRET>` (e.g. staging). The route starts the same Vercel Workflows as the scheduled cron.
 
 **Q: How do I stop getting drafts for a specific area?**
 

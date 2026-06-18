@@ -10,7 +10,7 @@ type OutreachDraft = {
   bodyHtml?: string;
   recipient?: { name?: string; addressLines?: string };
   enrichment?: { applicantName?: string | null; agentName?: string | null };
-  /** Snapshot from autonomous outreach (see `draftJson` in outreach Inngest). */
+  /** Snapshot from autonomous outreach (see `draftJson` in outreach Workflows). */
   contact?: { kind?: string };
   /** Planning site (application property), if known — used for PDF Re: line. */
   siteAddress?: string | null;

@@ -8,13 +8,18 @@ import {
 import { enrichSearchResults } from "@/lib/enrichment";
 import { sendDigestEmail } from "@/lib/email";
 import { summariseDigest } from "@/lib/ai/agents/digest-summary";
-import { inngest } from "@/inngest/client";
 import { lastSeenIdsToNumbers } from "@/lib/planning-entity-bigint";
 import { logger } from "@/lib/logger";
 import { isRefusalDecision } from "@/lib/refusal-detection";
 import { getCompanyTier, type Tier } from "@/lib/ai/tiers";
 import { DIGEST_EMAIL_MAX_LEADS } from "@/lib/digest-config";
 import { getCompanyPlanFeatures } from "@/lib/plan-features";
+import { start } from "workflow/api";
+import {
+  outreachLeadWorkflow,
+  refusalAppealWorkflow,
+} from "@/workflows/outreach/workflows";
+import type { OutreachLeadDiscoveredPayload } from "@/workflows/outreach/types";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -166,32 +171,39 @@ export async function GET(req: Request) {
 
       // Dispatch outreach events only if on Agency tier with AI enabled
       if (newOnes.length && s.autoOutreach && canAutoOutreach && s.company.aiEnabled) {
-        const events = newOnes.slice(0, 50).map((e) => {
+        const workflowPayloads: OutreachLeadDiscoveredPayload[] = newOnes.slice(0, 50).map((e) => {
           const status = e["planning-application-status"] ?? undefined;
           const decision = e["planning-decision-type"] ?? undefined;
           const isRefusal = isRefusalDecision({ status, decision });
           return {
-            name: "outreach/lead.discovered" as const,
-            data: {
-              companyId: s.companyId,
-              savedSearchId: s.id,
-              planningEntity: e.entity,
-              reference: e.reference ?? undefined,
-              siteAddress: e["address-text"] ?? undefined,
-              description: e.description ?? undefined,
-              status,
-              decision,
-              isRefusal,
-            },
+            companyId: s.companyId,
+            savedSearchId: s.id,
+            planningEntity: e.entity,
+            reference: e.reference ?? undefined,
+            siteAddress: e["address-text"] ?? undefined,
+            description: e.description ?? undefined,
+            status,
+            decision,
+            isRefusal,
           };
         });
-        if (events.length > 0) {
+        if (workflowPayloads.length > 0) {
           try {
-            await inngest.send(events);
-            logger.info({ savedSearchId: s.id, eventCount: events.length }, "cron_outreach_events_dispatched");
+            await Promise.all(
+              workflowPayloads.map((payload) =>
+                start(
+                  payload.isRefusal ? refusalAppealWorkflow : outreachLeadWorkflow,
+                  [payload],
+                ),
+              ),
+            );
+            logger.info(
+              { savedSearchId: s.id, workflowCount: workflowPayloads.length },
+              "cron_outreach_workflows_started",
+            );
           } catch (err) {
             outreachDispatchFailed = true;
-            logger.error({ err, savedSearchId: s.id }, "cron_inngest_dispatch_failed");
+            logger.error({ err, savedSearchId: s.id }, "cron_workflow_dispatch_failed");
           }
         }
       } else if (newOnes.length && s.autoOutreach && !canAutoOutreach) {

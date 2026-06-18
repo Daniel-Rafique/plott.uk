@@ -34,6 +34,7 @@ type OutreachDraft = {
   subject?: string;
   bodyHtml?: string;
   recipient?: { name?: string; addressLines?: string };
+  contact?: { kind?: string; email?: string | null };
   enrichment?: {
     applicantName?: string | null;
     applicantEmail?: string | null;
@@ -61,19 +62,25 @@ type Approval = {
   createdAt: string;
   model: string | null;
   costGbp: number | null;
+  sentTo?: string | null;
+  sentAt?: string | null;
+  sentChannel?: string | null;
 };
 
 const STATUS_FILTERS = [
   { id: "pending", label: "Pending" },
   { id: "approved", label: "Approved" },
+  { id: "sent", label: "Sent" },
   { id: "rejected", label: "Rejected" },
   { id: "all", label: "All" },
 ];
 
 export function OutreachInbox({
+  canSendProspectEmail,
   initialApprovals,
   counts,
 }: {
+  canSendProspectEmail: boolean;
   initialApprovals: Approval[];
   counts: Record<string, number>;
 }) {
@@ -98,12 +105,13 @@ export function OutreachInbox({
 
   const selectedDraft = (selected?.draft as OutreachDraft | null) ?? null;
   const selectedIssues = (selected?.issues as Issue[] | null) ?? null;
+  const selectedRecipientEmail = recipientEmail(selectedDraft);
 
   const rejectInFlight = busy && rejectDialogOpen;
 
   async function act(
     id: string,
-    action: "approve" | "reject",
+    action: "approve" | "reject" | "send_email",
     note?: string,
   ): Promise<boolean> {
     setBusy(true);
@@ -118,12 +126,27 @@ export function OutreachInbox({
       toast.success(
         action === "approve"
           ? "Approved — letter added to your drafts"
+          : action === "send_email"
+            ? "Approved — email sent"
           : "Rejected",
       );
       setApprovals((prev) =>
         prev.map((a) =>
           a.id === id
-            ? { ...a, status: action === "approve" ? "approved" : "rejected" }
+            ? {
+                ...a,
+                status:
+                  action === "approve"
+                    ? "approved"
+                    : action === "send_email"
+                      ? "sent"
+                      : "rejected",
+                sentTo: action === "send_email" ? json.sentTo ?? a.sentTo : a.sentTo,
+                sentAt:
+                  action === "send_email" ? new Date().toISOString() : a.sentAt,
+                sentChannel:
+                  action === "send_email" ? "email" : a.sentChannel,
+              }
             : a,
         ),
       );
@@ -356,19 +379,32 @@ export function OutreachInbox({
                     </pre>
                   </div>
                 )}
-                {(selectedDraft?.enrichment?.applicantEmail ||
-                  selectedDraft?.enrichment?.agentEmail) && (
+                {selectedRecipientEmail && (
                   <div className="rounded-md border border-zinc-200 bg-white p-3">
                     <p className="mb-1 flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-zinc-500">
                       <Mail className="h-3 w-3" />
                       Email
                     </p>
                     <p className="break-all text-xs text-zinc-700">
-                      {selectedDraft.enrichment.agentEmail ||
-                        selectedDraft.enrichment.applicantEmail}
+                      {selectedRecipientEmail}
                     </p>
                   </div>
                 )}
+                {selected?.sentChannel === "email" && selected.sentTo ? (
+                  <div className="rounded-md border border-emerald-200 bg-emerald-50 p-3">
+                    <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-emerald-800">
+                      Sent by email
+                    </p>
+                    <p className="break-all text-xs text-emerald-900">
+                      {selected.sentTo}
+                    </p>
+                    {selected.sentAt ? (
+                      <p className="mt-1 text-[11px] text-emerald-800">
+                        {new Date(selected.sentAt).toLocaleString("en-GB")}
+                      </p>
+                    ) : null}
+                  </div>
+                ) : null}
                 {(selectedDraft?.enrichment?.applicantName ||
                   selectedDraft?.enrichment?.agentName) && (
                   <ResearchBriefingCard
@@ -410,6 +446,17 @@ export function OutreachInbox({
                   <CheckCircle2 className="h-4 w-4" />
                   Approve & draft letter
                 </button>
+                {canSendProspectEmail && selectedRecipientEmail ? (
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => void act(selected.id, "send_email")}
+                    className="inline-flex items-center gap-1.5 rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+                  >
+                    <Mail className="h-4 w-4" />
+                    Approve & send email
+                  </button>
+                ) : null}
               </div>
             ) : (
               <p className="mt-5 border-t border-zinc-100 pt-4 text-sm text-zinc-500">
@@ -429,10 +476,21 @@ function issueSeverityLabel(severity: Issue["severity"]): string {
   return severity === "error" ? "Must review" : "Heads-up";
 }
 
+function recipientEmail(draft: OutreachDraft | null): string | null {
+  const email =
+    draft?.contact?.email ??
+    draft?.enrichment?.agentEmail ??
+    draft?.enrichment?.applicantEmail ??
+    null;
+  const trimmed = email?.trim() ?? "";
+  return trimmed.length > 0 ? trimmed : null;
+}
+
 function StatusPill({ status }: { status: string }) {
   const map: Record<string, string> = {
     pending: "bg-amber-100 text-amber-900",
     approved: "bg-emerald-100 text-emerald-900",
+    sent: "bg-indigo-100 text-indigo-900",
     rejected: "bg-zinc-200 text-zinc-700",
   };
   return (

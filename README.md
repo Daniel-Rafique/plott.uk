@@ -35,7 +35,7 @@ generation and saved-search email digests.
 | **Hunter** | Structured email discovery and verification for outreach enrichment | Optional | `HUNTER_API_KEY` |
 | **Tavily** | Web search for AI agent grounding | Optional | `TAVILY_API_KEY` |
 | **Langfuse** | LLM observability — traces, costs, debugging | Optional | `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`, `LANGFUSE_BASE_URL` |
-| **Inngest** | Durable workflows for autonomous outreach (and event dispatch from cron) | Optional locally; **required in production** for auto-outreach | `INNGEST_EVENT_KEY`, `INNGEST_SIGNING_KEY` |
+| **Vercel Workflows** | Durable workflows for autonomous outreach started by Vercel Cron | Yes in production for auto-outreach | No extra env vars |
 | **Sentry** | Error tracking and performance monitoring | Optional | `NEXT_PUBLIC_SENTRY_DSN`, `SENTRY_AUTH_TOKEN`, `SENTRY_ORG`, `SENTRY_PROJECT` |
 | **PostHog** | Product analytics and feature flags | Optional | `NEXT_PUBLIC_POSTHOG_KEY`, `NEXT_PUBLIC_POSTHOG_HOST` |
 
@@ -135,7 +135,7 @@ Scheduled **GitHub Actions** evals (secrets, `companyId`, troubleshooting): [doc
 
 Vercel Cron is configured via `vercel.json` (see that file for schedules). Notable handlers:
 
-- `/api/cron/saved-searches` — fetches PlanWire results for saved searches, sends email digests when configured, and **dispatches `outreach/lead.discovered` events to Inngest** when auto-outreach is enabled (Agency + AI on).
+- `/api/cron/saved-searches` — fetches PlanWire results for saved searches, sends email digests when configured, and **starts Vercel Workflows** when auto-outreach is enabled (Agency + AI on).
 - `/api/cron/reminders` — daily sweep of `Reminder` rows due today.
 
 These routes require `CRON_SECRET`: Vercel Cron sends `Authorization: Bearer ${CRON_SECRET}` when the secret is configured in the project.
@@ -145,12 +145,11 @@ These routes require `CRON_SECRET`: Vercel Cron sends `Authorization: Bearer ${C
 For the Outreach inbox (`/app/outreach`) to fill in a deployed environment:
 
 1. **`CRON_SECRET`** — set in Vercel; cron must return 200 for `/api/cron/saved-searches`, not 401.
-2. **`INNGEST_EVENT_KEY`** — used when the cron route calls `inngest.send`. Missing or wrong key means zero events and an empty inbox (see Vercel logs for `cron_inngest_dispatch_failed`).
-3. **`INNGEST_SIGNING_KEY`** — register the **`/api/inngest`** URL in the Inngest dashboard (sync path) so functions such as `outreach-lead-discovered` actually run.
-4. **Redis/KV rate limiting** — configure Vercel KV (`KV_REST_API_URL` / `KV_REST_API_TOKEN`) or Upstash Redis (`UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN`). Production fails closed without a working limiter.
-5. **Email + storage** — configure `RESEND_API_KEY`, `EMAIL_FROM`, and `BLOB_READ_WRITE_TOKEN` before enabling auto-outreach or PDF delivery.
-6. **Enrichment providers** — set `PLANWIRE_API_KEY`; optionally set `COMPANIES_HOUSE_API_KEY`, `TAVILY_API_KEY`, and `HUNTER_API_KEY` for stronger contact enrichment.
-7. **Database migration** — run `npx prisma migrate deploy` during deployment so additive enrichment columns are available before the new code handles outreach requests.
+2. **Workflow SDK** — deploy on Vercel with the `workflow` package and `withWorkflow(nextConfig)` enabled; check logs for `cron_outreach_workflows_started`.
+3. **Redis/KV rate limiting** — configure Vercel KV (`KV_REST_API_URL` / `KV_REST_API_TOKEN`) or Upstash Redis (`UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN`). Production fails closed without a working limiter.
+4. **Email + storage** — configure `RESEND_API_KEY`, `EMAIL_FROM`, and `BLOB_READ_WRITE_TOKEN` before enabling auto-outreach, prospect email sends, or PDF delivery.
+5. **Enrichment providers** — set `PLANWIRE_API_KEY`; optionally set `COMPANIES_HOUSE_API_KEY`, `TAVILY_API_KEY`, and `HUNTER_API_KEY` for stronger contact enrichment.
+6. **Database migration** — run `npx prisma migrate deploy` during deployment so workflow, email audit, and enrichment columns are available before the new code handles outreach requests.
 
 Details for operators: [docs/outreach-guide.md](./docs/outreach-guide.md) (troubleshooting and verification).
 

@@ -3,9 +3,9 @@
  *
  * Returns a ranked list of candidate addressees for a planning application by
  * calling the enrichment agent (cache-first via `resolveApplicationWithAi`).
- * Both the View Applicant and Proprietor & Letter modals, and the Inngest
- * autonomous-outreach pipeline, consume the same bundle shape — so work done
- * in one surface is never repeated in another.
+ * Both the View Applicant and Proprietor & Letter modals, and the Vercel
+ * Workflow autonomous-outreach pipeline, consume the same bundle shape — so
+ * work done in one surface is never repeated in another.
  *
  * Land Registry proprietor data is layered in separately on the client (the
  * existing `/api/property/proprietor` POST) because it can incur a charge;

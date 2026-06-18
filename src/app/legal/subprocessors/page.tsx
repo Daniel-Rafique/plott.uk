@@ -79,7 +79,8 @@ export default function SubprocessorsPage() {
               <p className="mt-5">
                 Hunter.io is used for structured business email discovery and
                 verification. We use it only server-side for contact enrichment;
-                Hunter results do not enable automated email sequences in Plott.
+                any prospect email outreach in Plott requires workspace opt-in,
+                human approval, compliance checks, and suppression-list checks.
               </p>
             </section>
 

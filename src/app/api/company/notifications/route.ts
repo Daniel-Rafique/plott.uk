@@ -7,6 +7,7 @@ export const runtime = "nodejs";
 type Body = {
   autoEmailPdf?: boolean;
   pdfEmailRecipients?: string[];
+  prospectEmailOutreachEnabled?: boolean;
 };
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -21,6 +22,12 @@ export async function PATCH(req: Request) {
   const body = (await req.json().catch(() => ({}))) as Body;
   if (typeof body.autoEmailPdf !== "boolean") {
     return NextResponse.json({ error: "autoEmailPdf required" }, { status: 400 });
+  }
+  if (typeof body.prospectEmailOutreachEnabled !== "boolean") {
+    return NextResponse.json(
+      { error: "prospectEmailOutreachEnabled required" },
+      { status: 400 },
+    );
   }
   const rawRecipients = Array.isArray(body.pdfEmailRecipients)
     ? body.pdfEmailRecipients
@@ -55,6 +62,7 @@ export async function PATCH(req: Request) {
     data: {
       autoEmailPdf: body.autoEmailPdf,
       pdfEmailRecipients: cleaned,
+      prospectEmailOutreachEnabled: body.prospectEmailOutreachEnabled,
     },
   });
 

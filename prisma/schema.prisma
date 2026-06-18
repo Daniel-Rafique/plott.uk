@@ -58,6 +58,7 @@ model Company {
   aiSpendResetAt                 DateTime? @map("ai_spend_reset_at")
   autoEmailPdf                   Boolean   @default(false) @map("auto_email_pdf")
   pdfEmailRecipients             String[]  @default([]) @map("pdf_email_recipients")
+  prospectEmailOutreachEnabled   Boolean   @default(false) @map("prospect_email_outreach_enabled")
   onboardingCompletedAt          DateTime? @map("onboarding_completed_at")
   /// Set when we send the post-checkout “subscription welcome” email (idempotency).
   subscriptionWelcomeEmailSentAt DateTime? @map("subscription_welcome_email_sent_at")
@@ -74,6 +75,7 @@ model Company {
   invites            Invite[]
   agentRuns          AgentRun[]
   agentApprovals     AgentApproval[]
+  emailSuppressions   OutreachEmailSuppression[]
   icpProfile         IcpProfile?
   applicantResearch  ApplicantResearch[]
 
@@ -323,6 +325,10 @@ model AgentApproval {
   executedAt     DateTime? @map("executed_at")
   rejectedAt     DateTime? @map("rejected_at")
   rejectionNote  String?   @map("rejection_note")
+  sentAt         DateTime? @map("sent_at")
+  sentChannel    String?   @map("sent_channel")
+  sentTo         String?   @map("sent_to")
+  resendEmailId  String?   @map("resend_email_id")
   createdAt      DateTime  @default(now()) @map("created_at")
   updatedAt      DateTime  @updatedAt @map("updated_at")
 
@@ -334,6 +340,20 @@ model AgentApproval {
   @@index([status])
   @@index([kind])
   @@map("agent_approvals")
+}
+
+model OutreachEmailSuppression {
+  id        String   @id @default(cuid())
+  companyId String   @map("company_id")
+  email     String   @map("email")
+  reason    String?  @map("reason")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@unique([companyId, email])
+  @@index([companyId])
+  @@map("outreach_email_suppressions")
 }
 
 model IcpProfile {

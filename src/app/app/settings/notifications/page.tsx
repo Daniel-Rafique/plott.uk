@@ -25,6 +25,7 @@ export default async function NotificationsSettingsPage() {
         emailPdfOnPrint: user?.emailPdfOnPrint ?? false,
         autoEmailPdf: ctx.company.autoEmailPdf,
         pdfEmailRecipients: ctx.company.pdfEmailRecipients ?? [],
+        prospectEmailOutreachEnabled: ctx.company.prospectEmailOutreachEnabled,
       }}
     />
   );

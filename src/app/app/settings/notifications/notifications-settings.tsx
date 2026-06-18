@@ -9,6 +9,7 @@ type Initial = {
   emailPdfOnPrint: boolean;
   autoEmailPdf: boolean;
   pdfEmailRecipients: string[];
+  prospectEmailOutreachEnabled: boolean;
 };
 
 export function NotificationsSettings({
@@ -22,6 +23,8 @@ export function NotificationsSettings({
     initial.emailPdfOnPrint,
   );
   const [autoEmailPdf, setAutoEmailPdf] = useState(initial.autoEmailPdf);
+  const [prospectEmailOutreachEnabled, setProspectEmailOutreachEnabled] =
+    useState(initial.prospectEmailOutreachEnabled);
   const [recipients, setRecipients] = useState<string[]>(
     initial.pdfEmailRecipients,
   );
@@ -54,7 +57,11 @@ export function NotificationsSettings({
       const res = await fetch("/api/company/notifications", {
         method: "PATCH",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ autoEmailPdf, pdfEmailRecipients: recipients }),
+        body: JSON.stringify({
+          autoEmailPdf,
+          pdfEmailRecipients: recipients,
+          prospectEmailOutreachEnabled,
+        }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
@@ -163,6 +170,26 @@ export function NotificationsSettings({
             </span>
             <span className="mt-0.5 block text-xs text-zinc-500">
               Applies to letters in this workspace when someone approves outreach, marks a draft as&nbsp;&quot;sent&quot;, or sets status to&nbsp;&quot;printed&quot; — independently of whether they opted in personally. Requires at least one recipient below when enabled.
+            </span>
+          </span>
+        </label>
+        <label className="flex items-start gap-3 rounded-xl border border-zinc-200 bg-zinc-50/60 p-4">
+          <input
+            type="checkbox"
+            className="mt-1 h-4 w-4 rounded border-zinc-300 text-zinc-900 focus:ring-zinc-500 disabled:opacity-60"
+            checked={prospectEmailOutreachEnabled}
+            onChange={(e) => setProspectEmailOutreachEnabled(e.target.checked)}
+            disabled={!isAdmin}
+          />
+          <span>
+            <span className="block text-sm font-medium text-zinc-900">
+              Allow approved outreach emails to prospects
+            </span>
+            <span className="mt-0.5 block text-xs leading-relaxed text-zinc-500">
+              When enabled, reviewers can send an approved outreach draft by
+              email if Plott found a business email address. Every send still
+              requires manual approval, an email compliance check, and the
+              workspace suppression list is respected.
             </span>
           </span>
         </label>

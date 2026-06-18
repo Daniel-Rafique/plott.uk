@@ -6,6 +6,9 @@
  * to match the Plott marketing site aesthetic.
  */
 
+import { stripHtmlToText } from "@/lib/letter-renderer";
+import { sanitizeHtmlFragment } from "@/lib/sanitize-html";
+
 type EmailAttachment = {
   filename: string;
   /** Raw bytes; will be base64-encoded for Resend. */
@@ -34,7 +37,7 @@ const BRAND = {
   light: "#d4c9ba",
 };
 
-async function resendSend(args: SendArgs): Promise<void> {
+async function resendSend(args: SendArgs): Promise<string | null> {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) {
     const isProduction = process.env.NODE_ENV === "production" || process.env.VERCEL_ENV === "production";
@@ -43,7 +46,7 @@ async function resendSend(args: SendArgs): Promise<void> {
       throw new Error("RESEND_API_KEY not configured");
     }
     console.log("[email:dev]", args.to, args.subject);
-    return;
+    return null;
   }
   const payload: Record<string, unknown> = {
     from: FROM,
@@ -73,6 +76,8 @@ async function resendSend(args: SendArgs): Promise<void> {
     console.error("Resend send failed", res.status, body);
     throw new Error(`Email send failed: ${res.status}`);
   }
+  const body = await res.json().catch(() => null);
+  return typeof body?.id === "string" ? body.id : null;
 }
 
 export async function sendInviteEmail(args: {
@@ -334,6 +339,44 @@ export async function sendLetterReadyEmail(args: {
   });
 }
 
+export async function sendOutreachEmail(args: {
+  to: string;
+  subject: string;
+  bodyHtml: string;
+  recipientName: string;
+  companyName: string;
+  replyTo?: string | null;
+}): Promise<{ id: string | null }> {
+  const safeBodyHtml = sanitizeHtmlFragment(args.bodyHtml);
+  const text = stripHtmlToText(safeBodyHtml);
+  const body = `
+    <div style="margin:0 0 20px 0;font-size:15px;color:#3f3f46;line-height:1.65;">
+      ${safeBodyHtml}
+    </div>
+    <p style="margin:24px 0 0 0;font-size:12px;color:#71717a;line-height:1.6;">
+      Sent by ${escapeHtml(args.companyName)} via Plott. If you would prefer not
+      to receive further messages, reply with &quot;remove&quot;.
+    </p>`;
+  const id = await resendSend({
+    to: args.to,
+    subject: args.subject,
+    html: brandedShell({
+      heading: args.subject,
+      body,
+      footerText:
+        "Business outreach regarding public planning records. Reply 'remove' to opt out.",
+    }),
+    text: [
+      text,
+      "",
+      `Sent by ${args.companyName} via Plott.`,
+      "If you would prefer not to receive further messages, reply with \"remove\".",
+    ].join("\n"),
+    replyTo: args.replyTo ?? undefined,
+  });
+  return { id };
+}
+
 /** Data from a related Letter, used to enrich follow-up reminder emails. */
 export type ReminderEmailLetterContext = {
   applicationRef: string | null;
@@ -579,8 +622,15 @@ function ctaButton(href: string, label: string): string {
 }
 
 /** Branded email shell with editorial typography and brand accents */
-function brandedShell(args: { heading: string; body: string }): string {
+function brandedShell(args: {
+  heading: string;
+  body: string;
+  footerText?: string;
+}): string {
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://plott.uk";
+  const footerText =
+    args.footerText ??
+    "You're receiving this because an account action was requested for this email.";
   return `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="margin:0;padding:0;background:#f4f4f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;color:#18181b;-webkit-font-smoothing:antialiased;">
   <div style="max-width:560px;margin:0 auto;padding:40px 20px;">
     <div style="border:1px solid #e4e4e7;background:#ffffff;border-radius:16px;padding:36px 32px;box-shadow:0 1px 3px rgba(0,0,0,0.04);">
@@ -594,7 +644,7 @@ function brandedShell(args: { heading: string; body: string }): string {
       <p style="margin:0 0 8px 0;font-size:11px;text-transform:uppercase;letter-spacing:0.1em;color:${BRAND.main};font-weight:600;">Plott</p>
       <p style="margin:0;font-size:11px;color:#a1a1aa;line-height:1.6;">
         Turn UK planning applications into outreach.<br/>
-        You're receiving this because an account action was requested for this email.
+        ${escapeHtml(footerText)}
       </p>
     </div>
   </div>
