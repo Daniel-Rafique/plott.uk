@@ -1,6 +1,7 @@
 "use client";
 
 import { usePathname } from "next/navigation";
+import { KlaviyoWidget } from "@/components/klaviyo-widget";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { TidioWidget } from "@/components/tidio-widget";
@@ -42,6 +43,7 @@ export function PublicSiteShell({ children }: { children: React.ReactNode }) {
         <SiteFooter />
       </div>
       <TidioWidget />
+      <KlaviyoWidget />
     </div>
   );
 }
