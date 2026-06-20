@@ -5,10 +5,8 @@ import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import { prisma } from "@/lib/prisma";
 import { logger } from "@/lib/logger";
 import { captureServerEvent } from "@/lib/posthog-server";
-import {
-  sendMarketingLeadSuccessEmail,
-  syncMarketingLeadToResend,
-} from "@/lib/resend-marketing";
+import { syncMarketingLeadToKlaviyo } from "@/lib/klaviyo-marketing";
+import { sendMarketingLeadSuccessEmail } from "@/lib/resend-marketing";
 
 export const runtime = "nodejs";
 
@@ -117,7 +115,6 @@ export async function POST(req: Request) {
           unsubscribedAt: null,
           lastSubmittedAt: now,
           submissionCount: { increment: 1 },
-          resendSyncError: null,
         },
       })
     : await prisma.marketingLead.create({
@@ -148,36 +145,21 @@ export async function POST(req: Request) {
   });
 
   try {
-    const sync = await syncMarketingLeadToResend({
+    const sync = await syncMarketingLeadToKlaviyo({
       email: lead.email,
-      name: lead.name,
-      company: lead.company,
       source: lead.source,
-      path: lead.path,
       leadMagnet: lead.leadMagnet,
     });
 
-    await prisma.marketingLead.update({
-      where: { id: lead.id },
-      data:
-        sync.status === "synced"
-          ? {
-              resendAudienceId: sync.audienceId,
-              resendContactId: sync.contactId,
-              resendSyncedAt: new Date(),
-              resendSyncError: null,
-            }
-          : {
-              resendSyncError: sync.reason,
-            },
-    });
+    if (sync.status === "skipped") {
+      logger.warn(
+        { reason: sync.reason, leadId: lead.id },
+        "marketing_lead_klaviyo_sync_skipped",
+      );
+    }
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    logger.warn({ err: message, leadId: lead.id }, "marketing_lead_resend_sync_failed");
-    await prisma.marketingLead.update({
-      where: { id: lead.id },
-      data: { resendSyncError: message.slice(0, 500) },
-    });
+    logger.warn({ err: message, leadId: lead.id }, "marketing_lead_klaviyo_sync_failed");
   }
 
   let successEmailSent = false;

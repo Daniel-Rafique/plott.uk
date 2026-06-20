@@ -35,7 +35,7 @@ const playfair = Playfair_Display({
   display: "swap",
 });
 
-const GOOGLE_ANALYTICS_ID = "G-WFM1S5S5H7";
+const GOOGLE_TAG_ID = "AW-18256689006";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
@@ -177,15 +177,15 @@ export default function RootLayout({
         <MarketingCapturePopup />
         <Analytics />
         <Script
-          src={`https://www.googletagmanager.com/gtag/js?id=${GOOGLE_ANALYTICS_ID}`}
+          src={`https://www.googletagmanager.com/gtag/js?id=${GOOGLE_TAG_ID}`}
           strategy="afterInteractive"
         />
-        <Script id="google-analytics" strategy="afterInteractive">
+        <Script id="google-tag" strategy="afterInteractive">
           {`
             window.dataLayer = window.dataLayer || [];
             function gtag(){window.dataLayer.push(arguments);}
             gtag('js', new Date());
-            gtag('config', '${GOOGLE_ANALYTICS_ID}');
+            gtag('config', '${GOOGLE_TAG_ID}');
           `}
         </Script>
       </body>

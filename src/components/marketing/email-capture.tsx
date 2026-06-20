@@ -17,6 +17,11 @@ type CaptureVariant = "inline" | "popup";
 type CaptureDismissReason = "form" | "success";
 type PopupState = "hidden" | "launcher" | "expanded";
 
+type KlaviyoBrowserApi = {
+  identify?: (properties: Record<string, unknown>) => Promise<unknown> | unknown;
+  track?: (event: string, properties?: Record<string, unknown>) => Promise<unknown> | unknown;
+};
+
 type EmailCaptureProps = {
   variant?: CaptureVariant;
   source: string;
@@ -70,6 +75,44 @@ function collectUtm() {
   } catch {
     return null;
   }
+}
+
+function identifyLeadInKlaviyo(args: {
+  email: string;
+  name?: string;
+  company?: string;
+  source: string;
+  leadMagnet: string;
+  variant: CaptureVariant;
+  path: string | null;
+}) {
+  if (typeof window === "undefined") return;
+  const klaviyo = (window as Window & { klaviyo?: KlaviyoBrowserApi }).klaviyo;
+  if (!klaviyo) return;
+
+  const [firstName, ...lastNameParts] = (args.name ?? "")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+  const identity = {
+    email: args.email,
+    first_name: firstName || undefined,
+    last_name: lastNameParts.length > 0 ? lastNameParts.join(" ") : undefined,
+    company: args.company || undefined,
+    lead_source: args.source,
+    lead_magnet: args.leadMagnet,
+  };
+
+  void Promise.resolve(klaviyo.identify?.(identity))
+    .then(() =>
+      klaviyo.track?.("Marketing Lead Submitted", {
+        source: args.source,
+        lead_magnet: args.leadMagnet,
+        variant: args.variant,
+        path: args.path,
+      }),
+    )
+    .catch(() => {});
 }
 
 export function EmailCapture({
@@ -132,6 +175,15 @@ export function EmailCapture({
       posthog.capture("marketing_capture_submitted", {
         source,
         lead_magnet: leadMagnet,
+        variant,
+        path: pathname,
+      });
+      identifyLeadInKlaviyo({
+        email,
+        name,
+        company,
+        source,
+        leadMagnet,
         variant,
         path: pathname,
       });

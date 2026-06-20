@@ -4,17 +4,17 @@ import { withWorkflow } from "workflow/next";
 
 /**
  * CSP is intentionally permissive on domains we control and tight on script
- * sources. Google Maps, Mapbox, Stripe, Resend, Tidio, Klaviyo and Vercel Blob domains are whitelisted.
+ * sources. Google Tag, Google Maps, Mapbox, Stripe, Resend, Tidio, Klaviyo and Vercel Blob domains are whitelisted.
  * `unsafe-inline` on style-src is required by Tailwind's JIT output and
  * several third-party widgets (Stripe, Google Maps).
  */
 const CSP = [
   "default-src 'self'",
-  "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://maps.googleapis.com https://maps.gstatic.com https://js.stripe.com https://*.vercel-insights.com https://*.posthog.com https://code.tidio.co https://static.klaviyo.com",
+  "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://maps.googleapis.com https://maps.gstatic.com https://js.stripe.com https://*.vercel-insights.com https://*.posthog.com https://code.tidio.co https://static.klaviyo.com",
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "font-src 'self' data: https://fonts.gstatic.com",
   "img-src 'self' data: blob: https: https://*.public.blob.vercel-storage.com https://*.tidio.co https://*.tidiochat.com https://*.klaviyo.com",
-  "connect-src 'self' https://api.resend.com https://api.stripe.com https://maps.googleapis.com https://*.googleapis.com https://*.gstatic.com https://api.mapbox.com/v4/ https://api.mapbox.com/raster/v1/ https://api.mapbox.com/rasterarrays/v1/ https://api.mapbox.com/styles/v1/mapbox/ https://api.mapbox.com/fonts/v1/mapbox/ https://api.mapbox.com/models/v1/mapbox/ https://api.mapbox.com/map-sessions/v1 https://events.mapbox.com/ https://vercel.com https://*.vercel.com https://*.public.blob.vercel-storage.com https://*.ingest.sentry.io https://*.posthog.com https://cloud.langfuse.com https://us.cloud.langfuse.com https://*.tidio.co https://*.tidiochat.com https://a.klaviyo.com https://static-tracking.klaviyo.com https://*.klaviyo.com wss://*.pusher.com wss://*.tidio.co wss://*.tidiochat.com",
+  "connect-src 'self' https://www.google-analytics.com https://region1.google-analytics.com https://stats.g.doubleclick.net https://googleads.g.doubleclick.net https://api.resend.com https://api.stripe.com https://maps.googleapis.com https://*.googleapis.com https://*.gstatic.com https://api.mapbox.com/v4/ https://api.mapbox.com/raster/v1/ https://api.mapbox.com/rasterarrays/v1/ https://api.mapbox.com/styles/v1/mapbox/ https://api.mapbox.com/fonts/v1/mapbox/ https://api.mapbox.com/models/v1/mapbox/ https://api.mapbox.com/map-sessions/v1 https://events.mapbox.com/ https://vercel.com https://*.vercel.com https://*.public.blob.vercel-storage.com https://*.ingest.sentry.io https://*.posthog.com https://cloud.langfuse.com https://us.cloud.langfuse.com https://*.tidio.co https://*.tidiochat.com https://a.klaviyo.com https://static-tracking.klaviyo.com https://*.klaviyo.com wss://*.pusher.com wss://*.tidio.co wss://*.tidiochat.com",
   "frame-src 'self' https://js.stripe.com https://hooks.stripe.com https://*.tidio.co https://*.tidiochat.com",
   "worker-src 'self' blob:",
   "object-src 'none'",
