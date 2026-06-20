@@ -5,8 +5,13 @@ import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import { prisma } from "@/lib/prisma";
 import { logger } from "@/lib/logger";
 import { captureServerEvent } from "@/lib/posthog-server";
-import { syncMarketingLeadToKlaviyo } from "@/lib/klaviyo-marketing";
-import { sendMarketingLeadSuccessEmail } from "@/lib/resend-marketing";
+import {
+  syncMarketingLeadToKlaviyo,
+  trackKlaviyoEvent,
+  upsertKlaviyoProfile,
+  type KlaviyoMarketingResult,
+  type KlaviyoMarketingSyncResult,
+} from "@/lib/klaviyo-marketing";
 
 export const runtime = "nodejs";
 
@@ -52,6 +57,18 @@ function hashAuditValue(value: string | null | undefined) {
 async function safeCapture(event: string, distinctId: string, properties: Record<string, unknown>) {
   if (!process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN) return;
   await captureServerEvent({ event, distinctId, properties });
+}
+
+function warnIfKlaviyoSkipped(
+  result: KlaviyoMarketingResult | KlaviyoMarketingSyncResult,
+  leadId: string,
+  operation: string,
+) {
+  if (result.status !== "skipped") return;
+  logger.warn(
+    { reason: result.reason, leadId, operation },
+    "marketing_lead_klaviyo_sync_skipped",
+  );
 }
 
 export async function POST(req: Request) {
@@ -145,45 +162,47 @@ export async function POST(req: Request) {
   });
 
   try {
-    const sync = await syncMarketingLeadToKlaviyo({
+    const properties = {
+      company: lead.company,
+      lead_source: lead.source,
+      lead_path: lead.path,
+      lead_magnet: lead.leadMagnet,
+      utm_source: lead.utmSource,
+      utm_medium: lead.utmMedium,
+      utm_campaign: lead.utmCampaign,
+      utm_term: lead.utmTerm,
+      utm_content: lead.utmContent,
+      marketing_consent_text: lead.consentText,
+      marketing_consented_at: lead.consentedAt.toISOString(),
+      marketing_submission_count: lead.submissionCount,
+    };
+    const profile = await upsertKlaviyoProfile({
+      email: lead.email,
+      name: lead.name,
+      company: lead.company,
+      properties,
+    });
+    warnIfKlaviyoSkipped(profile, lead.id, "profile_upsert");
+
+    const subscription = await syncMarketingLeadToKlaviyo({
       email: lead.email,
       source: lead.source,
       leadMagnet: lead.leadMagnet,
     });
+    warnIfKlaviyoSkipped(subscription, lead.id, "list_subscription");
 
-    if (sync.status === "skipped") {
-      logger.warn(
-        { reason: sync.reason, leadId: lead.id },
-        "marketing_lead_klaviyo_sync_skipped",
-      );
-    }
+    const event = await trackKlaviyoEvent({
+      email: lead.email,
+      event: "Marketing Lead Submitted",
+      uniqueId: `marketing-lead:${lead.id}:${lead.submissionCount}`,
+      time: lead.lastSubmittedAt,
+      properties,
+    });
+    warnIfKlaviyoSkipped(event, lead.id, "lead_event");
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     logger.warn({ err: message, leadId: lead.id }, "marketing_lead_klaviyo_sync_failed");
   }
 
-  let successEmailSent = false;
-  try {
-    const successEmail = await sendMarketingLeadSuccessEmail({
-      email: lead.email,
-      leadMagnet: lead.leadMagnet,
-    });
-    successEmailSent = !("skipped" in successEmail);
-    if ("skipped" in successEmail) {
-      logger.warn(
-        { reason: successEmail.reason, leadId: lead.id },
-        "marketing_lead_success_email_skipped",
-      );
-    }
-  } catch (err) {
-    logger.warn(
-      {
-        err: err instanceof Error ? err.message : String(err),
-        leadId: lead.id,
-      },
-      "marketing_lead_success_email_failed",
-    );
-  }
-
-  return NextResponse.json({ ok: true, successEmailSent });
+  return NextResponse.json({ ok: true, delivery: "klaviyo" });
 }

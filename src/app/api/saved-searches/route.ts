@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { getTenantContext } from "@/lib/tenant";
 import { prisma } from "@/lib/prisma";
+import { logger } from "@/lib/logger";
+import { trackKlaviyoEvent } from "@/lib/klaviyo-marketing";
 import { captureServerEvent } from "@/lib/posthog-server";
 import { lastSeenIdsToNumbers } from "@/lib/planning-entity-bigint";
 import { clampBboxToSearchable } from "@/lib/planning-data";
@@ -115,6 +117,31 @@ export async function POST(req: Request) {
       frequency: created.frequency,
     },
   });
+  if (ctx.user.email) {
+    try {
+      await trackKlaviyoEvent({
+        email: ctx.user.email,
+        event: "Saved Search Created",
+        uniqueId: `saved-search-created:${created.id}`,
+        properties: {
+          search_id: created.id,
+          company_id: ctx.company.id,
+          company_name: ctx.company.name,
+          frequency: created.frequency,
+          notify_email_count: created.notifyEmails.length,
+        },
+      });
+    } catch (err) {
+      logger.warn(
+        {
+          err: err instanceof Error ? err.message : String(err),
+          searchId: created.id,
+          companyId: ctx.company.id,
+        },
+        "klaviyo_saved_search_created_failed",
+      );
+    }
+  }
 
   return NextResponse.json({
     search: {

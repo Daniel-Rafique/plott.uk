@@ -14,6 +14,7 @@ import {
   TrialUpgradeError,
   updateTrialSubscriptionPlan,
 } from "@/lib/stripe/trial-upgrade";
+import { trackKlaviyoEvent } from "@/lib/klaviyo-marketing";
 import { shouldOfferStripeIntroTrial } from "@/lib/subscription-entitlement";
 
 export const runtime = "nodejs";
@@ -341,6 +342,34 @@ export async function POST(req: Request) {
       { error: "Could not create checkout session" },
       { status: 500 },
     );
+  }
+
+  if (ctx.user.email) {
+    try {
+      await trackKlaviyoEvent({
+        email: ctx.user.email,
+        event: "Checkout Started",
+        uniqueId: `checkout-started:${session.id}`,
+        properties: {
+          checkout_session_id: session.id,
+          company_id: ctx.company.id,
+          company_name: ctx.company.name,
+          plan,
+          price_id: priceId,
+          trial_period_days: trialPeriodDays ?? null,
+          is_trial_checkout: Boolean(trialPeriodDays),
+        },
+      });
+    } catch (err) {
+      logger.warn(
+        {
+          err: err instanceof Error ? err.message : String(err),
+          companyId: ctx.company.id,
+          checkoutSessionId: session.id,
+        },
+        "klaviyo_checkout_started_failed",
+      );
+    }
   }
 
   return NextResponse.json({ url: session.url });

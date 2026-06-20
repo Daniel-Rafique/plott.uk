@@ -1,7 +1,15 @@
 import type Stripe from "stripe";
 import { sendSubscriptionWelcomeEmail } from "@/lib/email";
+import { trackKlaviyoEvent, upsertKlaviyoProfile } from "@/lib/klaviyo-marketing";
 import { logger } from "@/lib/logger";
 import { prisma } from "@/lib/prisma";
+
+function firstPriceId(sub: Stripe.Subscription): string | null {
+  const item = sub.items.data[0];
+  if (!item) return null;
+  if (typeof item.price === "string") return item.price;
+  return item.price?.id ?? null;
+}
 
 /**
  * Idempotent: sends at most one welcome email per company, after a completed
@@ -46,6 +54,52 @@ export async function trySendSubscriptionWelcomeEmail(
     typeof trialEndSec === "number" && trialEndSec * 1000 > Date.now();
   const isTrialing =
     sub.status === "trialing" || (sub.status === "active" && inTrialWindow);
+  const lifecycleEvent = isTrialing ? "Trial Started" : "Subscription Started";
+
+  try {
+    const profile = await upsertKlaviyoProfile({
+      email: to,
+      company: company.name,
+      properties: {
+        company_id: companyId,
+        company_name: company.name,
+        subscription_status: sub.status,
+        subscription_price_id: firstPriceId(sub),
+        trial_ends_at: trialEndsAt?.toISOString() ?? null,
+      },
+    });
+    if (profile.status === "skipped") {
+      logger.warn(
+        { reason: profile.reason, companyId, operation: "profile_upsert" },
+        "klaviyo_subscription_lifecycle_skipped",
+      );
+    }
+
+    const event = await trackKlaviyoEvent({
+      email: to,
+      event: lifecycleEvent,
+      uniqueId: `${lifecycleEvent}:${companyId}:${sub.id}`,
+      properties: {
+        company_id: companyId,
+        company_name: company.name,
+        stripe_subscription_id: sub.id,
+        subscription_status: sub.status,
+        subscription_price_id: firstPriceId(sub),
+        trial_ends_at: trialEndsAt?.toISOString() ?? null,
+      },
+    });
+    if (event.status === "skipped") {
+      logger.warn(
+        { reason: event.reason, companyId, operation: "lifecycle_event" },
+        "klaviyo_subscription_lifecycle_skipped",
+      );
+    }
+  } catch (err) {
+    logger.warn(
+      { err: err instanceof Error ? err.message : String(err), companyId },
+      "klaviyo_subscription_lifecycle_failed",
+    );
+  }
 
   try {
     await sendSubscriptionWelcomeEmail({
