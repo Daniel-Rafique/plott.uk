@@ -23,6 +23,7 @@
     "wipe": "tsx scripts/wipe-tenancy.ts",
     "stripe:verify": "bash scripts/verify-stripe-account.sh",
     "stripe:ensure-prices": "tsx scripts/ensure-stripe-prices.ts",
+    "stripe:ensure-klaviyo-webhook": "tsx scripts/ensure-klaviyo-stripe-webhook.ts",
     "stripe:create-products": "tsx scripts/create-stripe-products.ts"
   },
   "dependencies": {

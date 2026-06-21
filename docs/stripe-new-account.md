@@ -54,6 +54,8 @@ Test and live keys are different; keep each deployment on one mode only.
 
 If checkout completes but the app stays on **“Activating your subscription”**, the `checkout.session.completed` webhook is not applying (wrong URL, wrong `STRIPE_WEBHOOK_SECRET`, or delivery delay). The subscribe success page also calls **`POST /api/stripe/sync-checkout`** with the `session_id` from the return URL to reconcile the database from the Checkout Session, so you unstick without waiting for Stripe. Fix the webhook for production long-term.
 
+For Klaviyo billing lifecycle automation, add a **second** Stripe webhook endpoint using `KLAVIYO_WEBHOOK_URL`. Do not replace the Plott app webhook above. See [klaviyo-stripe.md](./klaviyo-stripe.md).
+
 ## 4. Other env vars (optional)
 
 | Variable | Purpose |
