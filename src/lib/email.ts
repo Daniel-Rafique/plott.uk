@@ -790,13 +790,45 @@ export async function sendSubscriptionPlanChangedEmail(args: {
   to: string;
   companyName: string;
   planName: string;
+  priceLabel: string | null;
+  renewalDate: Date | null;
+  includedAiCreditGbp: number | null;
 }): Promise<void> {
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://plott.uk";
   const billingUrl = `${baseUrl}/app/settings/billing`;
+  const renewalLabel = args.renewalDate
+    ? args.renewalDate.toLocaleDateString("en-GB", {
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+      })
+    : null;
+  const details = [
+    ["Plan", args.planName],
+    ["Price", args.priceLabel],
+    ["Renews", renewalLabel],
+    [
+      "Included AI credit",
+      args.includedAiCreditGbp == null
+        ? null
+        : `£${args.includedAiCreditGbp}/month`,
+    ],
+  ].filter(([, value]) => value);
   const body = `
     <p style="margin:0 0 20px 0;font-size:15px;color:#3f3f46;line-height:1.65;">
       Your Plott subscription for <strong>${escapeHtml(args.companyName)}</strong> has been updated to <strong>${escapeHtml(args.planName)}</strong>.
     </p>
+    <div style="margin:0 0 24px 0;padding:18px 20px;border-radius:14px;background:#fafafa;border:1px solid #e4e4e7;">
+      ${details
+        .map(
+          ([label, value]) => `
+            <p style="margin:0 0 10px 0;font-size:14px;color:#3f3f46;line-height:1.5;">
+              <span style="display:inline-block;min-width:130px;color:#71717a;">${escapeHtml(label ?? "")}</span>
+              <strong>${escapeHtml(value ?? "")}</strong>
+            </p>`,
+        )
+        .join("")}
+    </div>
     <p style="margin:0 0 24px 0;font-size:15px;color:#3f3f46;line-height:1.65;">
       Stripe applies the plan change immediately and handles any prorated charge or credit on your billing account.
     </p>

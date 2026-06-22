@@ -5,12 +5,50 @@ import { getStripe } from "@/lib/stripe";
 import { logger } from "@/lib/logger";
 import { sendSubscriptionPlanChangedEmail } from "@/lib/email";
 import { normalizePlan, resolvePlanPriceId } from "@/lib/stripe/plan-prices";
-import { applySubscription, firstPriceId } from "@/lib/stripe/subscription-state";
+import {
+  applySubscription,
+  firstPriceId,
+  subscriptionPeriodEnd,
+} from "@/lib/stripe/subscription-state";
 
 export const runtime = "nodejs";
 
 function subscriptionCustomerId(sub: Stripe.Subscription): string | null {
   return typeof sub.customer === "string" ? sub.customer : null;
+}
+
+function planLabel(plan: string): string {
+  return plan[0].toUpperCase() + plan.slice(1);
+}
+
+function subscriptionPrice(sub: Stripe.Subscription): Stripe.Price | null {
+  const price = sub.items.data[0]?.price;
+  return price && typeof price !== "string" ? price : null;
+}
+
+function formatPriceLabel(price: Stripe.Price | null): string | null {
+  if (!price?.currency) return null;
+  const minor =
+    price.unit_amount != null
+      ? price.unit_amount
+      : price.unit_amount_decimal != null
+        ? Math.round(Number(price.unit_amount_decimal))
+        : null;
+  if (minor == null) return null;
+  const amount = new Intl.NumberFormat("en-GB", {
+    style: "currency",
+    currency: price.currency.toUpperCase(),
+    maximumFractionDigits: minor % 100 === 0 ? 0 : 2,
+  }).format(minor / 100);
+  const interval = price.recurring?.interval;
+  return interval ? `${amount} / ${interval}` : amount;
+}
+
+function includedAiCreditGbp(price: Stripe.Price | null): number | null {
+  const raw = price?.metadata?.ai_monthly_budget_gbp;
+  if (!raw) return null;
+  const n = Number(raw);
+  return Number.isFinite(n) ? n : null;
 }
 
 async function resolveActiveSubscription({
@@ -141,10 +179,14 @@ export async function POST(req: Request) {
 
     await applySubscription(ctx.company.id, ctx.company.stripeCustomerId, updated);
     if (ctx.user.email) {
+      const price = subscriptionPrice(updated);
       sendSubscriptionPlanChangedEmail({
         to: ctx.user.email,
         companyName: ctx.company.name,
-        planName: plan[0].toUpperCase() + plan.slice(1),
+        planName: planLabel(plan),
+        priceLabel: formatPriceLabel(price),
+        renewalDate: subscriptionPeriodEnd(updated),
+        includedAiCreditGbp: includedAiCreditGbp(price),
       }).catch((emailErr) => {
         logger.warn(
           { err: emailErr, companyId: ctx.company.id, plan },
