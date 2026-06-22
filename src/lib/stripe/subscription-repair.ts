@@ -91,12 +91,6 @@ export async function repairSubscriptionStateForEntitlements(
       subscriptionPriceId: company.subscriptionPriceId,
     };
   }
-  if (company.subscriptionPriceId && planForPriceId(company.subscriptionPriceId)) {
-    return {
-      subscriptionStatus: company.subscriptionStatus,
-      subscriptionPriceId: company.subscriptionPriceId,
-    };
-  }
   if (!company.stripeCustomerId || !process.env.STRIPE_SECRET_KEY?.trim()) {
     return {
       subscriptionStatus: company.subscriptionStatus,
@@ -110,6 +104,21 @@ export async function repairSubscriptionStateForEntitlements(
     (await findCustomerSubscription(stripe, company));
 
   if (!subscription) {
+    return {
+      subscriptionStatus: company.subscriptionStatus,
+      subscriptionPriceId: company.subscriptionPriceId,
+    };
+  }
+
+  const stripePriceId = firstItemPriceId(subscription) ?? null;
+  const storedPriceIsKnown = company.subscriptionPriceId
+    ? Boolean(planForPriceId(company.subscriptionPriceId))
+    : false;
+  if (
+    storedPriceIsKnown &&
+    stripePriceId === company.subscriptionPriceId &&
+    subscription.status === company.subscriptionStatus
+  ) {
     return {
       subscriptionStatus: company.subscriptionStatus,
       subscriptionPriceId: company.subscriptionPriceId,

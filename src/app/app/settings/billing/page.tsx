@@ -3,6 +3,7 @@ import { getTenantContext } from "@/lib/tenant";
 import { prisma } from "@/lib/prisma";
 import { getCompanyTier, tierDef, getStripeMeta } from "@/lib/ai/tiers";
 import { loadPlans } from "@/lib/pricing";
+import { repairSubscriptionStateForEntitlements } from "@/lib/stripe/subscription-repair";
 import { BillingSettingsClient } from "./billing-settings-client";
 
 export const dynamic = "force-dynamic";
@@ -11,7 +12,7 @@ export default async function BillingSettingsPage() {
   const ctx = await getTenantContext();
   if (!ctx) redirect("/auth/sign-in");
 
-  const company = await prisma.company.findUnique({
+  let company = await prisma.company.findUnique({
     where: { id: ctx.company.id },
     select: {
       id: true,
@@ -23,6 +24,10 @@ export default async function BillingSettingsPage() {
       aiMonthlySpendGbp: true,
     },
   });
+  if (company) {
+    const repaired = await repairSubscriptionStateForEntitlements(company.id);
+    if (repaired) company = { ...company, ...repaired };
+  }
 
   const tier = company ? getCompanyTier(company) : "free";
   const tierInfo = tierDef(tier);
