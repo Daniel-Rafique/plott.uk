@@ -30,7 +30,7 @@ jobs:
       AI_GATEWAY_API_KEY: ${{ secrets.AI_GATEWAY_API_KEY }}
       # Avoid Langfuse SDK noise when repo/org secrets are unset or invalid.
       LANGFUSE_DISABLE: "true"
-      # Optional: pin a tenant. If unset, evals use the oldest Company in the DB.
+      # Optional: prefer a tenant. If unset or stale, evals use the oldest Company in the DB.
       EVAL_COMPANY_ID: ${{ secrets.EVAL_COMPANY_ID }}
       AI_DAILY_BUDGET_GBP_DEFAULT: "50"
       # CI does not set STRIPE_PRICE_*; DB companies still have subscriptionPriceId.

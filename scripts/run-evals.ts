@@ -7,10 +7,10 @@
  * Usage (local):
  *   tsx scripts/run-evals.ts --companyId <uuid> --threshold 0.8
  *
- * If `--companyId` and `EVAL_COMPANY_ID` are both unset (or empty), the script
- * uses the oldest `Company` row in `DATABASE_URL` so CI works with only
- * `EVAL_DATABASE_URL` + model keys. Prefer an explicit id when you need a
- * dedicated evals tenant.
+ * If `--companyId` is unset, the script prefers `EVAL_COMPANY_ID` when it
+ * resolves to a real company, otherwise it uses the oldest `Company` row in
+ * `DATABASE_URL` so CI works with only `EVAL_DATABASE_URL` + model keys.
+ * Prefer an explicit id when you need a dedicated evals tenant.
  *
  * In CI we capture stdout to a GitHub step summary. See
  * `.github/workflows/ai-evals.yml` and `docs/ai-evals.md`.
@@ -34,15 +34,19 @@ type Args = {
   suites?: Array<"compliance" | "icp_classifier" | "nl_search">;
 };
 
-function readExplicitCompanyId(argv: string[]): string | undefined {
+type CompanyIdSource = "arg" | "env";
+
+function readCompanyIdCandidate(
+  argv: string[],
+): { id: string; source: CompanyIdSource } | undefined {
   for (let i = 2; i < argv.length; i++) {
     if (argv[i] === "--companyId") {
       const v = argv[++i]?.trim();
-      if (v) return v;
+      if (v) return { id: v, source: "arg" };
     }
   }
   const env = process.env.EVAL_COMPANY_ID?.trim();
-  return env || undefined;
+  return env ? { id: env, source: "env" } : undefined;
 }
 
 function parseArgs(argv: string[], companyId: string): Args {
@@ -71,8 +75,24 @@ function parseArgs(argv: string[], companyId: string): Args {
 }
 
 async function resolveCompanyId(argv: string[]): Promise<string> {
-  const explicit = readExplicitCompanyId(argv);
-  if (explicit) return explicit;
+  const candidate = readCompanyIdCandidate(argv);
+  if (candidate) {
+    const row = await prisma.company.findUnique({
+      where: { id: candidate.id },
+      select: { id: true },
+    });
+    if (row) return row.id;
+
+    if (candidate.source === "arg") {
+      throw new Error(
+        `--companyId ${candidate.id} was not found in DATABASE_URL.`,
+      );
+    }
+
+    console.warn(
+      `[evals] EVAL_COMPANY_ID ${candidate.id} was not found in DATABASE_URL; falling back to oldest Company.id.`,
+    );
+  }
 
   const row = await prisma.company.findFirst({
     orderBy: { createdAt: "asc" },

@@ -26,8 +26,8 @@ Each case still records **`AgentRun`** rows in Postgres (same as normal AI usage
 
 The runtime is **multi-tenant**: calls need a real **`Company.id`** from your database so foreign keys (e.g. `AgentRun`) are valid. The eval **cases do not depend** on that company’s real letters or data.
 
-- **Optional:** If you omit `--companyId` and **`EVAL_COMPANY_ID`** is unset or empty, the CLI loads **`DATABASE_URL`** and uses the **oldest** `Company` row (`ORDER BY created_at ASC`).
-- **Optional (explicit):** Set **`EVAL_COMPANY_ID`** to a specific `companies.id` if you want all eval runs attributed to one tenant (e.g. staging). Find ids with Prisma Studio or `SELECT id, name FROM companies ORDER BY created_at ASC LIMIT 10;`.
+- **Optional:** If you omit `--companyId`, the CLI prefers **`EVAL_COMPANY_ID`** when it points at a real `Company` in **`DATABASE_URL`**. If the secret is unset, empty, or stale, it uses the **oldest** `Company` row (`ORDER BY created_at ASC`) and prints a warning for stale values.
+- **Optional (explicit):** Set **`EVAL_COMPANY_ID`** to a specific `companies.id` if you want all eval runs attributed to one tenant (e.g. staging). Find ids with Prisma Studio or `SELECT id, name FROM companies ORDER BY created_at ASC LIMIT 10;`. Passing `--companyId` manually stays strict and fails if the id does not exist.
 
 Ids are **cuid**-style strings (see `prisma/schema.prisma`), not necessarily UUIDs.
 
@@ -72,9 +72,9 @@ Create these under **Settings → Secrets and variables → Actions** (names mus
 
 | Secret | Required | Maps to job env | Purpose |
 |--------|----------|-----------------|--------|
-| `EVAL_DATABASE_URL` | **Yes** | `DATABASE_URL` | Postgres URL for Prisma (same schema as app; needs ≥1 `Company` unless you set `EVAL_COMPANY_ID` to a valid id in that DB). |
+| `EVAL_DATABASE_URL` | **Yes** | `DATABASE_URL` | Postgres URL for Prisma (same schema as app; needs ≥1 `Company`). |
 | `AI_GATEWAY_API_KEY` | **Yes** | `AI_GATEWAY_API_KEY` | Gateway key for real model calls during evals. |
-| `EVAL_COMPANY_ID` | No | `EVAL_COMPANY_ID` | Pin tenant id; if unset, oldest company is used. |
+| `EVAL_COMPANY_ID` | No | `EVAL_COMPANY_ID` | Prefer this tenant id; if unset or stale, oldest company is used. |
 | Langfuse | No | — | The workflow sets **`LANGFUSE_DISABLE=true`** so eval runs do not call Langfuse (avoids 401 spam from wrong or placeholder keys). To trace evals in CI, remove that env line and add valid **`LANGFUSE_PUBLIC_KEY`**, **`LANGFUSE_SECRET_KEY`**, and optionally **`LANGFUSE_HOST`**. |
 
 Use a **staging or dedicated** database if you do not want eval `AgentRun` noise on production.
