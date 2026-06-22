@@ -212,13 +212,47 @@ export function BillingSettingsClient({ initial }: { initial: Initial }) {
     }
   }
 
+  async function changeSubscriptionPlan(plan: Plan["id"]) {
+    setLoadingPlan(plan);
+    try {
+      const res = await fetch("/api/stripe/change-plan", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ plan }),
+      });
+      const data = (await res.json().catch(() => ({}))) as {
+        error?: string;
+        unchanged?: boolean;
+      };
+      if (!res.ok) {
+        throw new Error(data.error ?? "Could not change subscription plan");
+      }
+      toast.success(
+        data.unchanged ? "You're already on this plan" : "Subscription plan updated",
+      );
+      router.refresh();
+    } catch (err) {
+      toast.error(
+        err instanceof Error
+          ? err.message
+          : "Could not change subscription plan",
+      );
+    } finally {
+      setLoadingPlan(null);
+    }
+  }
+
   function handlePlanAction(plan: Plan) {
     if (isTrialing) {
       void upgradeTrialPlan(plan.id);
       return;
     }
-    if (isManagedSubscription) {
+    if (isPaymentSuspended) {
       void openPortal();
+      return;
+    }
+    if (isManagedSubscription) {
+      void changeSubscriptionPlan(plan.id);
       return;
     }
     choosePlan();
@@ -369,7 +403,7 @@ export function BillingSettingsClient({ initial }: { initial: Initial }) {
             <p className="text-xs text-zinc-500">
               {isTrialing
                 ? "Your trial stays active when you switch plan."
-                : "Upgrades are pro-rated instantly. Downgrades apply at the end of your current billing period."}
+                : "Plan changes are prorated and applied immediately."}
             </p>
           ) : null}
         </div>
