@@ -785,3 +785,32 @@ export async function sendSubscriptionWelcomeEmail(args: {
     }),
   });
 }
+
+export async function sendSubscriptionPlanChangedEmail(args: {
+  to: string;
+  companyName: string;
+  planName: string;
+}): Promise<void> {
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://plott.uk";
+  const billingUrl = `${baseUrl}/app/settings/billing`;
+  const body = `
+    <p style="margin:0 0 20px 0;font-size:15px;color:#3f3f46;line-height:1.65;">
+      Your Plott subscription for <strong>${escapeHtml(args.companyName)}</strong> has been updated to <strong>${escapeHtml(args.planName)}</strong>.
+    </p>
+    <p style="margin:0 0 24px 0;font-size:15px;color:#3f3f46;line-height:1.65;">
+      Stripe applies the plan change immediately and handles any prorated charge or credit on your billing account.
+    </p>
+    <p style="margin:28px 0;text-align:center;">
+      ${ctaButton(billingUrl, "View billing")}
+    </p>`;
+  await resendSend({
+    to: args.to,
+    subject: `Your Plott plan is now ${args.planName}`,
+    html: brandedShell({
+      heading: "Subscription updated",
+      body,
+      footerText:
+        "You're receiving this because your Plott subscription was changed.",
+    }),
+  });
+}

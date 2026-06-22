@@ -3,6 +3,7 @@ import type Stripe from "stripe";
 import { getTenantContext } from "@/lib/tenant";
 import { getStripe } from "@/lib/stripe";
 import { logger } from "@/lib/logger";
+import { sendSubscriptionPlanChangedEmail } from "@/lib/email";
 import { normalizePlan, resolvePlanPriceId } from "@/lib/stripe/plan-prices";
 import { applySubscription, firstPriceId } from "@/lib/stripe/subscription-state";
 
@@ -139,6 +140,18 @@ export async function POST(req: Request) {
     });
 
     await applySubscription(ctx.company.id, ctx.company.stripeCustomerId, updated);
+    if (ctx.user.email) {
+      sendSubscriptionPlanChangedEmail({
+        to: ctx.user.email,
+        companyName: ctx.company.name,
+        planName: plan[0].toUpperCase() + plan.slice(1),
+      }).catch((emailErr) => {
+        logger.warn(
+          { err: emailErr, companyId: ctx.company.id, plan },
+          "stripe_change_plan_confirmation_email_failed",
+        );
+      });
+    }
     return NextResponse.json({
       ok: true,
       subscriptionId: updated.id,
