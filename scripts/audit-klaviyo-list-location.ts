@@ -196,7 +196,7 @@ async function fetchListProfiles(config: { apiKey: string; revision: string }) {
     `${API_BASE_URL}/lists/${LIST_ID}/profiles/?page[size]=${PAGE_SIZE}`;
 
   while (nextUrl) {
-    const page = await klaviyoJson<KlaviyoListProfilesResponse>(
+    const page: KlaviyoListProfilesResponse = await klaviyoJson(
       nextUrl,
       {
         headers: klaviyoHeaders(config),
