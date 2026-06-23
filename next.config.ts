@@ -15,7 +15,7 @@ const CSP = [
   "font-src 'self' data: https://fonts.gstatic.com https://code.tidio.co",
   "img-src 'self' data: blob: https: https://*.public.blob.vercel-storage.com https://*.tidio.co https://*.tidiochat.com https://*.klaviyo.com",
   "connect-src 'self' https://www.google-analytics.com https://region1.google-analytics.com https://stats.g.doubleclick.net https://ad.doubleclick.net https://googleads.g.doubleclick.net https://www.google.com https://www.googleadservices.com https://api.resend.com https://api.stripe.com https://maps.googleapis.com https://*.googleapis.com https://*.gstatic.com https://api.mapbox.com/v4/ https://api.mapbox.com/raster/v1/ https://api.mapbox.com/rasterarrays/v1/ https://api.mapbox.com/styles/v1/mapbox/ https://api.mapbox.com/fonts/v1/mapbox/ https://api.mapbox.com/models/v1/mapbox/ https://api.mapbox.com/map-sessions/v1 https://events.mapbox.com/ https://vercel.com https://*.vercel.com https://*.public.blob.vercel-storage.com https://*.ingest.sentry.io https://*.ingest.de.sentry.io https://*.posthog.com https://cloud.langfuse.com https://us.cloud.langfuse.com https://*.tidio.co https://*.tidiochat.com https://a.klaviyo.com https://static-tracking.klaviyo.com https://*.klaviyo.com wss://*.pusher.com wss://*.tidio.co wss://*.tidiochat.com",
-  "frame-src 'self' https://js.stripe.com https://hooks.stripe.com https://*.tidio.co https://*.tidiochat.com",
+  "frame-src 'self' https://js.stripe.com https://hooks.stripe.com https://*.tidio.co https://*.tidiochat.com https://demo.arcade.software",
   "media-src 'self' https://code.tidio.co",
   "worker-src 'self' blob:",
   "object-src 'none'",

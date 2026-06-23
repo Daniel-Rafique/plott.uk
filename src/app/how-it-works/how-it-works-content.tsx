@@ -7,6 +7,7 @@ import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { RevealGroup, RevealHeading } from "@/lib/animation/reveal";
 import { AutonomousMonitoringSection } from "./autonomous-monitoring-section";
+import { ArcadeDemoSection } from "./arcade-demo-section";
 import { HowItWorksHero } from "./how-it-works-hero";
 
 if (typeof window !== "undefined") {
@@ -359,6 +360,8 @@ export function HowItWorksContent() {
           </div>
         </div>
       </section>
+
+      <ArcadeDemoSection />
 
       <AutonomousMonitoringSection />
 
