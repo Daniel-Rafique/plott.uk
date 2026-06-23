@@ -35,7 +35,10 @@ const playfair = Playfair_Display({
   display: "swap",
 });
 
-const GOOGLE_TAG_ID = "AW-18256689006";
+const GOOGLE_ANALYTICS_ID =
+  process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID || "G-WFM1S5S5H7";
+const GOOGLE_ADS_ID = "AW-18256689006";
+const GOOGLE_TAG_ID = GOOGLE_ANALYTICS_ID;
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
@@ -185,7 +188,8 @@ export default function RootLayout({
             window.dataLayer = window.dataLayer || [];
             function gtag(){window.dataLayer.push(arguments);}
             gtag('js', new Date());
-            gtag('config', '${GOOGLE_TAG_ID}');
+            gtag('config', '${GOOGLE_ANALYTICS_ID}');
+            gtag('config', '${GOOGLE_ADS_ID}');
           `}
         </Script>
       </body>
