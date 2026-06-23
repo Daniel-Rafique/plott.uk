@@ -12,7 +12,7 @@ const CSP = [
   "default-src 'self'",
   "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://googleads.g.doubleclick.net https://www.googleadservices.com https://maps.googleapis.com https://maps.gstatic.com https://js.stripe.com https://*.vercel-insights.com https://*.posthog.com https://code.tidio.co https://static.klaviyo.com https://static-tracking.klaviyo.com",
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://static.klaviyo.com https://static-tracking.klaviyo.com",
-  "font-src 'self' data: https://fonts.gstatic.com https://code.tidio.co",
+  "font-src 'self' data: https://fonts.gstatic.com https://code.tidio.co https://static.klaviyo.com",
   "img-src 'self' data: blob: https: https://*.public.blob.vercel-storage.com https://*.tidio.co https://*.tidiochat.com https://*.klaviyo.com",
   "connect-src 'self' https://www.google-analytics.com https://region1.google-analytics.com https://stats.g.doubleclick.net https://ad.doubleclick.net https://googleads.g.doubleclick.net https://www.google.com https://www.googleadservices.com https://api.resend.com https://api.stripe.com https://maps.googleapis.com https://*.googleapis.com https://*.gstatic.com https://api.mapbox.com/v4/ https://api.mapbox.com/raster/v1/ https://api.mapbox.com/rasterarrays/v1/ https://api.mapbox.com/styles/v1/mapbox/ https://api.mapbox.com/fonts/v1/mapbox/ https://api.mapbox.com/models/v1/mapbox/ https://api.mapbox.com/map-sessions/v1 https://events.mapbox.com/ https://vercel.com https://*.vercel.com https://*.public.blob.vercel-storage.com https://*.ingest.sentry.io https://*.ingest.de.sentry.io https://*.posthog.com https://cloud.langfuse.com https://us.cloud.langfuse.com https://*.tidio.co https://*.tidiochat.com https://a.klaviyo.com https://static-tracking.klaviyo.com https://*.klaviyo.com wss://*.pusher.com wss://*.tidio.co wss://*.tidiochat.com",
   "frame-src 'self' https://js.stripe.com https://hooks.stripe.com https://*.tidio.co https://*.tidiochat.com https://demo.arcade.software",
@@ -40,6 +40,9 @@ const SECURITY_HEADERS = [
   },
   { key: "X-DNS-Prefetch-Control", value: "on" },
 ];
+
+const uploadSentrySourceMaps =
+  process.env.SENTRY_UPLOAD_SOURCE_MAPS === "true" && Boolean(process.env.SENTRY_AUTH_TOKEN);
 
 const nextConfig: NextConfig = {
   skipTrailingSlashRedirect: true,
@@ -101,7 +104,11 @@ export default withSentryConfig(withWorkflow(nextConfig), {
 
  project: "javascript-nextjs",
 
- // Only print logs for uploading source maps in CI
+ // Only upload source maps when explicitly enabled with a valid token.
+ authToken: process.env.SENTRY_AUTH_TOKEN,
+ sourcemaps: {
+   disable: !uploadSentrySourceMaps,
+ },
  silent: !process.env.CI,
 
  // For all available options, see:
