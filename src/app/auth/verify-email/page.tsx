@@ -26,7 +26,7 @@ export default async function VerifyEmailPage({
   const stage = await resolveStage();
   const sp = (await searchParams) ?? {};
   const rawNext = typeof sp.next === "string" ? sp.next : null;
-  const justCreated = sp.created === "1" || sp.created === 1;
+  const justCreated = sp.created === "1";
   if (stage.stage !== "unauthenticated" && stage.stage !== "unverified") {
     redirect(
       rawNext && rawNext.startsWith("/") && !rawNext.startsWith("//")
