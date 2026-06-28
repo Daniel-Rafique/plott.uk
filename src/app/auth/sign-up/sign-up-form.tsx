@@ -83,9 +83,9 @@ export function SignUpForm({
       posthog.identify(trimmedEmail, { email: trimmedEmail, name: name.trim() || "User" });
       posthog.capture("sign_up", { email: trimmedEmail, name: name.trim() || "User" });
 
-      // Neon Auth dispatches send.magic_link (or send.otp) on signup when
-      // "Require email verification" is enabled. Route to the verify page — do
-      // NOT trigger a second send here (duplicate emails).
+      // Neon Auth dispatches send.otp on signup when "Require email verification"
+      // is enabled (Verification codes mode). Route to the verify page — do NOT
+      // trigger a second send in the sign-up form (verify page auto-sends once).
       const verifyUrl = new URL(
         "/auth/verify-email",
         window.location.origin,

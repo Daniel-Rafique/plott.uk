@@ -5,6 +5,7 @@ import {
   redirectForStage,
   resolveStage,
 } from "@/lib/auth/onboarding-gate";
+import { StaleAuthUserError } from "@/lib/tenant";
 import { privatePageMetadata } from "@/lib/seo";
 import { OnboardingWizard } from "./onboarding-wizard";
 
@@ -15,7 +16,30 @@ export const metadata = privatePageMetadata({
 });
 
 export default async function OnboardingPage() {
-  const resolved = await resolveStage();
+  let resolved;
+  try {
+    resolved = await resolveStage();
+  } catch (err) {
+    if (err instanceof StaleAuthUserError) {
+      return (
+        <div className="flex min-h-screen flex-col items-center justify-center bg-zinc-50 px-4">
+          <div className="max-w-md rounded-2xl border border-zinc-200 bg-white p-8 text-center shadow-sm">
+            <h1 className="text-xl font-semibold text-zinc-950">
+              Account setup issue
+            </h1>
+            <p className="mt-3 text-sm text-zinc-600">{err.message}</p>
+            <Link
+              href="/auth/sign-in"
+              className="mt-6 inline-block text-sm font-medium text-zinc-900 underline underline-offset-2"
+            >
+              Back to sign in
+            </Link>
+          </div>
+        </div>
+      );
+    }
+    throw err;
+  }
   if (resolved.stage !== "needs_company") {
     redirect(redirectForStage(resolved));
   }

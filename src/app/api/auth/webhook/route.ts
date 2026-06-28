@@ -42,6 +42,16 @@ function asString(v: unknown): string | null {
   return typeof v === "string" && v.length > 0 ? v : null;
 }
 
+function extractOtpCode(data: Record<string, unknown>): string | null {
+  return (
+    asString(data.otp_code) ??
+    asString(data.code) ??
+    asString(data.otp) ??
+    asString(data.verification_code) ??
+    asString(data.token)
+  );
+}
+
 export async function POST(req: Request) {
   const rawBody = await req.text();
   let payload: EventPayload;
@@ -64,12 +74,17 @@ export async function POST(req: Request) {
       case "send.verification": {
         const email =
           asString(user.email) ?? asString(data.email) ?? null;
-        const code =
-          asString(data.otp_code) ??
-          asString(data.code) ??
-          asString(data.otp);
+        const code = extractOtpCode(data);
         if (!email || !code) {
-          logger.warn({ type, hasEmail: !!email, hasCode: !!code }, "neon_auth_webhook_missing_fields");
+          logger.warn(
+            {
+              type,
+              hasEmail: !!email,
+              hasCode: !!code,
+              eventDataKeys: Object.keys(data),
+            },
+            "neon_auth_webhook_missing_fields",
+          );
           return NextResponse.json(
             { handled: false, error: "missing email or code" },
             { status: 400 },

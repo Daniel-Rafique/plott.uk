@@ -56,8 +56,8 @@ export default async function VerifyEmailPage({
               <div className="mb-6 rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
                 <p className="font-medium">Account created.</p>
                 <p className="mt-1 text-emerald-800/90">
-                  We sent a verification link to your email. Click the link or
-                  enter the 6-digit code below to continue.
+                  We sent a 6-digit code to your email. Enter it below to
+                  continue.
                 </p>
               </div>
             ) : null}
@@ -70,8 +70,8 @@ export default async function VerifyEmailPage({
               </h1>
               <p className="mt-2 text-center text-sm text-zinc-500">
                 {isInvite
-                  ? "We sent a verification link and code to your email. Click the link or enter the code below to finish joining your team."
-                  : "We sent a verification link and code to your email. Click the link or enter the code below to verify your account."}
+                  ? "We sent a 6-digit code to your email. Enter it below to finish joining your team."
+                  : "We sent a 6-digit code to your email. Enter it below to verify your account."}
               </p>
             </div>
             <Suspense fallback={<div className="text-center text-sm text-zinc-500">Loading…</div>}>

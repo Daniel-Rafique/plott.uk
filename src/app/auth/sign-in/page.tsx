@@ -64,8 +64,8 @@ export default async function AuthSignInPage({
               <div className="mb-6 rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
                 <p className="font-medium">Account created — check your email.</p>
                 <p className="mt-1 text-emerald-800/90">
-                  We sent a verification link. Click it to continue, or sign in
-                  below once verified.
+                  We sent a 6-digit verification code to your email. Enter it
+                  on the verify page, or sign in below once verified.
                 </p>
               </div>
             ) : null}

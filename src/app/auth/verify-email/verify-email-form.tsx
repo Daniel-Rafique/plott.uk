@@ -21,10 +21,32 @@ export function VerifyEmailForm() {
   const [notice, setNotice] = useState<string | null>(null);
   const [cooldown, setCooldown] = useState(0);
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const initialOtpSentRef = useRef(false);
 
   useEffect(() => {
     inputRef.current?.focus();
   }, []);
+
+  useEffect(() => {
+    const justCreated = search.get("created") === "1";
+    const trimmed = emailFromQuery.trim();
+    if (!justCreated || !trimmed || initialOtpSentRef.current) return;
+    initialOtpSentRef.current = true;
+
+    void (async () => {
+      const res = await authClient.emailOtp.sendVerificationOtp({
+        email: trimmed,
+        type: "email-verification",
+      });
+      if (res.error) {
+        setError(res.error.message ?? "Couldn't send verification email.");
+        initialOtpSentRef.current = false;
+        return;
+      }
+      setCooldown(RESEND_COOLDOWN_S);
+      setNotice("We sent a 6-digit code to your email.");
+    })();
+  }, [emailFromQuery, search]);
 
   useEffect(() => {
     if (cooldown <= 0) return;

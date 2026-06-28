@@ -14,9 +14,17 @@ The onboarding funnel is `sign-up -> verify-email -> onboarding wizard -> subscr
 
 - `Require email verification`: **ON** (blocks sign-in until the user has verified their email).
 - `Auto sign-in on sign-up`: **OFF** (we want a deliberate "check your inbox" step).
-- `Verification method`: **Verification codes** (6-digit OTP).
+- `Verification method`: **Verification codes** (6-digit OTP). Do **not** use verification links — the app is OTP-only.
 
-With "Require email verification" on, Neon Auth returns the session but refuses `get-session` until verification; our `src/lib/auth/onboarding-gate.ts` enforces the redirect to `/auth/verify-email`.
+With "Require email verification" on, Neon Auth returns the session but refuses `get-session` until verification; our `src/lib/auth/onboarding-gate.ts` enforces the redirect to `/auth/verify-email`. The verify page auto-sends an OTP when the user arrives from sign-up (`?created=1`).
+
+**Retesting the same email:** if you re-run signup without wiping, Neon may assign a new auth user id while an old `users` row still holds the same email (Prisma unique constraint). Always wipe before retesting:
+
+```bash
+npx tsx scripts/wipe-tenancy.ts --yes
+```
+
+See [section 4](#4-end-to-end-retest-from-a-clean-slate-including-after-a-stripe-account-migration) for production cautions.
 
 ### 1b. Webhook endpoint (branded email delivery)
 
