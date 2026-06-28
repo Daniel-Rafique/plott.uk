@@ -29,6 +29,9 @@ export default async function AuthSignInPage({
   searchParams?: Search;
 }) {
   const sp = (await searchParams) ?? {};
+  const rawNext = typeof sp.next === "string" ? sp.next : null;
+  const pendingEmailVerification =
+    rawNext?.startsWith("/auth/verify-email") ?? false;
   const next = sanitizeNext(sp.next);
   const email = sanitizeEmail(sp.email);
   const isInvite = next?.startsWith("/invites/") ?? false;
@@ -57,6 +60,15 @@ export default async function AuthSignInPage({
           </Link>
           
           <div className="rounded-2xl border border-zinc-200 bg-white p-8 shadow-sm">
+            {pendingEmailVerification ? (
+              <div className="mb-6 rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
+                <p className="font-medium">Account created — check your email.</p>
+                <p className="mt-1 text-emerald-800/90">
+                  We sent a verification link. Click it to continue, or sign in
+                  below once verified.
+                </p>
+              </div>
+            ) : null}
             <div className="mb-6">
               <h1 className="text-center font-[family-name:var(--font-display)] text-2xl font-normal tracking-tight text-zinc-950">
                 {isInvite ? "Accept your invitation" : "Welcome back"}

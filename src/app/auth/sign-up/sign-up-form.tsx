@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { authClient } from "@/lib/auth/client";
 import posthog from "posthog-js";
@@ -15,7 +14,6 @@ export function SignUpForm({
   next?: string | null;
   defaultEmail?: string | null;
 }) {
-  const router = useRouter();
   const [error, setError] = useState<ErrorState>(null);
   const [pending, setPending] = useState(false);
   const [googlePending, setGooglePending] = useState(false);
@@ -85,20 +83,20 @@ export function SignUpForm({
       posthog.identify(trimmedEmail, { email: trimmedEmail, name: name.trim() || "User" });
       posthog.capture("sign_up", { email: trimmedEmail, name: name.trim() || "User" });
 
-      // Neon Auth dispatches send.otp on signup when "Require email verification"
-      // is enabled in the Neon Console, which our webhook turns into a branded
-      // Resend email. Route the user to the code-entry page — do NOT trigger a
-      // second send here (duplicate emails + mismatched callback URLs).
+      // Neon Auth dispatches send.magic_link (or send.otp) on signup when
+      // "Require email verification" is enabled. Route to the verify page — do
+      // NOT trigger a second send here (duplicate emails).
       const verifyUrl = new URL(
         "/auth/verify-email",
         window.location.origin,
       );
       verifyUrl.searchParams.set("email", trimmedEmail);
+      verifyUrl.searchParams.set("created", "1");
       if (next && next.startsWith("/")) {
         verifyUrl.searchParams.set("next", next);
       }
-      router.push(verifyUrl.pathname + verifyUrl.search);
-      router.refresh();
+      window.location.href = verifyUrl.toString();
+      return;
     } catch (err) {
       const msg =
         err instanceof Error ? err.message : "Failed to create account.";

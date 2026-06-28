@@ -78,6 +78,5 @@ export const config = {
     "/app/:path*",
     "/onboarding",
     "/subscribe",
-    "/auth/verify-email",
   ],
 };
