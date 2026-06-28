@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { authClient } from "@/lib/auth/client";
 
 const RESEND_COOLDOWN_S = 30;
 
 export function VerifyEmailForm() {
+  const router = useRouter();
   const search = useSearchParams();
   const emailFromQuery = search.get("email") ?? "";
   const nextFromQuery = search.get("next");
@@ -69,17 +70,18 @@ export function VerifyEmailForm() {
       email: trimmedEmail,
       otp: trimmedCode,
     });
-    setPending(false);
     if (res.error) {
       setError(res.error.message ?? "That code didn't work. Try again.");
+      setPending(false);
       return;
     }
     // After verification the onboarding gate will cascade the user forward
     // (needs_company → /onboarding, needs_plan → /subscribe, etc.). If they
     // arrived here via a `?next=` deep link (e.g. /invites/<token>), jump
     // straight there and let that page's own gate take over.
-    // Use full navigation to ensure the server sees the verified session.
-    window.location.href = nextTarget ?? "/onboarding";
+    const target = nextTarget ?? "/onboarding";
+    router.push(target);
+    router.refresh();
   }
 
   async function handleResend() {

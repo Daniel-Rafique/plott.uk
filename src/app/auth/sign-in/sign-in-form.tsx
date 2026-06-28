@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { authClient } from "@/lib/auth/client";
 import posthog from "posthog-js";
 
@@ -54,6 +55,7 @@ export function SignInForm({
   next?: string | null;
   defaultEmail?: string | null;
 }) {
+  const router = useRouter();
   const postSignInTarget = next && next.startsWith("/") ? next : "/app/dashboard";
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
@@ -125,7 +127,9 @@ export function SignInForm({
       posthog.identify(trimmedEmail, { email: trimmedEmail });
       posthog.capture("sign_in", { email: trimmedEmail });
 
-      window.location.href = postSignInTarget;
+      router.push(postSignInTarget);
+      router.refresh();
+      return;
     } catch (err) {
       const msg =
         err instanceof Error ? err.message : "Failed to sign in. Try again.";
@@ -217,10 +221,11 @@ export function SignInForm({
       posthog.identify(unverifiedEmail, { email: unverifiedEmail });
       posthog.capture("sign_in", { email: unverifiedEmail, verified_inline: true });
 
-      window.location.href = postSignInTarget;
+      router.push(postSignInTarget);
+      router.refresh();
+      return;
     } catch (err) {
       setError(err instanceof Error ? err.message : "Verification failed.");
-    } finally {
       setVerifyPending(false);
     }
   }

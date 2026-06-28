@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { authClient } from "@/lib/auth/client";
 import posthog from "posthog-js";
@@ -14,6 +15,7 @@ export function SignUpForm({
   next?: string | null;
   defaultEmail?: string | null;
 }) {
+  const router = useRouter();
   const [error, setError] = useState<ErrorState>(null);
   const [pending, setPending] = useState(false);
   const [googlePending, setGooglePending] = useState(false);
@@ -95,7 +97,7 @@ export function SignUpForm({
       if (next && next.startsWith("/")) {
         verifyUrl.searchParams.set("next", next);
       }
-      window.location.href = verifyUrl.toString();
+      router.push(verifyUrl.pathname + verifyUrl.search);
       return;
     } catch (err) {
       const msg =
@@ -104,7 +106,6 @@ export function SignUpForm({
         msg.toLowerCase().includes("already exists") ||
         msg.toLowerCase().includes("user exists");
       setError({ message: msg, showSignIn: isExists });
-    } finally {
       setPending(false);
     }
   }
