@@ -38,7 +38,7 @@ export default async function BillingSettingsPage() {
   const aiSpendGbp = Number(company?.aiMonthlySpendGbp ?? 0);
 
   const meta = await getStripeMeta(company?.subscriptionPriceId ?? null);
-  const overageRate = meta.aiOverageRate ?? 2;
+  const overageRate = meta.aiOverageRate ?? 4;
 
   return (
     <div className="space-y-6">

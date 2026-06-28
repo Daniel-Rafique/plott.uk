@@ -264,7 +264,7 @@ async function persistFinish(
     if (includedBudget > 0 && newTotal > includedBudget) {
       const overageGbp = Math.min(costGbp, newTotal - includedBudget);
       const meta = await getStripeMeta(company.subscriptionPriceId);
-      const overageRate = meta.aiOverageRate ?? 2;
+      const overageRate = meta.aiOverageRate ?? 4;
 
       void reportAiOverage({
         companyId,

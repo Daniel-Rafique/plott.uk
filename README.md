@@ -86,17 +86,17 @@ npm run dev                  # http://localhost:3000
    stripe prices update "$STRIPE_PRICE_STARTER" \
      -d "metadata[ai_monthly_budget_gbp]=10" \
      -d "metadata[saved_search_limit]=0" \
-     -d "metadata[ai_overage_rate]=2"
+     -d "metadata[ai_overage_rate]=4"
 
    stripe prices update "$STRIPE_PRICE_PRO" \
      -d "metadata[ai_monthly_budget_gbp]=25" \
      -d "metadata[saved_search_limit]=5" \
-     -d "metadata[ai_overage_rate]=2"
+     -d "metadata[ai_overage_rate]=4"
 
    stripe prices update "$STRIPE_PRICE_AGENCY" \
      -d "metadata[ai_monthly_budget_gbp]=100" \
      -d "metadata[saved_search_limit]=20" \
-     -d "metadata[ai_overage_rate]=2"
+     -d "metadata[ai_overage_rate]=4"
    ```
 
 4. **AI metered overage (optional but recommended for billing beyond included AI):** create a Billing Meter (`event_name: ai_overage`), a metered price at £0.01/unit linked to that meter, set `STRIPE_PRICE_AI_OVERAGE`, and attach that price as a subscription item for customers who should be invoiced for overage. Full CLI steps and notes: [docs/stripe-pricing.md](./docs/stripe-pricing.md).

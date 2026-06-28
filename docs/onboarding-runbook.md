@@ -69,7 +69,7 @@ Resend dashboard -> **Emails** shows delivery status; we log the Resend message 
 | `NEON_AUTH_COOKIE_SECRET` | Vercel + `.env` | Existing. 32+ char random. |
 | `RESEND_API_KEY` | Vercel + `.env` | Existing. |
 | `EMAIL_FROM` | Vercel + `.env` | **New.** Branded From header; must match a verified Resend domain. |
-| `STRIPE_TRIAL_DAYS` | Vercel + `.env` | Defaults to 14 in `api/stripe/checkout`. |
+| `STRIPE_TRIAL_DAYS` | Vercel + `.env` | Defaults to **3** in `api/stripe/checkout`. |
 | `STRIPE_PRICE_STARTER` / `STRIPE_PRICE_PRO` / `STRIPE_PRICE_AGENCY` | Vercel + `.env` | Existing. |
 | `STRIPE_PRICE_AI_OVERAGE` | Vercel + `.env` | Optional. Metered price for AI overage (see [stripe-pricing.md](./stripe-pricing.md)). |
 

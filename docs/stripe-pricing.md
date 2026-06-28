@@ -8,7 +8,7 @@ The app reads these keys from each plan’s **Stripe Price** metadata (product m
 | --- | --- |
 | `ai_monthly_budget_gbp` | Included AI allowance in GBP for the billing period (shown in-app; used for overage calculation). |
 | `saved_search_limit` | Max saved searches for the plan (`0` = none). |
-| `ai_overage_rate` | Multiplier applied to **overage** cost before reporting to Stripe (default **2** if unset). Not shown to end users in the billing UI. |
+| `ai_overage_rate` | Multiplier applied to **overage** cost before reporting to Stripe (default **4** if unset). Not shown to end users in the billing UI. |
 
 Environment variables:
 
@@ -40,17 +40,17 @@ set -a && source .env.local && set +a   # or: export STRIPE_PRICE_STARTER=price_
 stripe prices update "$STRIPE_PRICE_STARTER" \
   -d "metadata[ai_monthly_budget_gbp]=10" \
   -d "metadata[saved_search_limit]=0" \
-  -d "metadata[ai_overage_rate]=2"
+  -d "metadata[ai_overage_rate]=4"
 
 stripe prices update "$STRIPE_PRICE_PRO" \
   -d "metadata[ai_monthly_budget_gbp]=25" \
   -d "metadata[saved_search_limit]=5" \
-  -d "metadata[ai_overage_rate]=2"
+  -d "metadata[ai_overage_rate]=4"
 
 stripe prices update "$STRIPE_PRICE_AGENCY" \
   -d "metadata[ai_monthly_budget_gbp]=100" \
   -d "metadata[saved_search_limit]=20" \
-  -d "metadata[ai_overage_rate]=2"
+  -d "metadata[ai_overage_rate]=4"
 ```
 
 **PLOTT sandbox (test) — example price ids** (from Dashboard with Test mode on; your account may differ — use `STRIPE_PRICE_*` in `.env` or the ids from **Product catalogue**):

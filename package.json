@@ -23,8 +23,11 @@
     "wipe": "tsx scripts/wipe-tenancy.ts",
     "stripe:verify": "bash scripts/verify-stripe-account.sh",
     "stripe:ensure-prices": "tsx scripts/ensure-stripe-prices.ts",
+    "stripe:ensure-app-webhook": "tsx scripts/ensure-stripe-app-webhook.ts",
+    "stripe:ensure-ai-meter": "tsx scripts/ensure-stripe-ai-meter.ts",
     "stripe:ensure-klaviyo-webhook": "tsx scripts/ensure-klaviyo-stripe-webhook.ts",
-    "stripe:create-products": "tsx scripts/create-stripe-products.ts"
+    "stripe:create-products": "tsx scripts/create-stripe-products.ts",
+    "stripe:migrate-account": "npm run stripe:verify && npm run stripe:create-products && npm run stripe:ensure-prices -- --fix && npm run stripe:ensure-ai-meter && npm run stripe:ensure-app-webhook && npm run stripe:ensure-klaviyo-webhook"
   },
   "dependencies": {
     "@googlemaps/js-api-loader": "^2.0.2",

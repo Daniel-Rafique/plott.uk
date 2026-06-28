@@ -88,6 +88,16 @@ async function main() {
       );
     }
 
+    if (price.unit_amount !== tier.amountPence) {
+      const msg = `${tier.label} ${priceId} unit_amount=${price.unit_amount ?? "null"} — expected ${tier.amountPence} (${tier.label} catalog). Create a new price_* at the correct amount and update ${tier.envVar}.`;
+      console.error(msg);
+      hasError = true;
+    } else {
+      console.log(
+        `OK ${tier.label} ${priceId} — unit_amount ${tier.amountPence} pence.`,
+      );
+    }
+
     const merged = mergeMetadata(price);
     const diff = needsUpdate(merged, tier.metadata);
     if (diff.length === 0) {

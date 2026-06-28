@@ -11,7 +11,7 @@
  *   agency  → everything in pro + autonomous outreach pipeline
  *
  * Monthly budget caps define the included AI allowance per plan. Usage beyond
- * the cap is metered via Stripe and invoiced at `ai_overage_rate` (default 2x)
+ * the cap is metered via Stripe and invoiced at `ai_overage_rate` (default 4x)
  * at the end of the billing cycle. Users are never blocked for budget
  * exhaustion — only the daily safety guard (guardrails.ts) can stop a run.
  */

@@ -8,6 +8,46 @@ Use this doc when creating a **new** Stripe account or switching Plott to differ
 
 **Check price ids + metadata** (AI budget, saved-search limits, overage multiplier): `npx tsx scripts/ensure-stripe-prices.ts` — add `--fix` to apply the values from [stripe-pricing.md](./stripe-pricing.md).
 
+
+## One-command migration (VYCEVERSA org / new account)
+
+Products and prices are **not portable** between Stripe accounts. After pointing `STRIPE_SECRET_KEY` at the new PLOTT account under VYCEVERSA LTD:
+
+```bash
+stripe login   # select the new PLOTT account
+# Update STRIPE_SECRET_KEY + NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY in .env.local
+
+npm run stripe:migrate-account
+```
+
+This runs, in order: `stripe:verify` → `stripe:create-products` → `stripe:ensure-prices -- --fix` → `stripe:ensure-ai-meter` → `stripe:ensure-app-webhook` → `stripe:ensure-klaviyo-webhook`.
+
+Then:
+
+1. Paste printed `STRIPE_PRICE_*` / `STRIPE_PRICE_AI_OVERAGE` / `STRIPE_WEBHOOK_SECRET` (if a new webhook was created) into **Vercel** and redeploy.
+2. Reset app DB Stripe links: `npx tsx scripts/wipe-tenancy.ts --yes --stripe` (see [onboarding-runbook §4](./onboarding-runbook.md#4-end-to-end-retest-from-a-clean-slate-including-after-a-stripe-account-migration)).
+3. Smoke test: sign up → subscribe → confirm plan activates (webhook or `POST /api/stripe/sync-checkout`).
+
+Individual steps (if you already have products on the account):
+
+| Step | Command |
+| --- | --- |
+| App webhook (subscription events) | `npm run stripe:ensure-app-webhook` |
+| AI overage meter + price | `npm run stripe:ensure-ai-meter` |
+| Klaviyo webhook | `npm run stripe:ensure-klaviyo-webhook` |
+
+## 8. Live mode (production billing)
+
+Repeat the migration with **live** keys once KYC is complete on the new account:
+
+1. Dashboard → turn **Test mode** off → copy live `sk_live_` / `pk_live_`.
+2. `stripe login` with live access (or pass `--api-key` to scripts).
+3. `npm run stripe:migrate-account` using the live secret key.
+4. Set **live** `STRIPE_PRICE_*`, `STRIPE_PRICE_AI_OVERAGE`, and `STRIPE_WEBHOOK_SECRET` on Vercel **Production** only.
+5. Redeploy production.
+
+Test-mode price ids never work with `sk_live_`.
+
 ## 1. API keys
 
 In [Dashboard → Developers → API keys](https://dashboard.stripe.com/apikeys), copy:
@@ -21,7 +61,7 @@ Test and live keys are different; keep each deployment on one mode only.
 
 ## 2. Products and prices
 
-1. **Create catalog + metadata (recommended):** `npm run stripe:create-products` (requires `STRIPE_SECRET_KEY`). It creates the three Plott products, monthly **GBP** prices (£29 / £79 / £199), and sets Price metadata. Copy the output into `.env.local`.
+1. **Create catalog + metadata (recommended):** `npm run stripe:create-products` (requires `STRIPE_SECRET_KEY`). It creates the three Plott products, monthly **GBP** prices (£99 / £199 / £299), and sets Price metadata. Copy the output into `.env.local`.
 2. **Or** create three monthly subscription prices manually in the Dashboard and set env vars to the new `price_...` IDs; then `npm run stripe:ensure-prices -- --fix` to align metadata.
 3. Set these env vars to the new `price_...` IDs (printed by `create-products` or copied from the Dashboard):
 
@@ -61,7 +101,7 @@ For Klaviyo billing lifecycle automation, add a **second** Stripe webhook endpoi
 | Variable | Purpose |
 | --- | --- |
 | `STRIPE_AUTOMATIC_TAX` | Set to `true` if [Stripe Tax](https://stripe.com/tax) is enabled ([checkout](../src/app/api/stripe/checkout/route.ts)). |
-| `STRIPE_TRIAL_DAYS` | Trial length for new subscriptions; default **14** if unset. |
+| `STRIPE_TRIAL_DAYS` | Trial length for new subscriptions; default **3** if unset. |
 | `NEXT_PUBLIC_APP_URL` | Must match the site URL used for Checkout success/cancel redirects. |
 
 ## 5. App-set metadata (do not set manually in Dashboard for normal flow)

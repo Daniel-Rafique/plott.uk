@@ -230,7 +230,7 @@ export async function POST(req: Request) {
   }
 
   const automaticTax = process.env.STRIPE_AUTOMATIC_TAX === "true";
-  const trialDays = Number(process.env.STRIPE_TRIAL_DAYS ?? "14");
+  const trialDays = Number(process.env.STRIPE_TRIAL_DAYS ?? "3");
   const trialPeriodDays =
     shouldOfferStripeIntroTrial(ctx.company) &&
     Number.isFinite(trialDays) &&
@@ -243,13 +243,21 @@ export async function POST(req: Request) {
   const idempotencyBucket = Math.floor(Date.now() / 60_000);
   const idempotencyKey = `checkout-${ctx.company.id}-${priceId}-${idempotencyBucket}`;
 
+  const overagePriceId = process.env.STRIPE_PRICE_AI_OVERAGE?.trim();
+  const lineItems: Array<{ price: string; quantity?: number }> = [
+    { price: priceId, quantity: 1 },
+  ];
+  if (overagePriceId?.startsWith("price_")) {
+    lineItems.push({ price: overagePriceId });
+  }
+
   let session: Stripe.Checkout.Session;
   try {
     session = await stripe.checkout.sessions.create(
       {
         mode: "subscription",
         customer: customerId,
-        line_items: [{ price: priceId, quantity: 1 }],
+        line_items: lineItems,
         // Land back on /subscribe — it detects `?checkout=success` and shows
         // an activating spinner while the webhook catches up, then redirects
         // forward to /app/dashboard once resolveStage() sees the subscription.
