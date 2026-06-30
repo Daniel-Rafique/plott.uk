@@ -50,7 +50,7 @@ export function AgentRunsDashboard({
   }
 
   return (
-    <div className="space-y-8">
+    <div className="min-w-0 max-w-full space-y-8">
       <header className="border-b border-zinc-200/80 pb-8">
         {scope === "company" ? (
           <Link
@@ -126,7 +126,7 @@ export function AgentRunsDashboard({
                     {new Date(r.createdAt).toLocaleString("en-GB")}
                   </span>
                 </div>
-                <p className="mt-2 text-sm leading-relaxed text-red-900/90">
+                <p className="mt-2 break-all text-sm leading-relaxed text-red-900/90">
                   {r.errorMessage ?? "(no error message recorded)"}
                 </p>
               </li>
@@ -199,14 +199,14 @@ export function AgentRunsDashboard({
         </div>
       </section>
 
-      <section className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm">
+      <section className="min-w-0 overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm">
         <div className="editorial-hairline border-b border-zinc-100 px-5 py-3">
           <h2 className="text-sm font-semibold text-zinc-900">
             Run log (newest first)
           </h2>
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[720px] text-left text-xs">
+        <div className="-mx-px overflow-x-auto">
+          <table className="w-full min-w-[640px] text-left text-xs">
             <thead className="sticky top-0 bg-zinc-50/95 text-[11px] uppercase tracking-wider text-zinc-500 backdrop-blur-sm">
               <tr>
                 <th className="px-4 py-2.5">When</th>
@@ -247,7 +247,7 @@ export function AgentRunsDashboard({
                         {r.kind}
                       </Link>
                     </td>
-                    <td className="px-4 py-2.5 font-mono text-[11px] text-zinc-500">
+                    <td className="max-w-[8rem] truncate px-4 py-2.5 font-mono text-[11px] text-zinc-500">
                       {r.model}
                     </td>
                     <td className="px-4 py-2.5">
@@ -270,7 +270,7 @@ export function AgentRunsDashboard({
                         </Link>
                       </td>
                     ) : null}
-                    <td className="px-4 py-2.5 text-zinc-600">
+                    <td className="max-w-[10rem] truncate px-4 py-2.5 text-zinc-600">
                       {r.user?.email ?? "—"}
                     </td>
                     <td className="px-4 py-2.5 text-right tabular-nums text-zinc-700">

@@ -10,13 +10,31 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { runObject } from "@/lib/ai/runtime";
 
-const schema = z.object({
-  fit: z.boolean(),
-  score: z.number().min(0).max(1),
-  reason: z.string().min(4).max(400),
+const icpClassifierRawSchema = z.object({
+  fit: z.union([z.boolean(), z.string()]),
+  score: z.union([z.number(), z.string()]),
+  reason: z.string(),
 });
 
-export type IcpClassification = z.infer<typeof schema>;
+export type IcpClassification = {
+  fit: boolean;
+  score: number;
+  reason: string;
+};
+
+function normalizeIcpClassification(
+  raw: z.infer<typeof icpClassifierRawSchema>,
+): IcpClassification {
+  const fit =
+    typeof raw.fit === "boolean"
+      ? raw.fit
+      : String(raw.fit).toLowerCase() === "true";
+  const score = Math.min(1, Math.max(0, Number(raw.score) || 0));
+  let reason = raw.reason.trim();
+  if (reason.length < 4) reason = reason.padEnd(4, ".");
+  if (reason.length > 400) reason = reason.slice(0, 400);
+  return { fit, score, reason };
+}
 
 export async function classifyIcpFit(args: {
   ctx: { companyId: string; userId?: string };
@@ -70,10 +88,10 @@ Return JSON only.`;
       ctx: args.ctx,
       system,
       prompt,
-      schema,
+      schema: icpClassifierRawSchema,
       traceName: `icp-classify ref=${args.candidate.reference}`,
     });
-    return result.data;
+    return normalizeIcpClassification(result.data);
   } catch {
     // Fall back to letting the human decide rather than dropping silently.
     return { fit: true, score: 0.3, reason: "Classifier unavailable — deferring to human review." };

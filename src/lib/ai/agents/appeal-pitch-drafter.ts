@@ -16,11 +16,14 @@ import type {
 } from "./appeal-classifier";
 import { APPEAL_GROUND_LABELS } from "./appeal-classifier";
 
-const outputSchema = z.object({
+const appealPitchAgentOutputSchema = z.object({
   subject: z.string().min(3).max(140),
   letterBodyHtml: z.string().min(40),
   emailSubject: z.string().min(3).max(140).optional(),
   emailBodyHtml: z.string().min(40).optional(),
+});
+
+const outputSchema = appealPitchAgentOutputSchema.extend({
   recipient: z.object({
     name: z.string(),
     addressLines: z.string(),
@@ -29,6 +32,21 @@ const outputSchema = z.object({
 });
 
 export type AppealPitchDraft = z.infer<typeof outputSchema> & { runId: string };
+
+function finalizeAppealPitchDraft(
+  agent: z.infer<typeof appealPitchAgentOutputSchema>,
+  recipientName: string,
+  recipientAddress: string,
+): z.infer<typeof outputSchema> {
+  return {
+    ...agent,
+    recipient: {
+      name: recipientName,
+      addressLines: recipientAddress || "Address not available",
+    },
+    legalBasis: "legitimate_interest",
+  };
+}
 
 function describeGrounds(grounds: AppealGround[]): string {
   if (grounds.length === 0) return "(no specific grounds identified)";
@@ -85,7 +103,8 @@ Email rules (when required):
 General:
 1. Call branding tool once.
 2. Empathetic tone — refusal is a setback.
-3. JSON only at the end. HTML: <p>, <strong>, <br/> only.`;
+3. JSON only at the end. Keys: subject, letterBodyHtml, and when email is required also emailSubject and emailBodyHtml. Do NOT include recipient or legalBasis.
+4. Escape double quotes inside HTML strings so the JSON is valid. HTML: <p>, <strong>, <br/> only.`;
 
   const emailBlock = draftEmail
     ? `\nRecipient email available — include emailSubject and emailBodyHtml.`
@@ -115,9 +134,12 @@ Call the branding tool once, then draft. Output JSON only at the end.`;
     system,
     prompt,
     tools: draftingToolSet(args.ctx.companyId),
-    outputSchema,
+    outputSchema: appealPitchAgentOutputSchema,
     maxSteps: 4,
     traceName: `appeal-pitch ref=${args.reference}`,
   });
-  return { ...res.data, runId: res.runId };
+  return {
+    ...finalizeAppealPitchDraft(res.data, recipientName, recipientAddress),
+    runId: res.runId,
+  };
 }

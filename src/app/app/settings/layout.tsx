@@ -27,7 +27,7 @@ export default function SettingsLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="mx-auto grid w-full max-w-6xl flex-1 gap-8 px-6 py-10 md:grid-cols-[220px_1fr] overflow-auto">
+    <div className="mx-auto grid w-full min-w-0 max-w-6xl flex-1 gap-8 overflow-x-hidden overflow-y-auto px-6 py-10 md:grid-cols-[220px_minmax(0,1fr)]">
       <aside className="self-start">
         <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-zinc-500">
           Workspace settings
@@ -45,7 +45,7 @@ export default function SettingsLayout({
           ))}
         </nav>
       </aside>
-      <section>{children}</section>
+      <section className="min-w-0">{children}</section>
     </div>
   );
 }

@@ -9,11 +9,14 @@ import { draftingToolSet } from "@/lib/ai/tools";
 import type { EnrichedApplication } from "./enrichment-agent";
 import type { OutreachContact } from "@/lib/outreach-contact";
 
-export const outreachDraftOutputSchema = z.object({
+export const outreachDraftAgentOutputSchema = z.object({
   subject: z.string().min(3).max(140),
   letterBodyHtml: z.string().min(40),
   emailSubject: z.string().min(3).max(140).optional(),
   emailBodyHtml: z.string().min(40).optional(),
+});
+
+export const outreachDraftOutputSchema = outreachDraftAgentOutputSchema.extend({
   recipient: z.object({
     name: z.string(),
     addressLines: z.string(),
@@ -24,6 +27,21 @@ export const outreachDraftOutputSchema = z.object({
 export type OutreachDraft = z.infer<typeof outreachDraftOutputSchema> & {
   runId: string;
 };
+
+function finalizeOutreachDraft(
+  agent: z.infer<typeof outreachDraftAgentOutputSchema>,
+  recipientName: string,
+  recipientAddress: string,
+): z.infer<typeof outreachDraftOutputSchema> {
+  return {
+    ...agent,
+    recipient: {
+      name: recipientName,
+      addressLines: recipientAddress || "Address not available",
+    },
+    legalBasis: "legitimate_interest",
+  };
+}
 
 function hasRecipientEmail(
   contact: OutreachContact,
@@ -74,7 +92,8 @@ General:
 2. Do NOT invent services the company doesn't advertise.
 3. Reference the specific site and application number.
 4. Do NOT imply an existing relationship with the recipient.
-5. Return JSON matching the schema only — no prose outside JSON.`;
+5. Return JSON only — keys: subject, letterBodyHtml, and when email is required also emailSubject and emailBodyHtml. Do NOT include recipient or legalBasis (added server-side).
+6. Escape double quotes inside HTML strings so the JSON is valid.`;
 
   const emailBlock = draftEmail
     ? `\nA recipient email is available — you MUST include emailSubject and emailBodyHtml.`
@@ -102,9 +121,12 @@ Call the branding tool once, then draft. Output JSON only at the end.`;
     system,
     prompt,
     tools: draftingToolSet(args.ctx.companyId),
-    outputSchema: outreachDraftOutputSchema,
+    outputSchema: outreachDraftAgentOutputSchema,
     maxSteps: 4,
     traceName: `outreach-draft ref=${args.reference}`,
   });
-  return { ...res.data, runId: res.runId };
+  return {
+    ...finalizeOutreachDraft(res.data, recipientName, recipientAddress),
+    runId: res.runId,
+  };
 }

@@ -1,8 +1,23 @@
 import { describe, expect, it } from "vitest";
-import { outreachDraftOutputSchema } from "@/lib/ai/agents/outreach-drafter";
+import {
+  outreachDraftAgentOutputSchema,
+  outreachDraftOutputSchema,
+} from "@/lib/ai/agents/outreach-drafter";
 
 describe("outreach drafter schema", () => {
-  it("accepts dual-channel fields when email is present", () => {
+  it("accepts agent output without recipient or legalBasis", () => {
+    const parsed = outreachDraftAgentOutputSchema.safeParse({
+      subject: "Planning support for your application",
+      letterBodyHtml:
+        "<p>We specialise in planning-led construction near your site.</p><p>Reply remove to opt out.</p>",
+      emailSubject: "Quick question about 24/01234/FUL",
+      emailBodyHtml:
+        "<p>Hi — we noticed your planning application and may be able to help.</p><p>Reply remove to opt out.</p>",
+    });
+    expect(parsed.success).toBe(true);
+  });
+
+  it("accepts full stored draft with server-side recipient fields", () => {
     const parsed = outreachDraftOutputSchema.safeParse({
       subject: "Planning support for your application",
       letterBodyHtml:
