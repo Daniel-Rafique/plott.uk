@@ -1,8 +1,8 @@
-import Link from "next/link";
 import { privatePageMetadata } from "@/lib/seo";
 import { SignInForm } from "./sign-in-form";
 import { AuthMarketingShell } from "@/components/auth/auth-marketing-shell";
 import { AuthPageAnalytics } from "@/components/auth/auth-page-analytics";
+import { AuthTransitionLink } from "@/components/auth/auth-transition-link";
 
 export const metadata = privatePageMetadata({
   title: "Sign in",
@@ -71,21 +71,23 @@ export default async function AuthSignInPage({
         footer={
           <div className="flex flex-col items-center gap-4">
             {!isInvite ? (
-              <Link
+              <AuthTransitionLink
                 href={signUpHref}
+                direction="signup"
                 className="inline-flex w-full items-center justify-center rounded-full border border-zinc-300 bg-white px-6 py-3 text-sm font-semibold text-zinc-900 transition hover:border-zinc-900"
               >
                 Start free trial
-              </Link>
+              </AuthTransitionLink>
             ) : null}
             <p className="text-center text-sm text-zinc-500">
               {isInvite ? "New to Plott?" : "Don't have an account?"}{" "}
-              <Link
+              <AuthTransitionLink
                 href={signUpHref}
+                direction="signup"
                 className="font-medium text-zinc-900 underline underline-offset-2 hover:text-zinc-700"
               >
                 {isInvite ? "Create an account" : "Sign up free"}
-              </Link>
+              </AuthTransitionLink>
             </p>
           </div>
         }

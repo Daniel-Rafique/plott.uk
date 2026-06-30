@@ -1,8 +1,8 @@
 import Image from "next/image";
-import Link from "next/link";
 import { ArrowRight, Map, Mail, Users } from "lucide-react";
 import { HOME_CHAPTERS } from "@/lib/marketing/images";
 import { AuthTrustStrip } from "@/components/auth/auth-trust-strip";
+import { AuthTransitionLink } from "@/components/auth/auth-transition-link";
 
 const BENEFITS = [
   {
@@ -126,13 +126,14 @@ export function AuthBenefitsPanel({
               Start a free trial — map applications, enrich contacts and send
               outreach in minutes.
             </p>
-            <Link
+            <AuthTransitionLink
               href={signUpHref}
+              direction="signup"
               className="mt-4 inline-flex items-center gap-2 rounded-full bg-white/90 px-5 py-2.5 text-[13px] font-semibold text-zinc-900 transition hover:bg-white"
             >
               Start free trial
               <ArrowRight className="h-3.5 w-3.5" aria-hidden />
-            </Link>
+            </AuthTransitionLink>
           </div>
         ) : null}
 

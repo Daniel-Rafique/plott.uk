@@ -1,9 +1,9 @@
-import Link from "next/link";
 import { privatePageMetadata } from "@/lib/seo";
 import { SignUpForm } from "./sign-up-form";
 import { AuthMarketingShell } from "@/components/auth/auth-marketing-shell";
 import { AuthFunnelStep } from "@/components/auth/auth-funnel-step";
 import { AuthPageAnalytics } from "@/components/auth/auth-page-analytics";
+import { AuthTransitionLink } from "@/components/auth/auth-transition-link";
 import { freeTrialEyebrow } from "@/lib/trial";
 
 export const metadata = privatePageMetadata({
@@ -78,12 +78,13 @@ export default async function AuthSignUpPage({
         footer={
           <p className="text-center text-sm text-zinc-500">
             Already have an account?{" "}
-            <Link
+            <AuthTransitionLink
               href={signInHref}
+              direction="signin"
               className="font-medium text-zinc-900 underline underline-offset-2 hover:text-zinc-700"
             >
               Sign in
-            </Link>
+            </AuthTransitionLink>
           </p>
         }
       >
