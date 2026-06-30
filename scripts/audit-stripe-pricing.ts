@@ -53,10 +53,14 @@ async function main() {
   }
 
   const stripe = new Stripe(key, { typescript: true });
-  const account = await stripe.accounts.retrieve();
+  const mode = key.includes("_live_")
+    ? "live"
+    : key.includes("_test_")
+      ? "test"
+      : "unknown";
   findings.push({
     level: "ok",
-    message: `Stripe account: ${account.id} (${account.settings?.dashboard?.display_name ?? "unnamed"})`,
+    message: `Stripe API key loaded (${mode} mode)`,
   });
 
   for (const entry of PLAN_CATALOG) {
