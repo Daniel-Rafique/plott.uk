@@ -1,11 +1,11 @@
 /**
- * Verifies (and optionally sets) Plott’s Stripe Price metadata and env price IDs
- * for the current account. Uses the same values as docs/stripe-pricing.md.
+ * Verifies (and optionally sets) Plott Stripe Price metadata and env price IDs
+ * for the current account. Uses scripts/stripe-plan-catalog.ts.
  *
  *   npx tsx scripts/ensure-stripe-prices.ts           # check only, exit 1 on mismatch
  *   npx tsx scripts/ensure-stripe-prices.ts --fix     # apply missing/wrong metadata
  *
- * Requires STRIPE_SECRET_KEY and STRIPE_PRICE_STARTER|PRO|AGENCY in .env / .env.local
+ * Requires STRIPE_SECRET_KEY and all STRIPE_PRICE_* vars in .env / .env.local
  */
 
 import { config as loadEnv } from "dotenv";
@@ -53,7 +53,7 @@ async function main() {
     const priceId = process.env[tier.envVar]?.trim();
     if (!priceId) {
       console.error(
-        `Missing ${tier.envVar}. Run: npm run stripe:create-products  then paste the price_* lines into .env.local`,
+        `Missing ${tier.envVar}. Run: npm run stripe:create-products then paste the price_* lines into .env.local`,
       );
       hasError = true;
       continue;
@@ -84,17 +84,24 @@ async function main() {
 
     if (price.type !== "recurring") {
       console.warn(
-        `Warning: ${tier.label} price ${priceId} is not recurring (type=${price.type}). Plott expects monthly subscription prices.`,
+        `Warning: ${tier.label} (${tier.interval}) price ${priceId} is not recurring (type=${price.type}).`,
       );
     }
 
+    if (price.recurring?.interval !== tier.interval) {
+      console.error(
+        `${tier.label} ${priceId} recurring.interval=${price.recurring?.interval ?? "null"} — expected ${tier.interval}.`,
+      );
+      hasError = true;
+    }
+
     if (price.unit_amount !== tier.amountPence) {
-      const msg = `${tier.label} ${priceId} unit_amount=${price.unit_amount ?? "null"} — expected ${tier.amountPence} (${tier.label} catalog). Create a new price_* at the correct amount and update ${tier.envVar}.`;
+      const msg = `${tier.label} (${tier.interval}) ${priceId} unit_amount=${price.unit_amount ?? "null"} — expected ${tier.amountPence}. Create a new price_* at the correct amount and update ${tier.envVar}.`;
       console.error(msg);
       hasError = true;
     } else {
       console.log(
-        `OK ${tier.label} ${priceId} — unit_amount ${tier.amountPence} pence.`,
+        `OK ${tier.label} (${tier.interval}) ${priceId} — unit_amount ${tier.amountPence} pence.`,
       );
     }
 
@@ -102,13 +109,13 @@ async function main() {
     const diff = needsUpdate(merged, tier.metadata);
     if (diff.length === 0) {
       console.log(
-        `OK ${tier.label} ${priceId} — metadata matches (ai budget / saved search / overage rate).`,
+        `OK ${tier.label} (${tier.interval}) ${priceId} — metadata matches.`,
       );
       continue;
     }
 
     console.log(
-      `${fix ? "Updating" : "MISMATCH"} ${tier.label} ${priceId} — keys: ${diff.join(", ")}`,
+      `${fix ? "Updating" : "MISMATCH"} ${tier.label} (${tier.interval}) ${priceId} — keys: ${diff.join(", ")}`,
     );
     if (!fix) {
       hasError = true;

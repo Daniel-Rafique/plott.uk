@@ -1,6 +1,7 @@
 import type Stripe from "stripe";
 import { prisma } from "@/lib/prisma";
 import { getStripe } from "@/lib/stripe";
+import { licensedPriceId } from "@/lib/stripe/subscription-items";
 import { trySendSubscriptionWelcomeEmail } from "@/lib/subscription-welcome-email";
 
 export function subscriptionPeriodEnd(sub: Stripe.Subscription): Date | null {
@@ -11,11 +12,9 @@ export function subscriptionPeriodEnd(sub: Stripe.Subscription): Date | null {
   return new Date(Math.max(...ends) * 1000);
 }
 
+/** @deprecated Prefer licensedPriceId — subscriptions may include a metered overage item. */
 export function firstPriceId(sub: Stripe.Subscription): string | null {
-  const item = sub.items.data[0];
-  if (!item) return null;
-  if (typeof item.price === "string") return item.price;
-  return item.price?.id ?? null;
+  return licensedPriceId(sub);
 }
 
 function storedSubscriptionStatus(sub: Stripe.Subscription): string {
@@ -39,7 +38,7 @@ export async function applySubscription(
       stripeCustomerId: customerId ?? undefined,
       stripeSubscriptionId: sub.id,
       subscriptionStatus: storedSubscriptionStatus(sub),
-      subscriptionPriceId: firstPriceId(sub) ?? undefined,
+      subscriptionPriceId: licensedPriceId(sub) ?? undefined,
       subscriptionCurrentPeriodEnd: subscriptionPeriodEnd(sub),
       trialEndsAt: sub.trial_end ? new Date(sub.trial_end * 1000) : null,
     },

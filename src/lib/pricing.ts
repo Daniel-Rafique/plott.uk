@@ -1,48 +1,54 @@
 import { getStripe } from "@/lib/stripe";
 import { defaultMonthlyBudgetCapGbp } from "@/lib/ai/tiers";
-import { planForPriceId } from "@/lib/stripe/plan-prices";
+import {
+  billingIntervalForPriceId,
+  planForPriceId,
+  type BillingInterval,
+} from "@/lib/stripe/plan-prices";
 import { hasSubscriptionAccess } from "@/lib/subscription-entitlement";
+
+export type { BillingInterval };
 
 export type Plan = {
   id: "starter" | "pro" | "agency";
+  /** Monthly licensed Stripe price id (checkout default). */
   priceId: string | null;
+  monthlyPriceId: string | null;
+  annualPriceId: string | null;
   name: string;
   tagline: string;
   features: string[];
   highlight?: boolean;
-  /** Human-readable price string e.g. "£49". Null if Stripe is unconfigured. */
+  /** Primary display price (monthly). */
   priceLabel?: string;
+  monthlyPriceLabel?: string;
+  annualPriceLabel?: string;
+  /** e.g. "~£42/mo" when paying annually */
+  annualEffectiveMonthlyLabel?: string;
   interval?: string;
   currency?: string;
-  /** Number of seats included in the base price. */
   seatLimit: number;
-  /** Price in pence for each additional seat beyond seatLimit. Null = no overages allowed (must upgrade). */
   extraSeatPrice: number | null;
-  /** Human-readable extra seat price string e.g. "£25/seat". */
   extraSeatPriceLabel?: string;
-  /** Maximum number of saved searches allowed. 0 = feature not available. */
   savedSearchLimit: number;
-  /** Maximum number of pinned applications allowed. 0 = feature not available. */
   pinnedApplicationLimit: number;
-  /** AI monthly budget in GBP. Merged from Stripe Price and Product metadata. */
   aiBudgetGbp: number;
 };
 
 type PlanDef = Omit<Plan, "features">;
 
-/**
- * Local defaults. `loadPlans()` overwrites `priceLabel`, `aiBudgetGbp`, and
- * `savedSearchLimit` from each Stripe Price (and product metadata) when
- * `STRIPE_SECRET_KEY` and `STRIPE_PRICE_*` are set.
- */
 const PLAN_DEFINITIONS: PlanDef[] = [
   {
     id: "starter",
     priceId: null,
+    monthlyPriceId: null,
+    annualPriceId: null,
     name: "Starter",
     tagline: "For sole traders and small teams getting started.",
-    /** Display fallback only. With Stripe configured, `loadPlans()` overwrites from Price.unit_amount. */
-    priceLabel: "£99",
+    priceLabel: "£49.99",
+    monthlyPriceLabel: "£49.99",
+    annualPriceLabel: "£499.90",
+    annualEffectiveMonthlyLabel: "~£41.66/mo",
     interval: "month",
     currency: "GBP",
     seatLimit: 1,
@@ -54,10 +60,15 @@ const PLAN_DEFINITIONS: PlanDef[] = [
   {
     id: "pro",
     priceId: null,
+    monthlyPriceId: null,
+    annualPriceId: null,
     name: "Pro",
     tagline: "For growing contractors who need an edge.",
     highlight: true,
-    priceLabel: "£199",
+    priceLabel: "£99",
+    monthlyPriceLabel: "£99",
+    annualPriceLabel: "£990",
+    annualEffectiveMonthlyLabel: "~£82.50/mo",
     interval: "month",
     currency: "GBP",
     seatLimit: 3,
@@ -70,9 +81,14 @@ const PLAN_DEFINITIONS: PlanDef[] = [
   {
     id: "agency",
     priceId: null,
+    monthlyPriceId: null,
+    annualPriceId: null,
     name: "Agency",
     tagline: "For multi-office firms and lead generation agencies.",
-    priceLabel: "£299",
+    priceLabel: "£199",
+    monthlyPriceLabel: "£199",
+    annualPriceLabel: "£1,990",
+    annualEffectiveMonthlyLabel: "~£165.83/mo",
     interval: "month",
     currency: "GBP",
     seatLimit: 10,
@@ -84,10 +100,20 @@ const PLAN_DEFINITIONS: PlanDef[] = [
   },
 ];
 
-function planDefWithEnvId(def: PlanDef): PlanDef {
-  const key = `STRIPE_PRICE_${def.id.toUpperCase()}` as const;
-  const priceId = process.env[key] ?? null;
-  return { ...def, priceId };
+function planDefWithEnvIds(def: PlanDef): PlanDef {
+  const monthly =
+    process.env[`STRIPE_PRICE_${def.id.toUpperCase()}` as keyof NodeJS.ProcessEnv] ??
+    null;
+  const annual =
+    process.env[
+      `STRIPE_PRICE_${def.id.toUpperCase()}_ANNUAL` as keyof NodeJS.ProcessEnv
+    ] ?? null;
+  return {
+    ...def,
+    monthlyPriceId: monthly,
+    annualPriceId: annual,
+    priceId: monthly,
+  };
 }
 
 function extraSeatFeatureLine(plan: Plan): string | null {
@@ -116,10 +142,6 @@ function aiBudgetLine(plan: Plan): string {
   return `£${plan.aiBudgetGbp}/month included AI credit. Overage is metered and billed on your next invoice; optional daily cap in Settings → AI.`;
 }
 
-/**
- * Public pricing / checkout feature list. Always reflects `savedSearchLimit`,
- * `aiBudgetGbp`, and seat / extra‑seat data on the `Plan` object.
- */
 export function buildPlanFeatures(plan: Plan): string[] {
   if (plan.id === "starter") {
     return [
@@ -176,11 +198,16 @@ function toPlan(def: PlanDef): Plan {
   return { ...def, features: buildPlanFeatures(def as Plan) };
 }
 
-/**
- * Formats a Stripe Price for the UI. Uses `unit_amount` (or `unit_amount_decimal`
- * as fallback) from the API — that is the billing amount for the price ID.
- */
-function formatPrice(p: import("stripe").Stripe.Price): {
+function formatPriceMinor(minor: number, currency: string): string {
+  const n = minor / 100;
+  return new Intl.NumberFormat("en-GB", {
+    style: "currency",
+    currency: currency.toUpperCase(),
+    maximumFractionDigits: n % 1 === 0 ? 0 : 2,
+  }).format(n);
+}
+
+function formatStripePrice(p: import("stripe").Stripe.Price): {
   priceLabel?: string;
   interval?: string;
   currency?: string;
@@ -193,17 +220,33 @@ function formatPrice(p: import("stripe").Stripe.Price): {
         ? Math.round(parseFloat(String(p.unit_amount_decimal)))
         : null;
   if (minor == null) return {};
-  const n = minor / 100;
-  const fmt = new Intl.NumberFormat("en-GB", {
-    style: "currency",
-    currency: p.currency.toUpperCase(),
-    maximumFractionDigits: n % 1 === 0 ? 0 : 2,
-  });
   return {
-    priceLabel: fmt.format(n),
+    priceLabel: formatPriceMinor(minor, p.currency),
     currency: p.currency.toUpperCase(),
     interval: p.recurring?.interval ?? undefined,
   };
+}
+
+function applyMetadata(
+  def: PlanDef,
+  meta: Record<string, string>,
+): PlanDef {
+  let next = def;
+  if (meta.ai_monthly_budget_gbp) {
+    const n = Number(meta.ai_monthly_budget_gbp);
+    if (!Number.isNaN(n) && n >= 0) next = { ...next, aiBudgetGbp: n };
+  }
+  if (meta.saved_search_limit) {
+    const n = Number(meta.saved_search_limit);
+    if (!Number.isNaN(n) && n >= 0) next = { ...next, savedSearchLimit: n };
+  }
+  if (meta.pinned_application_limit) {
+    const n = Number(meta.pinned_application_limit);
+    if (!Number.isNaN(n) && n >= 0) {
+      next = { ...next, pinnedApplicationLimit: n };
+    }
+  }
+  return next;
 }
 
 function mergeDefsFromStripe(
@@ -211,44 +254,60 @@ function mergeDefsFromStripe(
   byId: Map<string, import("stripe").Stripe.Price>,
 ): PlanDef[] {
   return defs.map((def) => {
-    if (!def.priceId) return def;
-    const price = byId.get(def.priceId);
-    if (!price) return def;
-    const meta = {
-      ...(typeof price.product === "object" && price.product && "metadata" in price.product
-        ? price.product.metadata
-        : {}),
-      ...price.metadata,
-    };
-    const formatted = formatPrice(price);
-    if (!formatted.priceLabel) {
-      console.warn(
-        `Stripe price ${def.priceId} has no unit amount; keeping fallback label for ${def.id}.`,
+    let next = { ...def };
+    const monthly = def.monthlyPriceId ? byId.get(def.monthlyPriceId) : null;
+    const annual = def.annualPriceId ? byId.get(def.annualPriceId) : null;
+
+    if (monthly) {
+      const formatted = formatStripePrice(monthly);
+      const meta = {
+        ...(typeof monthly.product === "object" &&
+        monthly.product &&
+        "metadata" in monthly.product
+          ? monthly.product.metadata
+          : {}),
+        ...monthly.metadata,
+      };
+      next = applyMetadata(
+        {
+          ...next,
+          ...formatted,
+          monthlyPriceLabel: formatted.priceLabel,
+          priceLabel: formatted.priceLabel ?? next.priceLabel,
+        },
+        meta,
       );
     }
-    let next: PlanDef = { ...def, ...formatted };
-    if (meta.ai_monthly_budget_gbp) {
-      const n = Number(meta.ai_monthly_budget_gbp);
-      if (!Number.isNaN(n) && n >= 0) next = { ...next, aiBudgetGbp: n };
-    }
-    if (meta.saved_search_limit) {
-      const n = Number(meta.saved_search_limit);
-      if (!Number.isNaN(n) && n >= 0) next = { ...next, savedSearchLimit: n };
-    }
-    if (meta.pinned_application_limit) {
-      const n = Number(meta.pinned_application_limit);
-      if (!Number.isNaN(n) && n >= 0) {
-        next = { ...next, pinnedApplicationLimit: n };
-      }
+    if (annual) {
+      const formatted = formatStripePrice(annual);
+      const annualMinor = annual.unit_amount ?? 0;
+      const effective = annualMinor > 0 ? annualMinor / 12 / 100 : 0;
+      const effectiveLabel =
+        effective > 0
+          ? `~${new Intl.NumberFormat("en-GB", {
+              style: "currency",
+              currency: (annual.currency ?? "gbp").toUpperCase(),
+              maximumFractionDigits: effective % 1 === 0 ? 0 : 2,
+            }).format(effective)}/mo`
+          : next.annualEffectiveMonthlyLabel;
+      next = {
+        ...next,
+        annualPriceLabel: formatted.priceLabel ?? next.annualPriceLabel,
+        annualEffectiveMonthlyLabel: effectiveLabel,
+      };
     }
     return next;
   });
 }
 
 export async function loadPlans(): Promise<Plan[]> {
-  const defs = PLAN_DEFINITIONS.map(planDefWithEnvId);
-  const anyConfigured = defs.some((p) => p.priceId);
-  if (!anyConfigured) {
+  const defs = PLAN_DEFINITIONS.map(planDefWithEnvIds);
+  const priceIds = [
+    ...defs.map((p) => p.monthlyPriceId),
+    ...defs.map((p) => p.annualPriceId),
+  ].filter(Boolean) as string[];
+
+  if (!priceIds.length) {
     return defs.map((d) => toPlan(d));
   }
 
@@ -261,7 +320,6 @@ export async function loadPlans(): Promise<Plan[]> {
 
   try {
     const stripe = getStripe();
-    const priceIds = defs.map((p) => p.priceId).filter(Boolean) as string[];
     const prices = await Promise.all(
       priceIds.map((id) =>
         stripe.prices.retrieve(id, { expand: ["product"] }).catch(() => null),
@@ -276,13 +334,11 @@ export async function loadPlans(): Promise<Plan[]> {
   }
 }
 
-/**
- * Free tier defaults for users without a paid subscription.
- * Allows 1 seat with no overage option — must upgrade to add team members.
- */
 export const FREE_PLAN: Plan = {
   id: "starter",
   priceId: null,
+  monthlyPriceId: null,
+  annualPriceId: null,
   name: "Free",
   tagline: "Try Plott with limited features.",
   priceLabel: "£0",
@@ -301,28 +357,17 @@ export const FREE_PLAN: Plan = {
   ],
 };
 
-/**
- * Get a plan by its ID (starter, pro, agency). Returns FREE_PLAN if not found.
- * Uses static definition (no live Stripe read); for billing UI, prefer `loadPlans()`.
- */
 export function getPlanById(id: string | null | undefined): Plan {
   if (!id) return FREE_PLAN;
   const def = PLAN_DEFINITIONS.find((p) => p.id === id);
-  return def ? toPlan(planDefWithEnvId(def)) : FREE_PLAN;
+  return def ? toPlan(planDefWithEnvIds(def)) : FREE_PLAN;
 }
 
-/**
- * Get a plan by its Stripe price ID. Returns FREE_PLAN if not found.
- * Uses static definition (no live Stripe read).
- */
 export function getPlanByPriceId(priceId: string | null | undefined): Plan {
   const planId = planForPriceId(priceId ?? undefined);
   return planId ? getPlanById(planId) : FREE_PLAN;
 }
 
-/**
- * Determine the effective plan for a company based on subscription status.
- */
 export function getCompanyPlan(company: {
   subscriptionStatus: string;
   subscriptionPriceId: string | null;
@@ -335,9 +380,12 @@ export function getCompanyPlan(company: {
   return getPlanByPriceId(company.subscriptionPriceId);
 }
 
-/**
- * Get the saved search limit for a company based on its plan.
- */
+export function getCompanyBillingInterval(company: {
+  subscriptionPriceId: string | null;
+}): BillingInterval {
+  return billingIntervalForPriceId(company.subscriptionPriceId ?? undefined) ?? "month";
+}
+
 export function getSavedSearchLimit(company: {
   subscriptionStatus: string;
   subscriptionPriceId: string | null;

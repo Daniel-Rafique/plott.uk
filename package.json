@@ -23,6 +23,8 @@
     "wipe": "tsx scripts/wipe-tenancy.ts",
     "stripe:verify": "bash scripts/verify-stripe-account.sh",
     "stripe:ensure-prices": "tsx scripts/ensure-stripe-prices.ts",
+    "stripe:audit": "tsx scripts/audit-stripe-pricing.ts",
+    "stripe:audit-usage": "tsx scripts/audit-usage-db.ts",
     "stripe:ensure-app-webhook": "tsx scripts/ensure-stripe-app-webhook.ts",
     "stripe:ensure-ai-meter": "tsx scripts/ensure-stripe-ai-meter.ts",
     "stripe:ensure-klaviyo-webhook": "tsx scripts/ensure-klaviyo-stripe-webhook.ts",

@@ -12,14 +12,14 @@ import { PricingContent } from "./pricing-content";
 export const metadata: Metadata = publicPageMetadata({
   title: "Pricing",
   description:
-    "Simple, transparent pricing for Plott. Start from £99/month with a 3-day trial. Cancel any time, VAT may apply.",
+    "Simple, transparent pricing for Plott. Start from £49.99/month with a 3-day trial. Annual billing saves two months. Cancel any time, VAT may apply.",
   path: "/pricing",
   openGraphTitle: "Pricing — Plott",
   openGraphDescription:
-    "Simple, transparent pricing. Start from £99/month with a 3-day trial.",
+    "Simple, transparent pricing. Start from £49.99/month with a 3-day trial.",
   twitterTitle: "Pricing — Plott",
   twitterDescription:
-    "Simple, transparent pricing. Start from £99/month with a 3-day trial.",
+    "Simple, transparent pricing. Start from £49.99/month with a 3-day trial.",
 });
 
 export const revalidate = 3600;

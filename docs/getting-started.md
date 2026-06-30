@@ -174,7 +174,7 @@ Included AI allowance is configured per plan in **Stripe Price metadata** (`ai_m
 |------|--------------------------------|-------------------|
 | Starter | £10 | High-volume NL search / Q&A within allowance |
 | Pro | £25 | Letter assist, research, enrichment within allowance |
-| Agency | £100 | Outreach and agents within allowance |
+| Agency | £75 | Outreach and agents within allowance; overage beyond cap |
 
 ---
 

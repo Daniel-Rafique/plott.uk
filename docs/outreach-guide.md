@@ -1,7 +1,7 @@
 # Autonomous Outreach Pipeline — User Guide
 
 > **Plan Required:** Agency
-> **AI Budget:** Uses your £500/month AI allowance (~£0.03–0.08 per lead)
+> **AI Budget:** Uses your £75/month included AI allowance (~£0.03–0.08 per lead)
 
 ## What Is It?
 
@@ -21,9 +21,9 @@ The Autonomous Outreach Pipeline automatically drafts personalised outreach lett
 | Aspect | Details |
 |--------|---------|
 | **Required plan** | Agency |
-| **Monthly AI budget** | £500 included |
+| **Monthly AI budget** | £75 included |
 | **Cost per lead** | ~£0.03–0.08 (ICP check + enrichment + draft + compliance) |
-| **Leads per £500** | ~6,000–15,000 depending on complexity |
+| **Leads per £75** | ~900–2,500 depending on complexity |
 
 *Note: If you're on Starter or Pro, you'll see the outreach toggle but it will be disabled with an "Upgrade required" message.*
 

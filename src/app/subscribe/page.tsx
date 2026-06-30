@@ -6,7 +6,10 @@ import {
   resolveStage,
 } from "@/lib/auth/onboarding-gate";
 import { privatePageMetadata } from "@/lib/seo";
-import { normalizePlan } from "@/lib/stripe/plan-prices";
+import {
+  normalizeBillingInterval,
+  normalizePlan,
+} from "@/lib/stripe/plan-prices";
 import { shouldOfferStripeIntroTrial } from "@/lib/subscription-entitlement";
 import { SubscribePanel } from "./subscribe-panel";
 import { SubscribeActivating } from "./subscribe-activating";
@@ -33,7 +36,15 @@ export default async function SubscribePage({
       ? sp.session_id
       : null;
   const selectedPlan = normalizePlan(sp.plan);
-  const planNext = selectedPlan ? `/subscribe?plan=${selectedPlan}` : null;
+  const selectedInterval = normalizeBillingInterval(
+    typeof sp.interval === "string" ? sp.interval : undefined,
+  );
+  const planNextParams = new URLSearchParams();
+  if (selectedPlan) planNextParams.set("plan", selectedPlan);
+  if (selectedInterval === "year") planNextParams.set("interval", "year");
+  const planNext = selectedPlan
+    ? `/subscribe?${planNextParams.toString()}`
+    : null;
 
   const resolved = await resolveStage();
   if (resolved.stage !== "needs_plan" && resolved.stage !== "ready") {
@@ -86,6 +97,7 @@ export default async function SubscribePage({
         <SubscribePanel
           companyName={resolved.company.name}
           selectedPlan={selectedPlan}
+          selectedInterval={selectedInterval}
           canStartIntroTrial={canStartIntroTrial}
           isReturningSubscriber={isReturningSubscriber}
         />

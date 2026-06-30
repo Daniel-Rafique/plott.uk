@@ -21,7 +21,7 @@ const FAQ: Item[] = [
   },
   {
     q: "Do you offer annual billing?",
-    a: "Annual plans are available on request with two months free. Email sales@plott.uk and we'll switch your subscription over.",
+    a: "Choose monthly or annual billing at checkout. Annual plans are billed once per year with two months free (pay for 10 months, get 12). AI overage beyond your included monthly credit is still metered month to month.",
   },
   {
     q: "Where does your data come from?",

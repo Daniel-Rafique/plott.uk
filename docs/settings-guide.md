@@ -171,9 +171,9 @@ Manage who has access to your workspace.
 
 | Plan | Price | Included Seats |
 |------|-------|----------------|
-| Starter | £99/month | 1 |
-| Pro | £179/month | 3 |
-| Agency | £299/month | Unlimited |
+| Starter | £49.99/month | 1 |
+| Pro | £99/month | 3 |
+| Agency | £199/month | 10 |
 
 ### Inviting Team Members
 

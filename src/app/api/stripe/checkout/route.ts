@@ -158,7 +158,11 @@ export async function POST(req: Request) {
       );
     }
     try {
-      await updateTrialSubscriptionPlan({ company: ctx.company, plan });
+      await updateTrialSubscriptionPlan({
+        company: ctx.company,
+        plan,
+        interval: body.interval,
+      });
       const origin = process.env.NEXT_PUBLIC_APP_URL ?? "https://plott.uk";
       return NextResponse.json({
         url: `${origin}/app/settings/billing?trial_upgrade=success`,
@@ -191,11 +195,9 @@ export async function POST(req: Request) {
 
   const { priceId, usedEnv } = resolvePriceId(body);
   if (!priceId) {
-    const tierKeys = "STRIPE_PRICE_STARTER, STRIPE_PRICE_PRO, STRIPE_PRICE_AGENCY";
-    const isTierKey =
-      usedEnv === "STRIPE_PRICE_STARTER" ||
-      usedEnv === "STRIPE_PRICE_PRO" ||
-      usedEnv === "STRIPE_PRICE_AGENCY";
+    const tierKeys =
+      "STRIPE_PRICE_STARTER, STRIPE_PRICE_STARTER_ANNUAL, STRIPE_PRICE_PRO, STRIPE_PRICE_PRO_ANNUAL, STRIPE_PRICE_AGENCY, STRIPE_PRICE_AGENCY_ANNUAL";
+    const isTierKey = /^STRIPE_PRICE_(STARTER|PRO|AGENCY)(_ANNUAL)?$/.test(usedEnv);
     return NextResponse.json(
       {
         error: isTierKey
@@ -364,6 +366,7 @@ export async function POST(req: Request) {
           company_name: ctx.company.name,
           plan,
           price_id: priceId,
+          billing_interval: body.interval ?? "month",
           trial_period_days: trialPeriodDays ?? null,
           is_trial_checkout: Boolean(trialPeriodDays),
         },

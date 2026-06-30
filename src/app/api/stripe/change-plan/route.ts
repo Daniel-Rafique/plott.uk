@@ -4,10 +4,19 @@ import { getTenantContext } from "@/lib/tenant";
 import { getStripe } from "@/lib/stripe";
 import { logger } from "@/lib/logger";
 import { sendSubscriptionPlanChangedEmail } from "@/lib/email";
-import { normalizePlan, resolvePlanPriceId } from "@/lib/stripe/plan-prices";
+import {
+  licensedPriceId,
+  licensedSubscriptionItem,
+  overageSubscriptionItem,
+} from "@/lib/stripe/subscription-items";
+import {
+  normalizeBillingInterval,
+  normalizePlan,
+  resolvePlanPriceId,
+  type BillingInterval,
+} from "@/lib/stripe/plan-prices";
 import {
   applySubscription,
-  firstPriceId,
   subscriptionPeriodEnd,
 } from "@/lib/stripe/subscription-state";
 
@@ -22,7 +31,8 @@ function planLabel(plan: string): string {
 }
 
 function subscriptionPrice(sub: Stripe.Subscription): Stripe.Price | null {
-  const price = sub.items.data[0]?.price;
+  const item = licensedSubscriptionItem(sub);
+  const price = item?.price;
   return price && typeof price !== "string" ? price : null;
 }
 
@@ -51,6 +61,14 @@ function includedAiCreditGbp(price: Stripe.Price | null): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
+function isActiveSubscription(sub: Stripe.Subscription, customerId: string): boolean {
+  return (
+    (sub.status === "active" || sub.status === "trialing") &&
+    subscriptionCustomerId(sub) === customerId &&
+    licensedSubscriptionItem(sub) != null
+  );
+}
+
 async function resolveActiveSubscription({
   stripe,
   customerId,
@@ -63,12 +81,7 @@ async function resolveActiveSubscription({
   if (subscriptionId) {
     try {
       const sub = await stripe.subscriptions.retrieve(subscriptionId);
-      if (
-        subscriptionCustomerId(sub) === customerId &&
-        (sub.status === "active" || sub.status === "trialing")
-      ) {
-        return sub;
-      }
+      if (isActiveSubscription(sub, customerId)) return sub;
     } catch (err) {
       logger.warn(
         { err, customerId, subscriptionId },
@@ -83,12 +96,37 @@ async function resolveActiveSubscription({
     limit: 20,
   });
   return (
-    subscriptions.data.find(
-      (sub) =>
-        (sub.status === "active" || sub.status === "trialing") &&
-        sub.items.data.length === 1,
-    ) ?? null
+    subscriptions.data.find((sub) => isActiveSubscription(sub, customerId)) ?? null
   );
+}
+
+function buildSubscriptionUpdateItems(
+  current: Stripe.Subscription,
+  nextLicensedPriceId: string,
+): Stripe.SubscriptionUpdateParams.Item[] {
+  const licensed = licensedSubscriptionItem(current);
+  const overage = overageSubscriptionItem(current);
+  const items: Stripe.SubscriptionUpdateParams.Item[] = [];
+  if (licensed) {
+    items.push({
+      id: licensed.id,
+      price: nextLicensedPriceId,
+      quantity: licensed.quantity ?? 1,
+    });
+  } else {
+    items.push({ price: nextLicensedPriceId, quantity: 1 });
+  }
+  if (overage) {
+    const overagePriceId =
+      typeof overage.price === "string" ? overage.price : overage.price.id;
+    items.push({ id: overage.id, price: overagePriceId });
+  } else {
+    const overageEnv = process.env.STRIPE_PRICE_AI_OVERAGE?.trim();
+    if (overageEnv?.startsWith("price_")) {
+      items.push({ price: overageEnv });
+    }
+  }
+  return items;
 }
 
 export async function POST(req: Request) {
@@ -97,9 +135,9 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  let body: { plan?: unknown } = {};
+  let body: { plan?: unknown; interval?: unknown } = {};
   try {
-    body = (await req.json()) as { plan?: unknown };
+    body = (await req.json()) as { plan?: unknown; interval?: unknown };
   } catch {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
@@ -109,7 +147,9 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Choose a valid plan." }, { status: 400 });
   }
 
-  const { priceId, usedEnv } = resolvePlanPriceId(plan);
+  const interval: BillingInterval = normalizeBillingInterval(body.interval);
+
+  const { priceId, usedEnv } = resolvePlanPriceId(plan, interval);
   if (!priceId) {
     return NextResponse.json(
       {
@@ -141,15 +181,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const currentItem = current.items.data[0];
-    if (!currentItem) {
-      return NextResponse.json(
-        { error: "Subscription has no subscription item to update." },
-        { status: 409 },
-      );
-    }
-
-    if (firstPriceId(current) === priceId) {
+    if (licensedPriceId(current) === priceId) {
       await applySubscription(ctx.company.id, ctx.company.stripeCustomerId, current);
       return NextResponse.json({
         ok: true,
@@ -161,13 +193,7 @@ export async function POST(req: Request) {
     }
 
     const updated = await stripe.subscriptions.update(current.id, {
-      items: [
-        {
-          id: currentItem.id,
-          price: priceId,
-          quantity: currentItem.quantity ?? 1,
-        },
-      ],
+      items: buildSubscriptionUpdateItems(current, priceId),
       metadata: {
         ...current.metadata,
         companyId: ctx.company.id,
@@ -198,7 +224,7 @@ export async function POST(req: Request) {
       ok: true,
       subscriptionId: updated.id,
       status: updated.status,
-      priceId: firstPriceId(updated),
+      priceId: licensedPriceId(updated),
     });
   } catch (err) {
     logger.error(

@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import posthog from "posthog-js";
 import type { PaidPlanId } from "@/lib/stripe/plan-prices";
+import type { BillingInterval } from "@/lib/stripe/plan-prices";
+import { BillingIntervalToggle } from "@/components/pricing/billing-interval-toggle";
 
 type ClientPlan = {
   id: "starter" | "pro" | "agency";
@@ -10,6 +12,11 @@ type ClientPlan = {
   tagline: string;
   features: string[];
   priceLabel: string | null;
+  monthlyPriceLabel?: string | null;
+  annualPriceLabel?: string | null;
+  annualEffectiveMonthlyLabel?: string | null;
+  monthlyPriceId?: string | null;
+  annualPriceId?: string | null;
   interval: string | null;
   highlight: boolean;
 };
@@ -26,8 +33,10 @@ const FALLBACK_PLANS: ClientPlan[] = [
       "AI natural-language search",
       "Saved searches and tracking on Pro",
     ],
-    priceLabel: null,
-    interval: null,
+    priceLabel: "£49.99",
+    monthlyPriceLabel: "£49.99",
+    annualPriceLabel: "£499.90",
+    interval: "month",
     highlight: false,
   },
   {
@@ -42,8 +51,10 @@ const FALLBACK_PLANS: ClientPlan[] = [
       "Branded PDF letters + e-signature",
       "AI letter assist & applicant research",
     ],
-    priceLabel: null,
-    interval: null,
+    priceLabel: "£99",
+    monthlyPriceLabel: "£99",
+    annualPriceLabel: "£990",
+    interval: "month",
     highlight: true,
   },
   {
@@ -57,24 +68,44 @@ const FALLBACK_PLANS: ClientPlan[] = [
       "Autonomous outreach with approvals",
       "Priority support",
     ],
-    priceLabel: null,
-    interval: null,
+    priceLabel: "£199",
+    monthlyPriceLabel: "£199",
+    annualPriceLabel: "£1,990",
+    interval: "month",
     highlight: false,
   },
 ];
 
+function displayPrice(plan: ClientPlan, interval: BillingInterval) {
+  if (interval === "year") {
+    return {
+      label: plan.annualPriceLabel ?? plan.priceLabel,
+      suffix: "year",
+      sub: plan.annualEffectiveMonthlyLabel ?? "2 months free",
+    };
+  }
+  return {
+    label: plan.monthlyPriceLabel ?? plan.priceLabel,
+    suffix: "month",
+    sub: undefined as string | undefined,
+  };
+}
+
 export function SubscribePanel({
   companyName,
   selectedPlan,
+  selectedInterval = "month",
   canStartIntroTrial,
   isReturningSubscriber,
 }: {
   companyName: string;
   selectedPlan?: PaidPlanId | null;
+  selectedInterval?: BillingInterval;
   canStartIntroTrial: boolean;
   isReturningSubscriber: boolean;
 }) {
   const [plans, setPlans] = useState<ClientPlan[]>(FALLBACK_PLANS);
+  const [interval, setInterval] = useState<BillingInterval>(selectedInterval);
   const [loadingPlan, setLoadingPlan] = useState<ClientPlan["id"] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const autoStarted = useRef(false);
@@ -93,52 +124,56 @@ export function SubscribePanel({
     };
   }, []);
 
-  const startCheckout = useCallback(async (plan: ClientPlan["id"]) => {
-    setLoadingPlan(plan);
-    setError(null);
-    posthog.capture("checkout_initiated", {
-      plan,
-      can_start_intro_trial: canStartIntroTrial,
-      is_returning_subscriber: isReturningSubscriber,
-    });
-    try {
-      const res = await fetch("/api/stripe/checkout", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ plan }),
+  const startCheckout = useCallback(
+    async (plan: ClientPlan["id"], billingInterval: BillingInterval = interval) => {
+      setLoadingPlan(plan);
+      setError(null);
+      posthog.capture("checkout_initiated", {
+        plan,
+        billing_interval: billingInterval,
+        can_start_intro_trial: canStartIntroTrial,
+        is_returning_subscriber: isReturningSubscriber,
       });
-      const data = (await res.json().catch(() => ({}))) as {
-        url?: string;
-        error?: string;
-        hint?: string;
-        usedEnv?: string;
-        priceId?: string;
-      };
-      if (!res.ok) {
-        const main = data.error ?? "Could not start checkout";
-        const parts = [main, data.hint].filter(Boolean).join(" ");
-        const extra =
-          data.usedEnv && data.priceId
-            ? ` (env: ${data.usedEnv} → ${data.priceId})`
-            : "";
-        setError(parts + extra);
-        return;
+      try {
+        const res = await fetch("/api/stripe/checkout", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ plan, interval: billingInterval }),
+        });
+        const data = (await res.json().catch(() => ({}))) as {
+          url?: string;
+          error?: string;
+          hint?: string;
+          usedEnv?: string;
+          priceId?: string;
+        };
+        if (!res.ok) {
+          const main = data.error ?? "Could not start checkout";
+          const parts = [main, data.hint].filter(Boolean).join(" ");
+          const extra =
+            data.usedEnv && data.priceId
+              ? ` (env: ${data.usedEnv} → ${data.priceId})`
+              : "";
+          setError(parts + extra);
+          return;
+        }
+        if (data.url) {
+          window.location.assign(data.url);
+          return;
+        }
+        setError("No checkout URL returned");
+      } finally {
+        setLoadingPlan(null);
       }
-      if (data.url) {
-        window.location.assign(data.url);
-        return;
-      }
-      setError("No checkout URL returned");
-    } finally {
-      setLoadingPlan(null);
-    }
-  }, []);
+    },
+    [canStartIntroTrial, interval, isReturningSubscriber],
+  );
 
   useEffect(() => {
     if (!selectedPlan || autoStarted.current) return;
     autoStarted.current = true;
-    void startCheckout(selectedPlan);
-  }, [selectedPlan, startCheckout]);
+    void startCheckout(selectedPlan, selectedInterval);
+  }, [selectedPlan, selectedInterval, startCheckout]);
 
   return (
     <div className="w-full max-w-5xl">
@@ -158,6 +193,11 @@ export function SubscribePanel({
             ? "No charge today. Enter your billing details in Stripe and your chosen plan starts billing only after the trial."
             : "Your workspace has already used its free trial. Stripe will restart billing for the plan you choose."}
         </p>
+        {!selectedPlan ? (
+          <div className="mt-6 flex justify-center">
+            <BillingIntervalToggle value={interval} onChange={setInterval} />
+          </div>
+        ) : null}
       </div>
 
       {isReturningSubscriber ? (
@@ -172,16 +212,20 @@ export function SubscribePanel({
       ) : null}
 
       <div className="grid gap-5 md:grid-cols-3">
-        {plans.map((plan) => (
-          <PlanCard
-            key={plan.id}
-            plan={plan}
-            isLoading={loadingPlan === plan.id}
-            disabled={loadingPlan !== null}
-            canStartIntroTrial={canStartIntroTrial}
-            onSelect={() => void startCheckout(plan.id)}
-          />
-        ))}
+        {plans.map((plan) => {
+          const price = displayPrice(plan, interval);
+          return (
+            <PlanCard
+              key={plan.id}
+              plan={plan}
+              price={price}
+              isLoading={loadingPlan === plan.id}
+              disabled={loadingPlan !== null}
+              canStartIntroTrial={canStartIntroTrial}
+              onSelect={() => void startCheckout(plan.id)}
+            />
+          );
+        })}
       </div>
 
       {error ? (
@@ -193,12 +237,14 @@ export function SubscribePanel({
 
 function PlanCard({
   plan,
+  price,
   isLoading,
   disabled,
   canStartIntroTrial,
   onSelect,
 }: {
   plan: ClientPlan;
+  price: { label: string | null; suffix: string; sub?: string };
   isLoading: boolean;
   disabled: boolean;
   canStartIntroTrial: boolean;
@@ -225,15 +271,18 @@ function PlanCard({
       </div>
 
       <div className="mt-6">
-        {plan.priceLabel ? (
-          <div className="flex items-baseline gap-1.5">
-            <span className="text-4xl font-semibold tracking-tight">
-              {plan.priceLabel}
-            </span>
-            {plan.interval ? (
-              <span className="text-sm text-zinc-500">/ {plan.interval}</span>
+        {price.label ? (
+          <>
+            <div className="flex items-baseline gap-1.5">
+              <span className="text-4xl font-semibold tracking-tight">
+                {price.label}
+              </span>
+              <span className="text-sm text-zinc-500">/ {price.suffix}</span>
+            </div>
+            {price.sub ? (
+              <p className="mt-1 text-xs text-emerald-700">{price.sub}</p>
             ) : null}
-          </div>
+          </>
         ) : (
           <p className="text-sm text-zinc-500">Pricing loaded from Stripe</p>
         )}

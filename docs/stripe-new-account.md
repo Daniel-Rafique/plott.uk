@@ -61,15 +61,18 @@ Test and live keys are different; keep each deployment on one mode only.
 
 ## 2. Products and prices
 
-1. **Create catalog + metadata (recommended):** `npm run stripe:create-products` (requires `STRIPE_SECRET_KEY`). It creates the three Plott products, monthly **GBP** prices (£99 / £199 / £299), and sets Price metadata. Copy the output into `.env.local`.
+1. **Create catalog + metadata (recommended):** `npm run stripe:create-products` (requires `STRIPE_SECRET_KEY`). It creates three products, **six** monthly/annual GBP prices, and sets Price metadata. Copy the output into `.env.local` / Vercel.
 2. **Or** create three monthly subscription prices manually in the Dashboard and set env vars to the new `price_...` IDs; then `npm run stripe:ensure-prices -- --fix` to align metadata.
 3. Set these env vars to the new `price_...` IDs (printed by `create-products` or copied from the Dashboard):
 
 | Env variable |
 | --- |
 | `STRIPE_PRICE_STARTER` |
+| `STRIPE_PRICE_STARTER_ANNUAL` |
 | `STRIPE_PRICE_PRO` |
+| `STRIPE_PRICE_PRO_ANNUAL` |
 | `STRIPE_PRICE_AGENCY` |
+| `STRIPE_PRICE_AGENCY_ANNUAL` |
 
 4. Price [metadata](./stripe-pricing.md) is set automatically by `create-products` / `npm run stripe:ensure-prices -- --fix`. For manual CLI updates, see [README](../README.md) and [stripe-pricing.md](./stripe-pricing.md).
 

@@ -94,7 +94,7 @@ npm run dev                  # http://localhost:3000
      -d "metadata[ai_overage_rate]=4"
 
    stripe prices update "$STRIPE_PRICE_AGENCY" \
-     -d "metadata[ai_monthly_budget_gbp]=100" \
+     -d "metadata[ai_monthly_budget_gbp]=75" \
      -d "metadata[saved_search_limit]=20" \
      -d "metadata[ai_overage_rate]=4"
    ```

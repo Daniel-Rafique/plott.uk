@@ -63,7 +63,14 @@ async function loadStripeMetadata(): Promise<Map<string, StripeMetadataOverrides
       const { getStripe } = await import("@/lib/stripe");
       const stripe = getStripe();
       const priceIds = (
-        ["STRIPE_PRICE_STARTER", "STRIPE_PRICE_PRO", "STRIPE_PRICE_AGENCY"] as const
+        [
+          "STRIPE_PRICE_STARTER",
+          "STRIPE_PRICE_STARTER_ANNUAL",
+          "STRIPE_PRICE_PRO",
+          "STRIPE_PRICE_PRO_ANNUAL",
+          "STRIPE_PRICE_AGENCY",
+          "STRIPE_PRICE_AGENCY_ANNUAL",
+        ] as const
       )
         .map((k) => process.env[k])
         .filter((v): v is string => Boolean(v));
@@ -157,19 +164,19 @@ const TIERS: Record<Tier, TierDef> = {
     id: "starter",
     label: "Starter",
     allowedKinds: STARTER_KINDS,
-    monthlyBudgetCapGbp: 25,
+    monthlyBudgetCapGbp: 10,
   },
   pro: {
     id: "pro",
     label: "Pro",
     allowedKinds: PRO_KINDS,
-    monthlyBudgetCapGbp: 100,
+    monthlyBudgetCapGbp: 25,
   },
   agency: {
     id: "agency",
     label: "Agency",
     allowedKinds: AGENCY_KINDS,
-    monthlyBudgetCapGbp: 500,
+    monthlyBudgetCapGbp: 75,
   },
 };
 

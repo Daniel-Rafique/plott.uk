@@ -1,67 +1,85 @@
 # Stripe pricing, metadata, and AI metered overage
 
-Operational reference for configuring **subscription prices**, **Price metadata** (read by the app for AI budgets and saved-search limits), and **metered billing** for AI usage beyond the included monthly allowance.
+Operational reference for configuring **subscription prices** (monthly and annual), **Price metadata**, and **metered billing** for AI usage beyond the included monthly allowance.
+
+Canonical catalog and allowance model: [stripe-pricing-audit.md](./stripe-pricing-audit.md).
+
+## Licensed prices
+
+| Tier | Monthly | Annual (2 months free) |
+|------|---------|------------------------|
+| Starter | £49.99 | £499.90 |
+| Pro | £99 | £990 |
+| Agency | £199 | £1,990 |
 
 The app reads these keys from each plan’s **Stripe Price** metadata (product metadata is merged in `src/lib/ai/tiers.ts` and `src/lib/pricing.ts` when present):
 
 | Metadata key | Purpose |
 | --- | --- |
-| `ai_monthly_budget_gbp` | Included AI allowance in GBP for the billing period (shown in-app; used for overage calculation). |
+| `ai_monthly_budget_gbp` | Included AI allowance in GBP per calendar month (same for monthly and annual prices). |
 | `saved_search_limit` | Max saved searches for the plan (`0` = none). |
-| `ai_overage_rate` | Multiplier applied to **overage** cost before reporting to Stripe (default **4** if unset). Not shown to end users in the billing UI. |
+| `pinned_application_limit` | Max pinned applications (`0` = none). |
+| `auto_outreach` | `true` on Agency only. |
+| `ai_overage_rate` | Multiplier applied to **overage** cost before reporting to Stripe (default **4** if unset). |
 
 Environment variables:
 
 | Variable | Purpose |
 | --- | --- |
-| `STRIPE_PRICE_STARTER` / `STRIPE_PRICE_PRO` / `STRIPE_PRICE_AGENCY` | Monthly licensed prices for each tier. |
-| `STRIPE_PRICE_AI_OVERAGE` | Optional. Metered price ID for AI overage (1 unit = £0.01). Used for documentation and future checkout automation; **meter events** use the meter `event_name`, not this ID directly. |
+| `STRIPE_PRICE_STARTER` / `STRIPE_PRICE_PRO` / `STRIPE_PRICE_AGENCY` | Monthly licensed prices. |
+| `STRIPE_PRICE_STARTER_ANNUAL` / `STRIPE_PRICE_PRO_ANNUAL` / `STRIPE_PRICE_AGENCY_ANNUAL` | Annual licensed prices. |
+| `STRIPE_PRICE_AI_OVERAGE` | Metered price ID for AI overage (1 unit = £0.01). Required on subscriptions for overage to invoice. |
 
 ---
 
 ## Prerequisites
 
 - [Stripe CLI](https://stripe.com/docs/stripe-cli) installed and logged in (`stripe login`).
-- Use **`--live`** for production commands when you mean live mode (default for CLI is often test mode unless you pass `--live`).
+- Use **`--live`** for production commands when you mean live mode.
 
-Replace placeholder IDs with values from **Stripe Dashboard → Product catalogue** or from your `.env` (see below).
+Replace placeholder IDs with values from **Stripe Dashboard → Product catalogue** or from `npm run stripe:create-products`.
 
 ---
 
-## Update plan Price metadata (CLI or script)
-
-**Automated (recommended):** with `STRIPE_SECRET_KEY` and `STRIPE_PRICE_*` in `.env` / `.env.local`, run `npm run stripe:ensure-prices` to verify, or `npm run stripe:ensure-prices -- --fix` to set metadata. Implementation: `scripts/ensure-stripe-prices.ts`.
-
-**Manual** — paste price IDs from the Dashboard or load them from a local env file:
+## Verify and fix (recommended)
 
 ```bash
-set -a && source .env.local && set +a   # or: export STRIPE_PRICE_STARTER=price_...
+npm run stripe:audit
+npm run stripe:ensure-prices          # check only
+npm run stripe:ensure-prices -- --fix # apply metadata from catalog
+npm run stripe:ensure-ai-meter
+```
+
+Implementation: [`scripts/stripe-plan-catalog.ts`](../scripts/stripe-plan-catalog.ts), [`scripts/ensure-stripe-prices.ts`](../scripts/ensure-stripe-prices.ts), [`scripts/audit-stripe-pricing.ts`](../scripts/audit-stripe-pricing.ts).
+
+**Manual metadata** (monthly and annual prices share the same values per tier):
+
+```bash
+set -a && source .env.local && set +a
 
 stripe prices update "$STRIPE_PRICE_STARTER" \
   -d "metadata[ai_monthly_budget_gbp]=10" \
   -d "metadata[saved_search_limit]=0" \
+  -d "metadata[pinned_application_limit]=0" \
   -d "metadata[ai_overage_rate]=4"
 
 stripe prices update "$STRIPE_PRICE_PRO" \
   -d "metadata[ai_monthly_budget_gbp]=25" \
   -d "metadata[saved_search_limit]=5" \
+  -d "metadata[pinned_application_limit]=5" \
   -d "metadata[ai_overage_rate]=4"
 
 stripe prices update "$STRIPE_PRICE_AGENCY" \
-  -d "metadata[ai_monthly_budget_gbp]=100" \
+  -d "metadata[ai_monthly_budget_gbp]=75" \
   -d "metadata[saved_search_limit]=20" \
+  -d "metadata[pinned_application_limit]=20" \
+  -d "metadata[auto_outreach]=true" \
   -d "metadata[ai_overage_rate]=4"
 ```
 
-**PLOTT sandbox (test) — example price ids** (from Dashboard with Test mode on; your account may differ — use `STRIPE_PRICE_*` in `.env` or the ids from **Product catalogue**):
+Repeat the same metadata on each tier’s `STRIPE_PRICE_*_ANNUAL` price id.
 
-| Tier | Example `price_...` (PLOTT test) |
-| --- | --- |
-| Starter | `price_1TQrE0CtRQ4U4oBVnSEUVQ8d` |
-| Pro | `price_1TQrE0CtRQ4U4oBVSZbQxrGe` |
-| Agency | `price_1TQrE1CtRQ4U4oBVPfDTKvRX` |
-
-After changing metadata, the app refreshes cached values on subscription-related webhooks (`invalidateStripeMetaCache`). In dev, restart the server or trigger a webhook if you need picks up immediately.
+After changing metadata, the app refreshes cached values on subscription webhooks (`invalidateStripeMetaCache`).
 
 ---
 

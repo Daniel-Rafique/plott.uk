@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
 import {
+  billingIntervalForPriceId,
   normalizePlan,
   paidPlanNextPath,
   planForPriceId,
@@ -25,6 +26,7 @@ describe("Stripe plan price helpers", () => {
   it("resolves explicit plan prices without falling back to another tier", () => {
     process.env.STRIPE_PRICE_PRO = "price_pro";
     delete process.env.STRIPE_PRICE_AGENCY;
+    delete process.env.STRIPE_PRICE_PRO_ANNUAL;
 
     expect(resolvePlanPriceId("pro")).toEqual({
       priceId: "price_pro",
@@ -36,17 +38,34 @@ describe("Stripe plan price helpers", () => {
     });
   });
 
-  it("maps configured price ids back to plan ids", () => {
+  it("resolves annual plan prices when configured", () => {
+    process.env.STRIPE_PRICE_PRO = "price_pro_month";
+    process.env.STRIPE_PRICE_PRO_ANNUAL = "price_pro_year";
+
+    expect(resolvePlanPriceId("pro", "year")).toEqual({
+      priceId: "price_pro_year",
+      usedEnv: "STRIPE_PRICE_PRO_ANNUAL",
+    });
+  });
+
+  it("maps configured price ids back to plan ids (monthly and annual)", () => {
     process.env.STRIPE_PRICE_STARTER = "price_starter";
     process.env.STRIPE_PRICE_PRO = " price_pro ";
     process.env.STRIPE_PRICE_AGENCY = "price_agency";
+    process.env.STRIPE_PRICE_AGENCY_ANNUAL = "price_agency_year";
 
     expect(planForPriceId("price_pro")).toBe("pro");
+    expect(planForPriceId("price_agency_year")).toBe("agency");
     expect(planForPriceId("price_unknown")).toBeNull();
+    expect(billingIntervalForPriceId("price_agency_year")).toBe("year");
+    expect(billingIntervalForPriceId("price_pro")).toBe("month");
   });
 
-  it("builds a selected-plan subscribe next path", () => {
+  it("builds a selected-plan subscribe next path with interval", () => {
     expect(paidPlanNextPath("agency")).toBe("/subscribe?plan=agency");
+    expect(paidPlanNextPath("agency", "year")).toBe(
+      "/subscribe?plan=agency&interval=year",
+    );
   });
 
   it("does not default checkout price resolution without a selected plan", () => {
@@ -55,6 +74,15 @@ describe("Stripe plan price helpers", () => {
     expect(resolvePriceId({})).toEqual({
       priceId: null,
       usedEnv: "body.plan",
+    });
+  });
+
+  it("resolves checkout body with plan and annual interval", () => {
+    process.env.STRIPE_PRICE_STARTER_ANNUAL = "price_starter_year";
+
+    expect(resolvePriceId({ plan: "starter", interval: "year" })).toEqual({
+      priceId: "price_starter_year",
+      usedEnv: "STRIPE_PRICE_STARTER_ANNUAL",
     });
   });
 
