@@ -116,9 +116,6 @@ export function AiSettingsClient({ initial }: { initial: Initial }) {
   ].filter((line) => line.count > 0);
 
   const { failed: runsFailed, running: runsRunning } = initial.today.runStatus;
-  const runFootnoteParts: string[] = [];
-  if (runsFailed > 0) runFootnoteParts.push(`${runsFailed} failed`);
-  if (runsRunning > 0) runFootnoteParts.push(`${runsRunning} still running`);
 
   async function save() {
     setSaving(true);
@@ -241,9 +238,20 @@ export function AiSettingsClient({ initial }: { initial: Initial }) {
           <p className="mt-3 border-t border-zinc-100 pt-3 text-xs text-zinc-500">
             {initial.today.runs.toLocaleString()} total AI runs (including support
             tasks).{" "}
-            {runFootnoteParts.length > 0
-              ? `${runFootnoteParts.join(" · ")}.`
-              : null}
+            {runsFailed > 0 ? (
+              <>
+                <Link
+                  href="/app/settings/ai/runs?status=failed"
+                  className="font-medium text-brand-dark underline underline-offset-2 hover:text-zinc-900"
+                >
+                  View {runsFailed.toLocaleString()} failed run
+                  {runsFailed === 1 ? "" : "s"} →
+                </Link>
+                {runsRunning > 0 ? ` · ${runsRunning} still running` : ""}.
+              </>
+            ) : runsRunning > 0 ? (
+              `${runsRunning} still running.`
+            ) : null}
           </p>
         </div>
         <div className="rounded-xl border border-zinc-200 bg-white p-4">
