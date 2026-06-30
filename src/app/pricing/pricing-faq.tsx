@@ -4,12 +4,14 @@ import { useState } from "react";
 import { Minus, Plus } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
+import { TRIAL_DAYS, trialNoChargeDuringCopy } from "@/lib/trial";
+
 type Item = { q: string; a: string };
 
 const FAQ: Item[] = [
   {
-    q: "How does the 3-day trial work?",
-    a: "Start any plan from the pricing grid, enter your card details in Stripe Checkout, and you won't be charged for 14 days. Cancel any time from the billing portal with a single click.",
+    q: `How does the ${TRIAL_DAYS}-day trial work?`,
+    a: `Start any plan from the pricing grid, enter your card details in Stripe Checkout, and you won't be charged for ${TRIAL_DAYS} days. Cancel any time from the billing portal with a single click.`,
   },
   {
     q: "Can I switch plans later?",

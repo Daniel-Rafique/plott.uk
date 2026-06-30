@@ -2,9 +2,11 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRef, useState } from "react";
+import { ArrowRight } from "lucide-react";
 import { authClient } from "@/lib/auth/client";
 import posthog from "posthog-js";
+import { trialChargeCopy } from "@/lib/trial";
 
 type ErrorState = { message: string; showSignIn?: boolean } | null;
 
@@ -19,6 +21,13 @@ export function SignUpForm({
   const [error, setError] = useState<ErrorState>(null);
   const [pending, setPending] = useState(false);
   const [googlePending, setGooglePending] = useState(false);
+  const signupStartedRef = useRef(false);
+
+  function captureSignupStarted(source: "google" | "form") {
+    if (signupStartedRef.current) return;
+    signupStartedRef.current = true;
+    posthog.capture("auth_signup_started", { source });
+  }
   const signInParams = new URLSearchParams();
   if (next) signInParams.set("next", next);
   if (defaultEmail) signInParams.set("email", defaultEmail);
@@ -30,6 +39,7 @@ export function SignUpForm({
 
   async function signUpWithGoogle() {
     setError(null);
+    captureSignupStarted("google");
     setGooglePending(true);
     try {
       const res = await authClient.signIn.social({
@@ -56,6 +66,8 @@ export function SignUpForm({
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);
+    captureSignupStarted("form");
+    posthog.capture("auth_signup_cta_clicked");
     setPending(true);
     const form = e.currentTarget;
     const name = (form.elements.namedItem("name") as HTMLInputElement).value;
@@ -139,6 +151,7 @@ export function SignUpForm({
           type="text"
           required
           autoComplete="name"
+          onFocus={() => captureSignupStarted("form")}
           className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm"
         />
       </div>
@@ -191,10 +204,14 @@ export function SignUpForm({
       <button
         type="submit"
         disabled={pending}
-        className="rounded-full bg-zinc-900 py-2.5 text-sm font-semibold text-white transition hover:bg-zinc-800 disabled:opacity-60"
+        className="inline-flex items-center justify-center gap-2 rounded-full bg-zinc-900 py-2.5 text-sm font-semibold text-white transition hover:bg-zinc-800 disabled:opacity-60"
       >
-        {pending ? "Creating account…" : "Create account"}
+        {pending ? "Creating account…" : "Start my free trial"}
+        {!pending ? <ArrowRight className="h-4 w-4" aria-hidden /> : null}
       </button>
+      <p className="text-center text-xs leading-relaxed text-zinc-500">
+        {trialChargeCopy()}
+      </p>
     </form>
   );
 }

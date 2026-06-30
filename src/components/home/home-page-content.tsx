@@ -14,6 +14,7 @@ import { useGsapReveal } from "@/lib/animation/use-gsap-reveal";
 import { StackingSections } from "@/lib/animation/stacking-sections";
 import { authClient } from "@/lib/auth/client";
 import { EmailCapture } from "@/components/marketing/email-capture";
+import { trialChargeCopy } from "@/lib/trial";
 
 const Map3DHero = dynamic(
   () => import("./map3d-hero").then((m) => m.Map3DHero),
@@ -185,7 +186,7 @@ export function HomePageContent({ heroFontClassName }: Props) {
             className="mx-auto mt-6 max-w-xl text-[15px] leading-relaxed text-zinc-600"
           >
             Spin up a workspace, invite your team, and start outreach in under
-            ten minutes. No credit card for the first fourteen days.
+            ten minutes. {trialChargeCopy()}
           </p>
           <div
             data-reveal

@@ -1,7 +1,8 @@
 import Link from "next/link";
-import Image from "next/image";
 import { privatePageMetadata } from "@/lib/seo";
 import { SignInForm } from "./sign-in-form";
+import { AuthMarketingShell } from "@/components/auth/auth-marketing-shell";
+import { AuthPageAnalytics } from "@/components/auth/auth-page-analytics";
 
 export const metadata = privatePageMetadata({
   title: "Sign in",
@@ -45,62 +46,52 @@ export default async function AuthSignInPage({
       : "/auth/sign-up";
 
   return (
-    <div className="flex min-h-screen flex-col bg-zinc-50">
-      <div className="flex flex-1 flex-col items-center justify-center px-4 py-16">
-        <div className="w-full max-w-sm">
-          <Link href="/" className="mb-10 flex justify-center">
-            <Image
-              src="/logo-7.png"
-              alt="Plott"
-              width={120}
-              height={32}
-              className="h-10 w-auto object-contain"
-              priority
-            />
-          </Link>
-          
-          <div className="rounded-2xl border border-zinc-200 bg-white p-8 shadow-sm">
-            {pendingEmailVerification ? (
-              <div className="mb-6 rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
-                <p className="font-medium">Account created — check your email.</p>
-                <p className="mt-1 text-emerald-800/90">
-                  We sent a 6-digit verification code to your email. Enter it
-                  on the verify page, or sign in below once verified.
-                </p>
-              </div>
-            ) : null}
-            <div className="mb-6">
-              <h1 className="text-center font-[family-name:var(--font-display)] text-2xl font-normal tracking-tight text-zinc-950">
-                {isInvite ? "Accept your invitation" : "Welcome back"}
-              </h1>
-              <p className="mt-2 text-center text-sm text-zinc-500">
-                {isInvite
-                  ? "Sign in to join your team on Plott."
-                  : "Sign in to your account to continue."}
+    <>
+      <AuthPageAnalytics event="auth_signin_page_viewed" />
+      <AuthMarketingShell
+        variant="signin"
+        signUpHref={signUpHref}
+        title={isInvite ? "Accept your invitation" : "Welcome back"}
+        subtitle={
+          isInvite
+            ? "Sign in to join your team on Plott."
+            : "Sign in to your account to continue."
+        }
+        banner={
+          pendingEmailVerification ? (
+            <div className="mb-6 rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
+              <p className="font-medium">Account created — check your email.</p>
+              <p className="mt-1 text-emerald-800/90">
+                We sent a 6-digit verification code to your email. Enter it on
+                the verify page, or sign in below once verified.
               </p>
             </div>
-            <SignInForm next={next} defaultEmail={email} />
+          ) : null
+        }
+        footer={
+          <div className="flex flex-col items-center gap-4">
+            {!isInvite ? (
+              <Link
+                href={signUpHref}
+                className="inline-flex w-full items-center justify-center rounded-full border border-zinc-300 bg-white px-6 py-3 text-sm font-semibold text-zinc-900 transition hover:border-zinc-900"
+              >
+                Start free trial
+              </Link>
+            ) : null}
+            <p className="text-center text-sm text-zinc-500">
+              {isInvite ? "New to Plott?" : "Don't have an account?"}{" "}
+              <Link
+                href={signUpHref}
+                className="font-medium text-zinc-900 underline underline-offset-2 hover:text-zinc-700"
+              >
+                {isInvite ? "Create an account" : "Sign up free"}
+              </Link>
+            </p>
           </div>
-          
-          <p className="mt-6 text-center text-sm text-zinc-500">
-            {isInvite ? "New to Plott?" : "Don't have an account?"}{" "}
-            <Link
-              href={signUpHref}
-              className="font-medium text-zinc-900 underline underline-offset-2 hover:text-zinc-700"
-            >
-              {isInvite ? "Create an account" : "Start free trial"}
-            </Link>
-          </p>
-        </div>
-      </div>
-      
-      <footer className="py-6 text-center text-xs text-zinc-400">
-        <Link href="/" className="hover:text-zinc-600">plott.uk</Link>
-        {" · "}
-        <Link href="/privacy" className="hover:text-zinc-600">Privacy</Link>
-        {" · "}
-        <Link href="/terms" className="hover:text-zinc-600">Terms</Link>
-      </footer>
-    </div>
+        }
+      >
+        <SignInForm next={next} defaultEmail={email} />
+      </AuthMarketingShell>
+    </>
   );
 }

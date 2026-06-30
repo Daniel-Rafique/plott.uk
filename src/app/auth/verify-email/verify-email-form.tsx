@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { authClient } from "@/lib/auth/client";
+import posthog from "posthog-js";
 
 const RESEND_COOLDOWN_S = 30;
 
@@ -75,6 +76,9 @@ export function VerifyEmailForm() {
       setPending(false);
       return;
     }
+
+    posthog.capture("email_verified", { email: trimmedEmail });
+
     // After verification the onboarding gate will cascade the user forward
     // (needs_company → /onboarding, needs_plan → /subscribe, etc.). If they
     // arrived here via a `?next=` deep link (e.g. /invites/<token>), jump
