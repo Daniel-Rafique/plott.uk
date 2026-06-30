@@ -4,6 +4,11 @@ import { runComplianceGuardrail } from "@/lib/ai/agents/compliance";
 import { logger } from "@/lib/logger";
 import { isBodyOnlyHtml } from "@/lib/letter-renderer";
 import { sanitizeHtmlFragment } from "@/lib/sanitize-html";
+import {
+  letterBodyHtml,
+  type OutreachDraftDisplay,
+} from "@/lib/outreach-draft-display";
+import { validateLetterBodyShape } from "@/lib/letter-body-shape";
 
 type OutreachDraft = {
   subject?: string;
@@ -85,14 +90,15 @@ export async function materializeApprovalLetter({
     throw new ApprovalMaterializationError("Approval already materialised", 409);
   }
 
-  const draft = approval.draftJson as OutreachDraft;
-  if (!draft?.subject || !draft?.bodyHtml || !draft?.recipient?.addressLines) {
+  const draft = approval.draftJson as OutreachDraftDisplay;
+  const body = letterBodyHtml(draft);
+  if (!draft?.subject || !body || !draft?.recipient?.addressLines) {
     throw new ApprovalMaterializationError(
       "Draft is incomplete and cannot be approved",
     );
   }
   const subject = draft.subject;
-  const bodyHtml = draft.bodyHtml;
+  const bodyHtml = body;
   const addressLines = draft.recipient.addressLines;
   const recipientName = draft.recipient.name ?? "Sir or Madam";
 
@@ -103,6 +109,17 @@ export async function materializeApprovalLetter({
     );
     throw new ApprovalMaterializationError(
       "Draft bodyHtml must be a body-only HTML fragment. This usually indicates a model regression - please regenerate the draft.",
+    );
+  }
+
+  const shape = validateLetterBodyShape(bodyHtml, {
+    recipientAddressLines: draft.recipient?.addressLines,
+  });
+  if (!shape.ok) {
+    throw new ApprovalMaterializationError(
+      shape.issues.map((i) => i.message).join(" "),
+      422,
+      shape.issues,
     );
   }
 

@@ -171,6 +171,7 @@ export async function refusalAppealWorkflow(
   const compliance = await checkAppealComplianceStep({
     companyId: payload.companyId,
     draft,
+    contact: primaryContact,
   });
 
   const approval = await createAppealApprovalStep({

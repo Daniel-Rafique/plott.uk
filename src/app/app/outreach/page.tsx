@@ -71,8 +71,6 @@ export default async function OutreachPage() {
       </header>
       <OutreachInbox
         canSendProspectEmail={ctx.company.prospectEmailOutreachEnabled}
-        companyName={ctx.company.name}
-        replyToEmail={ctx.company.email ?? ctx.user.email ?? null}
         initialApprovals={approvals.map((a) => ({
           id: a.id,
           status: a.status,

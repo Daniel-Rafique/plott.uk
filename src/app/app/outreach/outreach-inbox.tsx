@@ -22,10 +22,14 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ResearchBriefingCard } from "@/components/research-briefing-card";
-import { sanitizeHtmlFragment } from "@/lib/sanitize-html";
+import {
+  ApprovalDraftEditor,
+  type ApprovalDraftPatch,
+} from "@/components/approval-draft-editor";
 import {
   defaultPreviewChannel,
   emailSourceLabel,
+  emailSubject,
   recipientEmail,
   type OutreachDraftDisplay,
   type PreviewChannel,
@@ -72,14 +76,10 @@ const STATUS_FILTERS = [
 
 export function OutreachInbox({
   canSendProspectEmail,
-  companyName,
-  replyToEmail,
   initialApprovals,
   counts,
 }: {
   canSendProspectEmail: boolean;
-  companyName: string;
-  replyToEmail: string | null;
   initialApprovals: Approval[];
   counts: Record<string, number>;
 }) {
@@ -198,6 +198,20 @@ export function OutreachInbox({
       setRejectTargetId(null);
       setRejectionNote("");
     }
+  }
+
+  function handleDraftSaved(id: string, patch: ApprovalDraftPatch) {
+    setApprovals((prev) =>
+      prev.map((a) =>
+        a.id === id
+          ? { ...a, draft: { ...(a.draft as OutreachDraftDisplay), ...patch } }
+          : a,
+      ),
+    );
+  }
+
+  function trySetPreviewChannel(next: PreviewChannel) {
+    setPreviewChannel(next);
   }
 
   const mapHref =
@@ -453,41 +467,28 @@ export function OutreachInbox({
                       <ChannelTab
                         active={previewChannel === "email"}
                         disabled={!selectedRecipientEmail}
-                        onClick={() => setPreviewChannel("email")}
+                        onClick={() => trySetPreviewChannel("email")}
                         icon={<Mail className="h-3.5 w-3.5" />}
                         label="Email"
                       />
                       <ChannelTab
                         active={previewChannel === "letter"}
-                        onClick={() => setPreviewChannel("letter")}
+                        onClick={() => trySetPreviewChannel("letter")}
                         icon={<MapPin className="h-3.5 w-3.5" />}
                         label="Letter"
                       />
                     </div>
                   </div>
 
-                  {previewChannel === "email" && selectedRecipientEmail ? (
-                    <OutreachMessageHeader
-                      companyName={companyName}
-                      replyToEmail={replyToEmail}
-                      recipientEmail={selectedRecipientEmail}
-                      recipientName={selectedDraft?.recipient?.name}
-                      subject={selectedDraft?.subject}
-                      sourceLabel={selectedEmailSource}
+                  {selected ? (
+                    <ApprovalDraftEditor
+                      approvalId={selected.id}
+                      channel={previewChannel}
+                      draft={selectedDraft ?? {}}
+                      canEdit={selected.status === "pending"}
+                      onSaved={(patch) => handleDraftSaved(selected.id, patch)}
                     />
                   ) : null}
-
-                  <article
-                    className={cn(
-                      "prose prose-sm max-w-none p-4",
-                      previewChannel === "email" && selectedRecipientEmail
-                        ? "bg-white"
-                        : "bg-zinc-50",
-                    )}
-                    dangerouslySetInnerHTML={{
-                      __html: sanitizeHtmlFragment(selectedDraft?.bodyHtml ?? ""),
-                    }}
-                  />
                 </div>
 
                 <aside className="space-y-3">
@@ -510,6 +511,11 @@ export function OutreachInbox({
                       <p className="break-all text-xs text-zinc-700">
                         {selectedRecipientEmail}
                       </p>
+                      {emailSubject(selectedDraft) ? (
+                        <p className="mt-1 text-[11px] text-zinc-600">
+                          Subject: {emailSubject(selectedDraft)}
+                        </p>
+                      ) : null}
                       {selectedEmailSource ? (
                         <p className="mt-1 text-[11px] text-zinc-500">
                           {selectedEmailSource}
@@ -608,62 +614,6 @@ export function OutreachInbox({
         </section>
       </div>
     </>
-  );
-}
-
-function OutreachMessageHeader({
-  companyName,
-  replyToEmail,
-  recipientEmail: toEmail,
-  recipientName,
-  subject,
-  sourceLabel,
-}: {
-  companyName: string;
-  replyToEmail: string | null;
-  recipientEmail: string;
-  recipientName?: string;
-  subject?: string;
-  sourceLabel: string | null;
-}) {
-  return (
-    <div className="divide-y divide-zinc-100 border-b border-zinc-200 bg-white text-sm">
-      <HeaderRow label="From">
-        <span className="font-medium text-zinc-900">{companyName}</span>
-      </HeaderRow>
-      {replyToEmail ? (
-        <HeaderRow label="Reply-to">
-          <span className="text-zinc-700">{replyToEmail}</span>
-        </HeaderRow>
-      ) : null}
-      <HeaderRow label="To">
-        <span className="font-medium text-zinc-900">
-          {recipientName ? `${recipientName} · ` : ""}
-          <span className="font-normal text-indigo-700">{toEmail}</span>
-        </span>
-        {sourceLabel ? (
-          <span className="mt-0.5 block text-[11px] text-zinc-500">{sourceLabel}</span>
-        ) : null}
-      </HeaderRow>
-      <HeaderRow label="Subject">
-        <span className="font-medium text-zinc-900">{subject ?? "(no subject)"}</span>
-      </HeaderRow>
-    </div>
-  );
-}
-
-function HeaderRow({
-  label,
-  children,
-}: {
-  label: string;
-  children: ReactNode;
-}) {
-  return (
-    <div className="grid gap-1 px-4 py-2.5 sm:grid-cols-[72px_1fr] sm:items-start sm:gap-3">
-      <span className="text-xs font-medium text-zinc-500">{label}</span>
-      <div className="min-w-0">{children}</div>
-    </div>
   );
 }
 

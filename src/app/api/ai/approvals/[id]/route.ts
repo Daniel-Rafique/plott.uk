@@ -1,7 +1,5 @@
 /**
- * Approve/reject an AgentApproval. Reviewers can materialize a printable
- * Letter draft or, when the workspace explicitly opts in, send the approved
- * draft by email after an email-channel compliance check.
+ * Approve/reject/update/send an AgentApproval.
  */
 
 import { NextResponse } from "next/server";
@@ -18,26 +16,35 @@ import { scheduleLetterPdfEmailDelivery } from "@/lib/letter-delivery";
 import { runComplianceGuardrail } from "@/lib/ai/agents/compliance";
 import { isBodyOnlyHtml } from "@/lib/letter-renderer";
 import { sendOutreachEmail } from "@/lib/email";
+import { sanitizeHtmlFragment } from "@/lib/sanitize-html";
+import {
+  emailBodyHtml,
+  emailSubject,
+  letterBodyHtml,
+  recipientEmail,
+  type OutreachDraftDisplay,
+} from "@/lib/outreach-draft-display";
+import { validateLetterBodyShape } from "@/lib/letter-body-shape";
 
 export const runtime = "nodejs";
 
 type Ctx = { params: Promise<{ id: string }> };
 
-const bodySchema = z.object({
-  action: z.enum(["approve", "reject", "send_email"]),
-  rejectionNote: z.string().max(500).optional(),
-});
-
-type OutreachDraft = {
-  subject?: string;
-  bodyHtml?: string;
-  recipient?: { name?: string; addressLines?: string };
-  enrichment?: {
-    applicantEmail?: string | null;
-    agentEmail?: string | null;
-  };
-  contact?: { kind?: string; email?: string | null };
-};
+const bodySchema = z.discriminatedUnion("action", [
+  z.object({ action: z.literal("approve") }),
+  z.object({
+    action: z.literal("reject"),
+    rejectionNote: z.string().max(500).optional(),
+  }),
+  z.object({ action: z.literal("send_email") }),
+  z.object({
+    action: z.literal("update_draft"),
+    letterBodyHtml: z.string().optional(),
+    emailBodyHtml: z.string().optional(),
+    emailSubject: z.string().max(140).optional(),
+    subject: z.string().max(140).optional(),
+  }),
+]);
 
 function recipientKind(kind: string | undefined): "applicant" | "agent" | undefined {
   if (kind === "agent") return "agent";
@@ -45,14 +52,11 @@ function recipientKind(kind: string | undefined): "applicant" | "agent" | undefi
   return undefined;
 }
 
-function resolvedRecipientEmail(draft: OutreachDraft): string | null {
-  const email =
-    draft.contact?.email ??
-    draft.enrichment?.agentEmail ??
-    draft.enrichment?.applicantEmail ??
-    null;
-  const trimmed = email?.trim().toLowerCase() ?? "";
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed) ? trimmed : null;
+function serializeApproval<T extends { planningEntity: bigint | null }>(row: T) {
+  return {
+    ...row,
+    planningEntity: planningEntityToNumber(row.planningEntity),
+  };
 }
 
 export async function PATCH(req: Request, context: Ctx) {
@@ -79,15 +83,109 @@ export async function PATCH(req: Request, context: Ctx) {
     );
   }
 
-  const approval = await prisma.agentApproval.findUnique({ where: { id } });
+  let approval = await prisma.agentApproval.findUnique({ where: { id } });
   if (!approval || approval.companyId !== ctx.company.id) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
+
+  if (parsed.data.action === "update_draft") {
+    if (approval.status !== "pending") {
+      return NextResponse.json(
+        { error: `Cannot edit — already ${approval.status}` },
+        { status: 409 },
+      );
+    }
+
+    const existing = approval.draftJson as OutreachDraftDisplay;
+    const nextDraft: OutreachDraftDisplay = { ...existing };
+
+    if (typeof parsed.data.subject === "string") {
+      nextDraft.subject = parsed.data.subject.trim();
+    }
+    if (typeof parsed.data.letterBodyHtml === "string") {
+      const html = sanitizeHtmlFragment(parsed.data.letterBodyHtml);
+      if (!isBodyOnlyHtml(html)) {
+        return NextResponse.json(
+          { error: "Letter body must be a HTML fragment only." },
+          { status: 422 },
+        );
+      }
+      const shape = validateLetterBodyShape(html, {
+        recipientAddressLines: existing.recipient?.addressLines,
+      });
+      if (!shape.ok) {
+        return NextResponse.json(
+          { error: shape.issues[0]?.message ?? "Invalid letter body", issues: shape.issues },
+          { status: 422 },
+        );
+      }
+      nextDraft.letterBodyHtml = html;
+      nextDraft.bodyHtml = html;
+    }
+    if (typeof parsed.data.emailBodyHtml === "string") {
+      const html = sanitizeHtmlFragment(parsed.data.emailBodyHtml);
+      if (!isBodyOnlyHtml(html)) {
+        return NextResponse.json(
+          { error: "Email body must be a HTML fragment only." },
+          { status: 422 },
+        );
+      }
+      nextDraft.emailBodyHtml = html;
+    }
+    if (typeof parsed.data.emailSubject === "string") {
+      nextDraft.emailSubject = parsed.data.emailSubject.trim();
+    }
+
+    const complianceIssues: Array<{ severity: string; code: string; message: string }> =
+      [];
+    try {
+      const print = await runComplianceGuardrail({
+        ctx: { companyId: approval.companyId, userId: ctx.user.id },
+        subject: nextDraft.subject ?? "",
+        bodyHtml: letterBodyHtml(nextDraft),
+        channel: "print",
+        recipientKind: recipientKind(nextDraft.contact?.kind),
+        letterPurpose: "planning_b2b_outreach",
+      });
+      complianceIssues.push(...print.issues);
+      const to = recipientEmail(nextDraft);
+      if (to && emailBodyHtml(nextDraft)) {
+        const emailCheck = await runComplianceGuardrail({
+          ctx: { companyId: approval.companyId, userId: ctx.user.id },
+          subject: emailSubject(nextDraft),
+          bodyHtml: emailBodyHtml(nextDraft),
+          channel: "email",
+          recipientKind: recipientKind(nextDraft.contact?.kind),
+          letterPurpose: "planning_b2b_outreach",
+        });
+        complianceIssues.push(...emailCheck.issues);
+      }
+    } catch {
+      // Non-blocking on save
+    }
+
+    const updated = await prisma.agentApproval.update({
+      where: { id },
+      data: { draftJson: nextDraft as object },
+    });
+
+    return NextResponse.json({
+      approval: serializeApproval(updated),
+      draft: nextDraft,
+      complianceWarnings: complianceIssues.filter((i) => i.severity === "warn"),
+    });
+  }
+
   if (approval.status !== "pending") {
     return NextResponse.json(
       { error: `Already ${approval.status}` },
       { status: 409 },
     );
+  }
+
+  approval = await prisma.agentApproval.findUnique({ where: { id } });
+  if (!approval) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
   if (parsed.data.action === "reject") {
@@ -100,13 +198,10 @@ export async function PATCH(req: Request, context: Ctx) {
         approvedById: ctx.user.id,
       },
     });
-    return NextResponse.json({
-      approval: {
-        ...updated,
-        planningEntity: planningEntityToNumber(updated.planningEntity),
-      },
-    });
+    return NextResponse.json({ approval: serializeApproval(updated) });
   }
+
+  const draft = approval.draftJson as OutreachDraftDisplay;
 
   if (parsed.data.action === "send_email") {
     if (!ctx.company.prospectEmailOutreachEnabled) {
@@ -116,25 +211,27 @@ export async function PATCH(req: Request, context: Ctx) {
       );
     }
 
-    const draft = approval.draftJson as OutreachDraft;
-    const to = resolvedRecipientEmail(draft);
+    const to = recipientEmail(draft);
     if (!to) {
       return NextResponse.json(
         { error: "No verified recipient email is available for this draft." },
         { status: 422 },
       );
     }
-    if (!draft.subject || !draft.bodyHtml) {
+
+    const body = emailBodyHtml(draft);
+    const subject = emailSubject(draft);
+    if (!subject || !body) {
       return NextResponse.json(
         { error: "Draft is incomplete and cannot be emailed." },
         { status: 422 },
       );
     }
-    if (!isBodyOnlyHtml(draft.bodyHtml)) {
+    if (!isBodyOnlyHtml(body)) {
       return NextResponse.json(
         {
           error:
-            "Draft bodyHtml must be a body-only HTML fragment. Please regenerate the draft.",
+            "Email body must be a body-only HTML fragment. Please edit and save the draft.",
         },
         { status: 422 },
       );
@@ -152,8 +249,8 @@ export async function PATCH(req: Request, context: Ctx) {
 
     const compliance = await runComplianceGuardrail({
       ctx: { companyId: approval.companyId, userId: ctx.user.id },
-      subject: draft.subject,
-      bodyHtml: draft.bodyHtml,
+      subject,
+      bodyHtml: body,
       channel: "email",
       recipientKind: recipientKind(draft.contact?.kind),
       letterPurpose: "planning_b2b_outreach",
@@ -170,8 +267,8 @@ export async function PATCH(req: Request, context: Ctx) {
 
     const sent = await sendOutreachEmail({
       to,
-      subject: draft.subject,
-      bodyHtml: draft.bodyHtml,
+      subject,
+      bodyHtml: body,
       recipientName: draft.recipient?.name ?? "there",
       companyName: ctx.company.name,
       replyTo: ctx.company.email ?? ctx.user.email ?? null,
@@ -191,10 +288,7 @@ export async function PATCH(req: Request, context: Ctx) {
       },
     });
     return NextResponse.json({
-      approval: {
-        ...updated,
-        planningEntity: planningEntityToNumber(updated.planningEntity),
-      },
+      approval: serializeApproval(updated),
       sentTo: to,
       resendEmailId: sent.id,
     });
@@ -213,10 +307,7 @@ export async function PATCH(req: Request, context: Ctx) {
     });
 
     return NextResponse.json({
-      approval: {
-        ...result.approval,
-        planningEntity: planningEntityToNumber(result.approval.planningEntity),
-      },
+      approval: serializeApproval(result.approval),
       letterId: result.letter.id,
     });
   } catch (err) {

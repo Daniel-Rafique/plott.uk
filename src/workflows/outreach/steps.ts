@@ -23,6 +23,15 @@ import type { AppealPitchDraft } from "@/lib/ai/agents/appeal-pitch-drafter";
 import type { AppealClassification } from "@/lib/ai/agents/appeal-classifier";
 import type { ComplianceResult } from "@/lib/ai/agents/compliance";
 import type { OutreachLeadDiscoveredPayload } from "./types";
+import {
+  emailBodyHtml,
+  emailSubject,
+  letterBodyHtml,
+  recipientEmail,
+  toStoredDraftJson,
+  type OutreachDraftDisplay,
+} from "@/lib/outreach-draft-display";
+import { validateLetterBodyShape } from "@/lib/letter-body-shape";
 
 type OutreachTierCheck =
   | { allowed: true; tier: string }
@@ -144,19 +153,78 @@ export async function draftOutreachLetterStep(args: {
   });
 }
 
+async function mergeChannelCompliance(args: {
+  companyId: string;
+  draft: Pick<
+    OutreachDraft | AppealPitchDraft,
+    "subject" | "letterBodyHtml" | "emailSubject" | "emailBodyHtml"
+  >;
+  contact: OutreachContact;
+  letterPurpose?: "planning_b2b_outreach";
+}): Promise<ComplianceResult> {
+  const stored: OutreachDraftDisplay = {
+    subject: args.draft.subject,
+    letterBodyHtml: args.draft.letterBodyHtml,
+    emailSubject: args.draft.emailSubject,
+    emailBodyHtml: args.draft.emailBodyHtml,
+    contact: args.contact,
+    recipient: { name: args.contact.name, addressLines: args.contact.addressLines },
+  };
+  const print = await runComplianceGuardrail({
+    ctx: { companyId: args.companyId },
+    subject: args.draft.subject,
+    bodyHtml: letterBodyHtml(stored),
+    channel: "print",
+    recipientKind: complianceRecipientKind(args.contact),
+    ...(args.letterPurpose ? { letterPurpose: args.letterPurpose } : {}),
+  });
+
+  const shape = validateLetterBodyShape(letterBodyHtml(stored), {
+    recipientAddressLines: args.contact.addressLines,
+  });
+  const shapeIssues = shape.issues.map((issue) => ({
+    severity: "warn" as const,
+    code: issue.code,
+    message: issue.message,
+  }));
+
+  let issues = [...print.issues, ...shapeIssues];
+  let passed = print.passed;
+  let riskScore = print.riskScore;
+
+  const to = recipientEmail(stored);
+  const emailHtml = emailBodyHtml(stored);
+  if (to && emailHtml) {
+    const emailCheck = await runComplianceGuardrail({
+      ctx: { companyId: args.companyId },
+      subject: emailSubject(stored) || args.draft.subject,
+      bodyHtml: emailHtml,
+      channel: "email",
+      recipientKind: complianceRecipientKind(args.contact),
+      ...(args.letterPurpose ? { letterPurpose: args.letterPurpose } : {}),
+    });
+    issues = [...issues, ...emailCheck.issues];
+    passed = passed && emailCheck.passed;
+    riskScore = Math.max(riskScore, emailCheck.riskScore);
+  }
+
+  return { passed, riskScore, issues };
+}
+
 export async function checkOutreachComplianceStep(args: {
   companyId: string;
-  draft: Pick<OutreachDraft, "subject" | "bodyHtml">;
+  draft: Pick<
+    OutreachDraft,
+    "subject" | "letterBodyHtml" | "emailSubject" | "emailBodyHtml"
+  >;
   contact: OutreachContact;
 }): Promise<ComplianceResult> {
   "use step";
 
-  return runComplianceGuardrail({
-    ctx: { companyId: args.companyId },
-    subject: args.draft.subject,
-    bodyHtml: args.draft.bodyHtml,
-    channel: "print",
-    recipientKind: complianceRecipientKind(args.contact),
+  return mergeChannelCompliance({
+    companyId: args.companyId,
+    draft: args.draft,
+    contact: args.contact,
     letterPurpose: "planning_b2b_outreach",
   });
 }
@@ -191,14 +259,11 @@ export async function createOutreachApprovalStep(args: {
       status: canAutoApprove ? "approved" : "pending",
       subjectRef: args.payload.reference ?? null,
       planningEntity: BigInt(args.payload.planningEntity),
-      draftJson: {
-        subject: args.draft.subject,
-        bodyHtml: args.draft.bodyHtml,
-        recipient: args.draft.recipient,
+      draftJson: toStoredDraftJson(args.draft, {
         enrichment: args.bundle.enrichment ?? undefined,
         contact: args.contact,
         ...(args.resolvedSiteAddress ? { siteAddress: args.resolvedSiteAddress } : {}),
-      },
+      }),
       issuesJson: args.compliance.issues.length
         ? args.compliance.issues
         : undefined,
@@ -357,14 +422,18 @@ export async function draftAppealPitchLetterStep(args: {
 
 export async function checkAppealComplianceStep(args: {
   companyId: string;
-  draft: Pick<AppealPitchDraft, "subject" | "bodyHtml">;
+  draft: Pick<
+    AppealPitchDraft,
+    "subject" | "letterBodyHtml" | "emailSubject" | "emailBodyHtml"
+  >;
+  contact: OutreachContact;
 }): Promise<ComplianceResult> {
   "use step";
 
-  return runComplianceGuardrail({
-    ctx: { companyId: args.companyId },
-    subject: args.draft.subject,
-    bodyHtml: args.draft.bodyHtml,
+  return mergeChannelCompliance({
+    companyId: args.companyId,
+    draft: args.draft,
+    contact: args.contact,
   });
 }
 
@@ -392,10 +461,7 @@ export async function createAppealApprovalStep(args: {
       status: "pending",
       subjectRef: args.payload.reference ?? null,
       planningEntity: BigInt(args.payload.planningEntity),
-      draftJson: {
-        subject: args.draft.subject,
-        bodyHtml: args.draft.bodyHtml,
-        recipient: args.draft.recipient,
+      draftJson: toStoredDraftJson(args.draft, {
         enrichment: args.bundle.enrichment ?? undefined,
         contact: args.contact,
         ...(args.resolvedSiteAddress ? { siteAddress: args.resolvedSiteAddress } : {}),
@@ -405,7 +471,7 @@ export async function createAppealApprovalStep(args: {
           refusalReason: args.refusalReason,
           decisionDate: args.decisionDate,
         },
-      },
+      }),
       issuesJson: args.compliance.issues.length
         ? args.compliance.issues
         : undefined,

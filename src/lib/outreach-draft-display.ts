@@ -1,6 +1,12 @@
+import type { Prisma } from "@prisma/client";
+
 export type OutreachDraftDisplay = {
   subject?: string;
+  /** Legacy single body — fallback for letter and email. */
   bodyHtml?: string;
+  letterBodyHtml?: string;
+  emailSubject?: string;
+  emailBodyHtml?: string;
   recipient?: { name?: string; addressLines?: string };
   contact?: { kind?: string; email?: string | null };
   enrichment?: {
@@ -11,6 +17,7 @@ export type OutreachDraftDisplay = {
     agentName?: string | null;
     agentEmail?: string | null;
   };
+  siteAddress?: string | null;
 };
 
 export type PreviewChannel = "email" | "letter";
@@ -18,6 +25,39 @@ export type PreviewChannel = "email" | "letter";
 function normalizeEmail(email: string | null | undefined): string | null {
   const trimmed = email?.trim() ?? "";
   return trimmed.length > 0 ? trimmed : null;
+}
+
+export function letterBodyHtml(
+  draft: OutreachDraftDisplay | null | undefined,
+): string {
+  return (
+    draft?.letterBodyHtml?.trim() ||
+    draft?.bodyHtml?.trim() ||
+    ""
+  );
+}
+
+export function emailBodyHtml(
+  draft: OutreachDraftDisplay | null | undefined,
+): string {
+  return (
+    draft?.emailBodyHtml?.trim() ||
+    draft?.bodyHtml?.trim() ||
+    letterBodyHtml(draft) ||
+    ""
+  );
+}
+
+export function emailSubject(
+  draft: OutreachDraftDisplay | null | undefined,
+): string {
+  return draft?.emailSubject?.trim() || draft?.subject?.trim() || "";
+}
+
+export function letterSubject(
+  draft: OutreachDraftDisplay | null | undefined,
+): string {
+  return draft?.subject?.trim() || "";
 }
 
 export function recipientEmail(
@@ -66,4 +106,28 @@ export function emailSourceLabel(
     parts.push(`${confidence}% confidence`);
   }
   return parts.join(" · ");
+}
+
+/** Merge AI draft fields into draftJson shape stored on AgentApproval. */
+export function toStoredDraftJson(
+  draft: {
+    subject: string;
+    letterBodyHtml: string;
+    emailSubject?: string;
+    emailBodyHtml?: string;
+    recipient: { name: string; addressLines: string };
+    legalBasis?: string;
+  },
+  extras: Record<string, unknown>,
+): Prisma.InputJsonValue {
+  return {
+    subject: draft.subject,
+    letterBodyHtml: draft.letterBodyHtml,
+    bodyHtml: draft.letterBodyHtml,
+    ...(draft.emailSubject ? { emailSubject: draft.emailSubject } : {}),
+    ...(draft.emailBodyHtml ? { emailBodyHtml: draft.emailBodyHtml } : {}),
+    recipient: draft.recipient,
+    ...(draft.legalBasis ? { legalBasis: draft.legalBasis } : {}),
+    ...extras,
+  };
 }

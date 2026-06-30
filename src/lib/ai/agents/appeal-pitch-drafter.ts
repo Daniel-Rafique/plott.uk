@@ -3,14 +3,6 @@
  * {@link classifyAppealViability} verdict into a professional outreach
  * letter aimed at the refused applicant / their agent, offering help with a
  * PINS appeal.
- *
- * Tone guidance:
- *   - Professional, not hard-sell — we're pitching appeal review as a service
- *     offered by a legal / planning consultancy, not telling the recipient
- *     they'll win.
- *   - Reference the specific refusal reason(s) to show we read the notice.
- *   - Mention the statutory deadline so urgency is clear.
- *   - Always include PECR opt-out line (legitimate interest basis).
  */
 
 import { z } from "zod";
@@ -26,12 +18,13 @@ import { APPEAL_GROUND_LABELS } from "./appeal-classifier";
 
 const outputSchema = z.object({
   subject: z.string().min(3).max(140),
-  bodyHtml: z.string().min(40),
+  letterBodyHtml: z.string().min(40),
+  emailSubject: z.string().min(3).max(140).optional(),
+  emailBodyHtml: z.string().min(40).optional(),
   recipient: z.object({
     name: z.string(),
     addressLines: z.string(),
   }),
-  /** Always legitimate_interest for unsolicited appeal pitches. */
   legalBasis: z.literal("legitimate_interest"),
 });
 
@@ -42,44 +35,61 @@ function describeGrounds(grounds: AppealGround[]): string {
   return grounds.map((g) => APPEAL_GROUND_LABELS[g]).join("; ");
 }
 
+function hasRecipientEmail(
+  contact: OutreachContact,
+  enrichment: EnrichedApplication | null,
+): boolean {
+  const candidates = [
+    contact.email,
+    enrichment?.agentEmail,
+    enrichment?.applicantEmail,
+  ];
+  return candidates.some((e) => (e?.trim().length ?? 0) > 0);
+}
+
 export async function draftAppealPitchLetter(args: {
   ctx: { companyId: string; userId?: string };
   contact: OutreachContact;
   enrichment: EnrichedApplication | null;
-  /** Verdict from the appeal classifier — grounds, deadline, summary. */
   classification: AppealClassification;
-  /** Human-friendly service label from ICP profile (e.g. "planning appeals"). */
   serviceType: string;
   siteAddress: string | null;
   description: string | null;
   reference: string;
-  /** Raw refusal reason text pulled from the decision notice, if available. */
   refusalReason: string | null;
 }): Promise<AppealPitchDraft> {
   const recipientName = args.contact.name || "Sir or Madam";
   const recipientAddress =
     args.contact.addressLines || args.siteAddress || "";
   const groundsDescription = describeGrounds(args.classification.grounds);
+  const draftEmail = hasRecipientEmail(args.contact, args.enrichment);
 
-  const system = `You draft UK appeal-services pitch letters for a ${args.serviceType} firm.
+  const system = `You draft UK appeal-services outreach for a ${args.serviceType} firm.
 
-The recipient's planning application has just been refused by the LPA. You are offering
-to review the decision with a view to a PINS appeal (Planning Inspectorate).
+The recipient's planning application has just been refused. Offer a PINS appeal review — professional, not hard-sell.
 
-Rules:
-1. Call the branding tool once to get the sender's firm name, address, and phone.
-2. Open with empathy — a refusal is a setback. Do NOT celebrate it.
-3. Reference the specific reference number, site, and at least ONE concrete refusal reason
-   so the recipient knows you read their decision notice.
-4. State the identified grounds plainly (${groundsDescription}) but DO NOT promise
-   a successful appeal.
-5. Mention the statutory deadline explicitly. Be precise: "${args.classification.deadlineDate ?? "the statutory six-month deadline"}".
-6. Offer a free 15-minute review call as the call-to-action, not a hard sale.
-7. Close with a PECR opt-out line: "If you'd prefer not to receive correspondence from us,
-   reply with 'remove' and we'll take you off our list."
-8. Keep under 260 words. Polite, plain English, no legal jargon unless essential.
-9. Return JSON matching the schema. bodyHtml must be valid semantic HTML (<p>, <strong>,
-   <br/>); no <script>, <style>, or inline event handlers.`;
+Produce TWO versions when a recipient email is available:
+1. letterBodyHtml — body-only paragraphs (renderer adds letterhead, date, address, Re, salutation, signature).
+2. emailBodyHtml + emailSubject — shorter inbox-friendly message mentioning the deadline and review call.
+
+letterBodyHtml rules:
+- No date, address block, Re line, "Dear…", sign-off, signature, or letterhead in the body.
+- Reference refusal reason(s), grounds (${groundsDescription}), and deadline "${args.classification.deadlineDate ?? "statutory six-month deadline"}".
+- Do NOT promise a successful appeal.
+- PECR opt-out in final paragraph. Under 220 words.
+
+Email rules (when required):
+- Shorter (~130 words), mention deadline and free 15-minute review call CTA.
+- emailSubject concise; no long "Re:" prefix.
+
+General:
+1. Call branding tool once.
+2. Empathetic tone — refusal is a setback.
+3. JSON only at the end. HTML: <p>, <strong>, <br/> only.`;
+
+  const emailBlock = draftEmail
+    ? `\nRecipient email available — include emailSubject and emailBodyHtml.`
+    : `\nNo recipient email — omit emailSubject and emailBodyHtml.`;
 
   const prompt = `Recipient: ${recipientName} (${args.contact.kind})
 Recipient address:
@@ -92,11 +102,12 @@ Refused application
 - Decision date: ${args.classification.decisionDate ?? "(unknown)"}
 - Appeal deadline: ${args.classification.deadlineDate ?? "(six months from refusal)"}
 - Appeal type: ${args.classification.appealType}
-- Refusal reason(s) extracted from notice: ${args.refusalReason ?? "(not yet extracted)"}
+- Refusal reason(s): ${args.refusalReason ?? "(not yet extracted)"}
 
 Classifier summary: ${args.classification.summary}
+${emailBlock}
 
-Call the branding tool once, then draft the pitch letter. Output JSON only at the end.`;
+Call the branding tool once, then draft. Output JSON only at the end.`;
 
   const res = await runAgent({
     kind: "appeal_pitch_drafter",

@@ -395,6 +395,37 @@ export async function sendOutreachEmail(args: {
   return { id };
 }
 
+/** Branded HTML preview matching the Resend agent-outreach template layout. */
+export function renderOutreachEmailPreviewHtml(args: {
+  recipientName: string;
+  subject: string;
+  bodyHtml: string;
+  companyName: string;
+  footerNote?: string;
+}): string {
+  const safeBody = sanitizeHtmlFragment(args.bodyHtml);
+  const footerNote =
+    args.footerNote ??
+    "Business outreach regarding public planning records. Reply 'remove' to opt out.";
+  const body = `
+    <p style="margin:0 0 8px 0;font-size:13px;color:#71717a;text-transform:uppercase;letter-spacing:0.06em;">From ${escapeHtml(args.companyName)}</p>
+    <p style="margin:0 0 20px 0;font-size:15px;color:#3f3f46;line-height:1.65;">
+      Hi ${escapeHtml(args.recipientName)},
+    </p>
+    <div style="margin:0 0 24px 0;font-size:15px;color:#3f3f46;line-height:1.65;">
+      ${safeBody}
+    </div>
+    <p style="margin:0;font-size:12px;color:#71717a;line-height:1.6;">
+      ${escapeHtml(footerNote)}<br />
+      ${escapeHtml(BUSINESS_ADDRESS)}
+    </p>`;
+  return brandedShell({
+    heading: args.subject,
+    body,
+    footerText: `Outreach from ${args.companyName} via Plott.`,
+  });
+}
+
 /** Data from a related Letter, used to enrich follow-up reminder emails. */
 export type ReminderEmailLetterContext = {
   applicationRef: string | null;
