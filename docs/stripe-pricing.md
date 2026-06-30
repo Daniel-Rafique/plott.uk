@@ -29,6 +29,37 @@ Environment variables:
 | `STRIPE_PRICE_STARTER` / `STRIPE_PRICE_PRO` / `STRIPE_PRICE_AGENCY` | Monthly licensed prices. |
 | `STRIPE_PRICE_STARTER_ANNUAL` / `STRIPE_PRICE_PRO_ANNUAL` / `STRIPE_PRICE_AGENCY_ANNUAL` | Annual licensed prices. |
 | `STRIPE_PRICE_AI_OVERAGE` | Metered price ID for AI overage (1 unit = £0.01). Required on subscriptions for overage to invoice. |
+| `STRIPE_PRICE_EXTRA_SEAT_PRO` / `_PRO_ANNUAL` | Licensed per-seat add-on when Pro teams exceed included seats. |
+| `STRIPE_PRICE_EXTRA_SEAT_AGENCY` / `_AGENCY_ANNUAL` | Licensed per-seat add-on when Agency teams exceed included seats. |
+
+---
+
+## App entitlements vs Stripe Features
+
+Runtime feature gates use **Price metadata** and [`src/lib/plan-features.ts`](../src/lib/plan-features.ts), not Stripe’s Entitlements API. Dashboard **Features** are optional internal documentation — see [stripe-entitlements-catalog.md](./stripe-entitlements-catalog.md).
+
+```bash
+npm run stripe:ensure-features          # optional Dashboard feature catalog
+npm run stripe:ensure-features -- --fix
+```
+
+---
+
+## Extra seats (licensed add-on)
+
+Pro and Agency allow team members beyond the included seat count. When `STRIPE_PRICE_EXTRA_SEAT_*` is configured, the app updates a **third subscription line item** (quantity = seats over limit) on invite / member removal via [`src/lib/stripe/sync-seat-billing.ts`](../src/lib/stripe/sync-seat-billing.ts).
+
+```bash
+npm run stripe:ensure-seat-prices          # verify seat add-on prices
+npm run stripe:ensure-seat-prices -- --fix # create missing prices
+```
+
+| Plan | Monthly per extra seat | Annual per extra seat (10× monthly) |
+| --- | --- | --- |
+| Pro | £25 | £250 |
+| Agency | £20 | £200 |
+
+Seat add-on interval must match the company’s plan billing interval (monthly vs annual licensed price).
 
 ---
 

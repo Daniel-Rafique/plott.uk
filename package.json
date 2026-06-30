@@ -27,6 +27,8 @@
     "stripe:audit-usage": "tsx scripts/audit-usage-db.ts",
     "stripe:ensure-app-webhook": "tsx scripts/ensure-stripe-app-webhook.ts",
     "stripe:ensure-ai-meter": "tsx scripts/ensure-stripe-ai-meter.ts",
+    "stripe:ensure-features": "tsx scripts/ensure-stripe-features.ts",
+    "stripe:ensure-seat-prices": "tsx scripts/ensure-stripe-seat-prices.ts",
     "stripe:ensure-klaviyo-webhook": "tsx scripts/ensure-klaviyo-stripe-webhook.ts",
     "stripe:create-products": "tsx scripts/create-stripe-products.ts",
     "stripe:migrate-account": "npm run stripe:verify && npm run stripe:create-products && npm run stripe:ensure-prices -- --fix && npm run stripe:ensure-ai-meter && npm run stripe:ensure-app-webhook && npm run stripe:ensure-klaviyo-webhook"

@@ -2,11 +2,12 @@ import type Stripe from "stripe";
 import type { Company } from "@prisma/client";
 import { getStripe } from "@/lib/stripe";
 import {
+  buildLicensedPlanUpdateItems,
   licensedPriceId,
   licensedSubscriptionItem,
-  overageSubscriptionItem,
 } from "@/lib/stripe/subscription-items";
 import { applySubscription } from "@/lib/stripe/subscription-state";
+import { syncSeatBilling } from "@/lib/stripe/sync-seat-billing";
 import type { BillingInterval, PaidPlanId } from "@/lib/stripe/plan-prices";
 import {
   normalizeBillingInterval,
@@ -102,26 +103,7 @@ function buildSubscriptionUpdateItems(
   current: Stripe.Subscription,
   licensedPriceId: string,
 ): Stripe.SubscriptionUpdateParams.Item[] {
-  const licensed = licensedSubscriptionItem(current);
-  const overage = overageSubscriptionItem(current);
-  const items: Stripe.SubscriptionUpdateParams.Item[] = [];
-  if (licensed) {
-    items.push({
-      id: licensed.id,
-      price: licensedPriceId,
-      quantity: licensed.quantity ?? 1,
-    });
-  } else {
-    items.push({ price: licensedPriceId, quantity: 1 });
-  }
-  if (overage) {
-    const overagePriceId =
-      typeof overage.price === "string" ? overage.price : overage.price?.id;
-    if (overagePriceId) {
-      items.push({ id: overage.id, price: overagePriceId });
-    }
-  }
-  return items;
+  return buildLicensedPlanUpdateItems(current, licensedPriceId);
 }
 
 export async function updateTrialSubscriptionPlan({
@@ -167,5 +149,6 @@ export async function updateTrialSubscriptionPlan({
   });
 
   await applySubscription(company.id, company.stripeCustomerId, updated);
+  await syncSeatBilling(company.id).catch(() => {});
   return updated;
 }

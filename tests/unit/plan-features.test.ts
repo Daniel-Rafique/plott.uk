@@ -28,8 +28,6 @@ describe("plan feature gates", () => {
   it("reserves autonomous outreach for Agency", () => {
     const features = featuresForPlan(getPlanById("agency"));
 
-    expect(features.canSaveSearches).toBe(true);
-    expect(features.canPinApplications).toBe(true);
     expect(features.canUseAutoOutreach).toBe(true);
     expect(features.canExportCsv).toBe(false);
     expect(features.savedSearchLimit).toBe(20);

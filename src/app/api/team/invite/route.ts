@@ -5,6 +5,7 @@ import { sendInviteEmail } from "@/lib/email";
 import { randomBytes } from "node:crypto";
 import { captureServerEvent } from "@/lib/posthog-server";
 import { getCompanyPlan } from "@/lib/pricing";
+import { syncSeatBilling } from "@/lib/stripe/sync-seat-billing";
 
 export const runtime = "nodejs";
 
@@ -108,6 +109,8 @@ export async function POST(req: Request) {
   });
 
   const isOverage = totalSeats >= plan.seatLimit;
+  await syncSeatBilling(ctx.company.id).catch(() => {});
+
   await captureServerEvent({
     distinctId: ctx.user.email ?? ctx.user.id,
     event: "team_member_invited",

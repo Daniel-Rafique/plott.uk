@@ -4,10 +4,11 @@ import { getTenantContext } from "@/lib/tenant";
 import { getStripe } from "@/lib/stripe";
 import { logger } from "@/lib/logger";
 import { sendSubscriptionPlanChangedEmail } from "@/lib/email";
+import { syncSeatBilling } from "@/lib/stripe/sync-seat-billing";
 import {
+  buildLicensedPlanUpdateItems,
   licensedPriceId,
   licensedSubscriptionItem,
-  overageSubscriptionItem,
 } from "@/lib/stripe/subscription-items";
 import {
   normalizeBillingInterval,
@@ -89,29 +90,7 @@ function buildSubscriptionUpdateItems(
   current: Stripe.Subscription,
   nextLicensedPriceId: string,
 ): Stripe.SubscriptionUpdateParams.Item[] {
-  const licensed = licensedSubscriptionItem(current);
-  const overage = overageSubscriptionItem(current);
-  const items: Stripe.SubscriptionUpdateParams.Item[] = [];
-  if (licensed) {
-    items.push({
-      id: licensed.id,
-      price: nextLicensedPriceId,
-      quantity: licensed.quantity ?? 1,
-    });
-  } else {
-    items.push({ price: nextLicensedPriceId, quantity: 1 });
-  }
-  if (overage) {
-    const overagePriceId =
-      typeof overage.price === "string" ? overage.price : overage.price.id;
-    items.push({ id: overage.id, price: overagePriceId });
-  } else {
-    const overageEnv = process.env.STRIPE_PRICE_AI_OVERAGE?.trim();
-    if (overageEnv?.startsWith("price_")) {
-      items.push({ price: overageEnv });
-    }
-  }
-  return items;
+  return buildLicensedPlanUpdateItems(current, nextLicensedPriceId);
 }
 
 export async function POST(req: Request) {
@@ -189,6 +168,12 @@ export async function POST(req: Request) {
     });
 
     await applySubscription(ctx.company.id, ctx.company.stripeCustomerId, updated);
+    await syncSeatBilling(ctx.company.id).catch((seatErr) => {
+      logger.warn(
+        { err: seatErr, companyId: ctx.company.id },
+        "stripe_change_plan_seat_sync_failed",
+      );
+    });
     if (ctx.user.email) {
       const price = subscriptionPrice(updated);
       sendSubscriptionPlanChangedEmail({

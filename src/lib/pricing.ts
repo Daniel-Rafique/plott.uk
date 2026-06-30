@@ -9,8 +9,11 @@ import {
 import {
   annualEffectiveMonthlyLabel,
   fetchStripePricesById,
+  formatPriceMinor,
   formatStripePriceAmount,
+  priceMinorUnits,
 } from "@/lib/stripe/price-display";
+import { resolveExtraSeatPriceId } from "@/lib/stripe/seat-prices";
 import { hasSubscriptionAccess } from "@/lib/subscription-entitlement";
 
 export type { BillingInterval };
@@ -38,6 +41,8 @@ export type Plan = {
   extraSeatPriceLabel?: string;
   savedSearchLimit: number;
   pinnedApplicationLimit: number;
+  /** From Stripe price metadata `auto_outreach`; falls back to Agency tier. */
+  autoOutreach?: boolean;
   aiBudgetGbp: number;
 };
 
@@ -216,6 +221,11 @@ function applyMetadata(
       next = { ...next, pinnedApplicationLimit: n };
     }
   }
+  if (meta.auto_outreach === "true") {
+    next = { ...next, autoOutreach: true };
+  } else if (meta.auto_outreach === "false") {
+    next = { ...next, autoOutreach: false };
+  }
   return next;
 }
 
@@ -254,6 +264,21 @@ function mergeDefsFromStripe(
         };
       }
     }
+    if (def.id === "pro" || def.id === "agency") {
+      const seatPriceId = resolveExtraSeatPriceId(def.id, "month");
+      const seatPrice = seatPriceId ? byId.get(seatPriceId) : null;
+      if (seatPrice) {
+        const minor = priceMinorUnits(seatPrice);
+        if (minor != null && seatPrice.currency) {
+          const label = formatPriceMinor(minor, seatPrice.currency);
+          next = {
+            ...next,
+            extraSeatPrice: minor,
+            extraSeatPriceLabel: `${label}/seat`,
+          };
+        }
+      }
+    }
     return next;
   });
 }
@@ -263,6 +288,14 @@ export const loadPlans = cache(async function loadPlans(): Promise<Plan[]> {
   const priceIds = [
     ...defs.map((p) => p.monthlyPriceId),
     ...defs.map((p) => p.annualPriceId),
+    ...defs.flatMap((p) =>
+      p.id === "pro" || p.id === "agency"
+        ? [
+            resolveExtraSeatPriceId(p.id, "month"),
+            resolveExtraSeatPriceId(p.id, "year"),
+          ]
+        : [],
+    ),
   ].filter(Boolean) as string[];
 
   if (!priceIds.length) {

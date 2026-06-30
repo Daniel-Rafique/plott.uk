@@ -32,7 +32,8 @@ export function featuresForPlan(
     planName: plan.name,
     canSaveSearches: savedSearchLimit > 0,
     canPinApplications: pinnedApplicationLimit > 0,
-    canUseAutoOutreach: plan.id === "agency" && plan.name !== "Free",
+    canUseAutoOutreach:
+      (plan.autoOutreach ?? plan.id === "agency") && plan.name !== "Free",
     canExportCsv: opts.canExportCsv ?? false,
     savedSearchLimit,
     pinnedApplicationLimit,

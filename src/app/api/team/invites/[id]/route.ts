@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getTenantContext } from "@/lib/tenant";
 import { sendInviteEmail } from "@/lib/email";
+import { syncSeatBilling } from "@/lib/stripe/sync-seat-billing";
 
 export const runtime = "nodejs";
 
@@ -56,5 +57,6 @@ export async function DELETE(_req: Request, context: Ctx) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
   await prisma.invite.delete({ where: { id } });
+  await syncSeatBilling(ctx.company.id).catch(() => {});
   return NextResponse.json({ ok: true });
 }
