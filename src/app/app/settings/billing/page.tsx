@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { getTenantContext } from "@/lib/tenant";
 import { prisma } from "@/lib/prisma";
 import { getCompanyTier, tierDef, getStripeMeta } from "@/lib/ai/tiers";
-import { loadPlans } from "@/lib/pricing";
+import { loadPlans, getCompanyBillingInterval } from "@/lib/pricing";
 import { repairSubscriptionStateForEntitlements } from "@/lib/stripe/subscription-repair";
 import { BillingSettingsClient } from "./billing-settings-client";
 
@@ -39,6 +39,9 @@ export default async function BillingSettingsPage() {
 
   const meta = await getStripeMeta(company?.subscriptionPriceId ?? null);
   const overageRate = meta.aiOverageRate ?? 4;
+  const billingInterval = company
+    ? getCompanyBillingInterval(company)
+    : "month";
 
   return (
     <div className="space-y-6">
@@ -69,6 +72,7 @@ export default async function BillingSettingsPage() {
               company?.subscriptionCurrentPeriodEnd?.toISOString() ?? null,
             trialEndsAt: company?.trialEndsAt?.toISOString() ?? null,
             hasStripeCustomer: Boolean(company?.stripeCustomerId),
+            billingInterval,
           },
           currentPlan: currentPlan
             ? {
@@ -77,6 +81,10 @@ export default async function BillingSettingsPage() {
                 tagline: currentPlan.tagline,
                 features: currentPlan.features,
                 priceLabel: currentPlan.priceLabel ?? null,
+                monthlyPriceLabel: currentPlan.monthlyPriceLabel ?? null,
+                annualPriceLabel: currentPlan.annualPriceLabel ?? null,
+                annualEffectiveMonthlyLabel:
+                  currentPlan.annualEffectiveMonthlyLabel ?? null,
                 interval: currentPlan.interval ?? null,
               }
             : null,
@@ -86,6 +94,9 @@ export default async function BillingSettingsPage() {
             tagline: p.tagline,
             features: p.features,
             priceLabel: p.priceLabel ?? null,
+            monthlyPriceLabel: p.monthlyPriceLabel ?? p.priceLabel ?? null,
+            annualPriceLabel: p.annualPriceLabel ?? null,
+            annualEffectiveMonthlyLabel: p.annualEffectiveMonthlyLabel ?? null,
             interval: p.interval ?? null,
             highlight: Boolean(p.highlight),
           })),

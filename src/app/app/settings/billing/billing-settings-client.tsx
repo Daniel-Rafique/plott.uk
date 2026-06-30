@@ -14,6 +14,8 @@ import {
   AlertTriangle,
   Zap,
 } from "lucide-react";
+import { BillingIntervalToggle } from "@/components/pricing/billing-interval-toggle";
+import type { BillingInterval } from "@/lib/stripe/plan-prices";
 import {
   hasSubscriptionAccess,
   subscriptionAccessEndsAt,
@@ -27,6 +29,9 @@ type Plan = {
   tagline: string;
   features: string[];
   priceLabel: string | null;
+  monthlyPriceLabel?: string | null;
+  annualPriceLabel?: string | null;
+  annualEffectiveMonthlyLabel?: string | null;
   interval: string | null;
   highlight: boolean;
 };
@@ -49,6 +54,7 @@ type Initial = {
     currentPeriodEnd: string | null;
     trialEndsAt: string | null;
     hasStripeCustomer: boolean;
+    billingInterval: BillingInterval;
   };
   currentPlan:
     | {
@@ -57,6 +63,9 @@ type Initial = {
         tagline: string;
         features: string[];
         priceLabel: string | null;
+        monthlyPriceLabel?: string | null;
+        annualPriceLabel?: string | null;
+        annualEffectiveMonthlyLabel?: string | null;
         interval: string | null;
       }
     | null
@@ -113,10 +122,36 @@ function statusLabel(status: string): { label: string; tone: "good" | "warn" | "
   }
 }
 
+function displayPlanPrice(
+  plan: Pick<
+    Plan,
+    | "priceLabel"
+    | "monthlyPriceLabel"
+    | "annualPriceLabel"
+    | "annualEffectiveMonthlyLabel"
+  >,
+  interval: BillingInterval,
+): { label: string | null; suffix: string; sub?: string } {
+  if (interval === "year") {
+    return {
+      label: plan.annualPriceLabel ?? plan.priceLabel,
+      suffix: "year",
+      sub: plan.annualEffectiveMonthlyLabel ?? "2 months free",
+    };
+  }
+  return {
+    label: plan.monthlyPriceLabel ?? plan.priceLabel,
+    suffix: "month",
+  };
+}
+
 export function BillingSettingsClient({ initial }: { initial: Initial }) {
   const router = useRouter();
   const [redirecting, setRedirecting] = useState(false);
   const [loadingPlan, setLoadingPlan] = useState<Plan["id"] | null>(null);
+  const [billingInterval, setBillingInterval] = useState<BillingInterval>(
+    initial.subscription.billingInterval,
+  );
   const { tier, aiUsage, subscription, currentPlan, plans } = initial;
 
   const currentTierRank = TIER_ORDER[tier.id];
@@ -177,7 +212,10 @@ export function BillingSettingsClient({ initial }: { initial: Initial }) {
   }
 
   function choosePlan() {
-    window.location.assign("/subscribe");
+    const q = new URLSearchParams();
+    if (billingInterval === "year") q.set("interval", "year");
+    const suffix = q.toString();
+    window.location.assign(suffix ? `/subscribe?${suffix}` : "/subscribe");
   }
 
   async function upgradeTrialPlan(plan: Plan["id"]) {
@@ -186,7 +224,7 @@ export function BillingSettingsClient({ initial }: { initial: Initial }) {
       const res = await fetch("/api/stripe/checkout", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ plan }),
+        body: JSON.stringify({ plan, interval: billingInterval }),
       });
       const data = (await res.json().catch(() => ({}))) as {
         url?: string;
@@ -218,7 +256,7 @@ export function BillingSettingsClient({ initial }: { initial: Initial }) {
       const res = await fetch("/api/stripe/change-plan", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ plan }),
+        body: JSON.stringify({ plan, interval: billingInterval }),
       });
       const data = (await res.json().catch(() => ({}))) as {
         error?: string;
@@ -258,6 +296,10 @@ export function BillingSettingsClient({ initial }: { initial: Initial }) {
     choosePlan();
   }
 
+  const currentPlanPrice = currentPlan
+    ? displayPlanPrice(currentPlan, subscription.billingInterval)
+    : null;
+
   return (
     <div className="space-y-8">
       <section className="rounded-xl border border-zinc-200 bg-white p-6">
@@ -284,15 +326,20 @@ export function BillingSettingsClient({ initial }: { initial: Initial }) {
         </div>
 
         <dl className="mt-6 grid gap-4 border-t border-zinc-100 pt-6 sm:grid-cols-3">
-          {currentPlan?.priceLabel ? (
+          {currentPlanPrice?.label ? (
             <div>
               <dt className="text-xs font-medium uppercase tracking-wider text-zinc-500">
                 Price
               </dt>
               <dd className="mt-1 text-sm text-zinc-900">
-                {currentPlan.priceLabel}
-                {currentPlan.interval ? ` / ${currentPlan.interval}` : ""}
+                {currentPlanPrice.label}
+                {` / ${currentPlanPrice.suffix}`}
               </dd>
+              {currentPlanPrice.sub ? (
+                <dd className="mt-0.5 text-xs text-emerald-700">
+                  {currentPlanPrice.sub}
+                </dd>
+              ) : null}
             </div>
           ) : null}
           {tier.monthlyBudgetCapGbp > 0 ? (
@@ -395,29 +442,40 @@ export function BillingSettingsClient({ initial }: { initial: Initial }) {
       ) : null}
 
       <section>
-        <div className="mb-4 flex items-baseline justify-between">
-          <h2 className="text-lg font-semibold tracking-tight">
-            {isManagedSubscription ? "Change plan" : "Choose a plan"}
-          </h2>
-          {isManagedSubscription ? (
-            <p className="text-xs text-zinc-500">
-              {isTrialing
-                ? "Your trial stays active when you switch plan."
-                : "Plan changes are prorated and applied immediately."}
-            </p>
-          ) : null}
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h2 className="text-lg font-semibold tracking-tight">
+              {isManagedSubscription ? "Change plan" : "Choose a plan"}
+            </h2>
+            {isManagedSubscription ? (
+              <p className="mt-1 text-xs text-zinc-500">
+                {isTrialing
+                  ? "Your trial stays active when you switch plan."
+                  : "Plan changes are prorated and applied immediately."}
+              </p>
+            ) : null}
+          </div>
+          <BillingIntervalToggle
+            value={billingInterval}
+            onChange={setBillingInterval}
+          />
         </div>
 
         <div className="grid gap-4 md:grid-cols-3">
           {plans.map((plan) => {
             const planRank = TIER_ORDER[plan.id];
-            const isCurrent = plan.id === tier.id && !isCanceledWithAccess;
+            const isCurrent =
+              plan.id === tier.id &&
+              !isCanceledWithAccess &&
+              billingInterval === subscription.billingInterval;
             const isUpgrade = planRank > currentTierRank;
             const isDowngrade = planRank < currentTierRank;
+            const price = displayPlanPrice(plan, billingInterval);
             return (
               <PlanCard
                 key={plan.id}
                 plan={plan}
+                price={price}
                 isCurrent={isCurrent}
                 isUpgrade={isUpgrade}
                 isDowngrade={isDowngrade}
@@ -476,6 +534,7 @@ function StatusBadge({
 
 function PlanCard({
   plan,
+  price,
   isCurrent,
   isUpgrade,
   isDowngrade,
@@ -487,6 +546,7 @@ function PlanCard({
   actionLoadingLabel,
 }: {
   plan: Plan;
+  price: { label: string | null; suffix: string; sub?: string };
   isCurrent: boolean;
   isUpgrade: boolean;
   isDowngrade: boolean;
@@ -531,15 +591,16 @@ function PlanCard({
       </div>
 
       <div className="mt-4">
-        {plan.priceLabel ? (
-          <div className="flex items-baseline gap-1.5">
-            <span className="text-3xl font-semibold tracking-tight">
-              {plan.priceLabel}
-            </span>
-            {plan.interval ? (
-              <span className="text-xs text-zinc-500">
-                / {plan.interval}
+        {price.label ? (
+          <div>
+            <div className="flex items-baseline gap-1.5">
+              <span className="text-3xl font-semibold tracking-tight">
+                {price.label}
               </span>
+              <span className="text-xs text-zinc-500">/ {price.suffix}</span>
+            </div>
+            {price.sub ? (
+              <p className="mt-1 text-xs text-emerald-700">{price.sub}</p>
             ) : null}
           </div>
         ) : (
