@@ -17,7 +17,7 @@ function price(id: string, meta: Record<string, string> = {}): Stripe.Price {
     object: "price",
     metadata: meta,
     recurring: { interval: "month", usage_type: "licensed" },
-  } as Stripe.Price;
+  } as unknown as Stripe.Price;
 }
 
 function meteredPrice(id: string): Stripe.Price {
@@ -26,11 +26,11 @@ function meteredPrice(id: string): Stripe.Price {
     object: "price",
     metadata: { purpose: "ai_overage" },
     recurring: { interval: "month", usage_type: "metered" },
-  } as Stripe.Price;
+  } as unknown as Stripe.Price;
 }
 
 function sub(items: Stripe.SubscriptionItem[]): Stripe.Subscription {
-  return { items: { data: items } } as Stripe.Subscription;
+  return { items: { data: items } } as unknown as Stripe.Subscription;
 }
 
 afterEach(() => {
@@ -55,16 +55,16 @@ describe("subscription-items", () => {
       {
         id: "si_plan",
         price: price("price_pro"),
-      } as Stripe.SubscriptionItem,
+      } as unknown as Stripe.SubscriptionItem,
       {
         id: "si_seat",
         price: price("price_seat", { purpose: "extra_seat" }),
         quantity: 2,
-      } as Stripe.SubscriptionItem,
+      } as unknown as Stripe.SubscriptionItem,
       {
         id: "si_overage",
         price: meteredPrice("price_overage"),
-      } as Stripe.SubscriptionItem,
+      } as unknown as Stripe.SubscriptionItem,
     ]);
 
     expect(licensedPriceId(subscription)).toBe("price_pro");
