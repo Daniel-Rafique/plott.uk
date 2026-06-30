@@ -2,8 +2,8 @@
 
 /**
  * Outreach approval inbox. Lists AgentApprovals with a split view: the left
- * pane shows the queue, the right pane shows the currently-selected message
- * in email-compose layout (default when an address exists) or letter layout.
+ * pane shows the queue, the right pane shows the draft letter alongside
+ * metadata and an optional email-compose preview tab.
  */
 
 import Link from "next/link";
@@ -19,7 +19,6 @@ import {
   Loader2,
   Mail,
   MapPin,
-  ChevronDown,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ResearchBriefingCard } from "@/components/research-briefing-card";
@@ -93,7 +92,6 @@ export function OutreachInbox({
       null,
   );
   const [previewChannel, setPreviewChannel] = useState<PreviewChannel>("email");
-  const [metaOpen, setMetaOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
   const [rejectTargetId, setRejectTargetId] = useState<string | null>(null);
@@ -108,7 +106,7 @@ export function OutreachInbox({
     return list;
   }, [filter, hasEmailOnly, approvals]);
 
-  const selected = visible.find((a) => a.id === selectedId) ?? visible[0] ?? null;
+  const selected = visible.find((a) => a.id === selectedId) ?? null;
 
   const selectedDraft = (selected?.draft as OutreachDraftDisplay | null) ?? null;
   const selectedIssues = (selected?.issues as Issue[] | null) ?? null;
@@ -116,9 +114,21 @@ export function OutreachInbox({
   const selectedEmailSource = emailSourceLabel(selectedDraft);
 
   useEffect(() => {
-    setPreviewChannel(defaultPreviewChannel(selectedDraft));
-    setMetaOpen(false);
-  }, [selected?.id, selectedDraft]);
+    if (visible.length === 0) {
+      setSelectedId(null);
+      return;
+    }
+    if (!selectedId || !visible.some((a) => a.id === selectedId)) {
+      setSelectedId(visible[0].id);
+    }
+  }, [visible, selectedId]);
+
+  useEffect(() => {
+    if (!selectedId) return;
+    const approval = approvals.find((a) => a.id === selectedId);
+    const draft = (approval?.draft as OutreachDraftDisplay | null) ?? null;
+    setPreviewChannel(defaultPreviewChannel(draft));
+  }, [selectedId]);
 
   const rejectInFlight = busy && rejectDialogOpen;
 
@@ -310,7 +320,7 @@ export function OutreachInbox({
               <ul className="divide-y divide-zinc-100">
                 {visible.map((a) => {
                   const draft = a.draft as OutreachDraftDisplay | null;
-                  const isActive = a.id === selected?.id;
+                  const isActive = a.id === selectedId;
                   const rowEmail = recipientEmail(draft);
                   return (
                     <li key={a.id}>
@@ -353,7 +363,7 @@ export function OutreachInbox({
           </div>
         </aside>
 
-        <section className="min-h-[60vh] min-w-0 rounded-xl border border-zinc-200 bg-white p-5 shadow-sm">
+        <section className="min-w-0 min-h-[60vh] rounded-xl border border-zinc-200 bg-white p-5 shadow-sm">
           {!selected ? (
             <p className="text-sm text-zinc-500">Select an approval to review.</p>
           ) : (
@@ -361,16 +371,19 @@ export function OutreachInbox({
               <div className="mb-4 flex flex-wrap items-start justify-between gap-2">
                 <div>
                   <h2 className="text-lg font-semibold text-zinc-900">
-                    {selectedDraft?.recipient?.name ?? "Unknown recipient"}
+                    {selectedDraft?.subject ?? "(no subject)"}
                   </h2>
                   <p className="text-xs text-zinc-500">
-                    Ref {selected.subjectRef ?? `#${selected.planningEntity}`}
+                    To: {selectedDraft?.recipient?.name ?? "Unknown"} · Ref{" "}
+                    {selected.subjectRef ?? `#${selected.planningEntity}`}
                   </p>
                 </div>
-                <p className="flex max-w-sm items-start justify-end gap-1.5 text-right text-xs leading-snug text-zinc-600">
-                  <Sparkles className="mt-0.5 h-3.5 w-3.5 shrink-0 text-zinc-400" />
-                  Please read before approving.
-                </p>
+                <div className="flex max-w-sm flex-col items-end">
+                  <p className="flex items-start justify-end gap-1.5 text-right text-xs leading-snug text-zinc-600">
+                    <Sparkles className="mt-0.5 h-3.5 w-3.5 shrink-0 text-zinc-400" />
+                    Please read before approving.
+                  </p>
+                </div>
               </div>
 
               {selectedIssues && selectedIssues.length > 0 && (
@@ -426,127 +439,118 @@ export function OutreachInbox({
                 </div>
               )}
 
-              <div className="mb-3 flex gap-1 rounded-lg border border-zinc-200 bg-zinc-50 p-1">
-                <ChannelTab
-                  active={previewChannel === "email"}
-                  disabled={!selectedRecipientEmail}
-                  onClick={() => setPreviewChannel("email")}
-                  icon={<Mail className="h-3.5 w-3.5" />}
-                  label="Email"
-                />
-                <ChannelTab
-                  active={previewChannel === "letter"}
-                  onClick={() => setPreviewChannel("letter")}
-                  icon={<MapPin className="h-3.5 w-3.5" />}
-                  label="Letter (postal)"
-                />
-              </div>
-
-              <div className="overflow-hidden rounded-lg border border-zinc-200 bg-zinc-50">
-                <div className="border-b border-zinc-200 bg-white px-4 py-3">
-                  <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500">
-                    Message preview
-                  </p>
-                  <p className="mt-1 text-xs text-zinc-600">
-                    One drafted message — send by email or save as a printable
-                    letter.
-                  </p>
-                </div>
-
-                {previewChannel === "email" && selectedRecipientEmail ? (
-                  <OutreachMessageHeader
-                    companyName={companyName}
-                    replyToEmail={replyToEmail}
-                    recipientEmail={selectedRecipientEmail}
-                    recipientName={selectedDraft?.recipient?.name}
-                    subject={selectedDraft?.subject}
-                    sourceLabel={selectedEmailSource}
-                  />
-                ) : null}
-
-                {previewChannel === "letter" && selectedDraft?.recipient?.addressLines ? (
+              <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_280px]">
+                <div className="overflow-hidden rounded-lg border border-zinc-200 bg-zinc-50">
                   <div className="border-b border-zinc-200 bg-white px-4 py-3">
                     <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500">
-                      Postal address
+                      Message preview
                     </p>
-                    <pre className="mt-2 whitespace-pre-wrap font-sans text-sm text-zinc-700">
-                      {selectedDraft.recipient.addressLines}
-                    </pre>
-                  </div>
-                ) : null}
-
-                <article
-                  className={cn(
-                    "prose prose-sm max-w-none p-4",
-                    previewChannel === "email" && selectedRecipientEmail
-                      ? "bg-white"
-                      : "bg-zinc-50",
-                  )}
-                  dangerouslySetInnerHTML={{
-                    __html: sanitizeHtmlFragment(selectedDraft?.bodyHtml ?? ""),
-                  }}
-                />
-              </div>
-
-              <div className="mt-4">
-                <button
-                  type="button"
-                  onClick={() => setMetaOpen((v) => !v)}
-                  className="flex w-full items-center justify-between rounded-md border border-zinc-200 bg-white px-3 py-2 text-left text-xs font-medium text-zinc-700 hover:bg-zinc-50"
-                >
-                  <span>Address, research &amp; compliance details</span>
-                  <ChevronDown
-                    className={cn(
-                      "h-4 w-4 text-zinc-400 transition-transform",
-                      metaOpen && "rotate-180",
-                    )}
-                  />
-                </button>
-                {metaOpen ? (
-                  <div className="mt-2 space-y-3 rounded-md border border-zinc-200 bg-white p-3">
-                    {selectedDraft?.recipient?.addressLines && previewChannel === "email" ? (
-                      <div>
-                        <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-zinc-500">
-                          Postal address
-                        </p>
-                        <pre className="whitespace-pre-wrap text-xs text-zinc-700">
-                          {selectedDraft.recipient.addressLines}
-                        </pre>
-                      </div>
-                    ) : null}
-                    {selected?.sentChannel === "email" && selected.sentTo ? (
-                      <div className="rounded-md border border-emerald-200 bg-emerald-50 p-3">
-                        <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-emerald-800">
-                          Sent by email
-                        </p>
-                        <p className="break-all text-xs text-emerald-900">{selected.sentTo}</p>
-                        {selected.sentAt ? (
-                          <p className="mt-1 text-[11px] text-emerald-800">
-                            {new Date(selected.sentAt).toLocaleString("en-GB")}
-                          </p>
-                        ) : null}
-                      </div>
-                    ) : null}
-                    {(selectedDraft?.enrichment?.applicantName ||
-                      selectedDraft?.enrichment?.agentName) && (
-                      <ResearchBriefingCard
-                        displayName={
-                          selectedDraft.enrichment.agentName ||
-                          selectedDraft.enrichment.applicantName
-                        }
-                        hint={
-                          selected.subjectRef
-                            ? `Planning application ${selected.subjectRef}`
-                            : undefined
-                        }
+                    <p className="mt-1 text-xs text-zinc-600">
+                      One drafted message — send by email or save as a printable
+                      letter.
+                    </p>
+                    <div className="mt-3 flex gap-1 rounded-lg border border-zinc-200 bg-zinc-50 p-1">
+                      <ChannelTab
+                        active={previewChannel === "email"}
+                        disabled={!selectedRecipientEmail}
+                        onClick={() => setPreviewChannel("email")}
+                        icon={<Mail className="h-3.5 w-3.5" />}
+                        label="Email"
                       />
-                    )}
-                    <p className="flex items-center gap-1 text-[10px] uppercase tracking-wider text-zinc-400">
-                      <Clock className="h-3 w-3" />
-                      Generated {new Date(selected.createdAt).toLocaleString("en-GB")}
-                    </p>
+                      <ChannelTab
+                        active={previewChannel === "letter"}
+                        onClick={() => setPreviewChannel("letter")}
+                        icon={<MapPin className="h-3.5 w-3.5" />}
+                        label="Letter"
+                      />
+                    </div>
                   </div>
-                ) : null}
+
+                  {previewChannel === "email" && selectedRecipientEmail ? (
+                    <OutreachMessageHeader
+                      companyName={companyName}
+                      replyToEmail={replyToEmail}
+                      recipientEmail={selectedRecipientEmail}
+                      recipientName={selectedDraft?.recipient?.name}
+                      subject={selectedDraft?.subject}
+                      sourceLabel={selectedEmailSource}
+                    />
+                  ) : null}
+
+                  <article
+                    className={cn(
+                      "prose prose-sm max-w-none p-4",
+                      previewChannel === "email" && selectedRecipientEmail
+                        ? "bg-white"
+                        : "bg-zinc-50",
+                    )}
+                    dangerouslySetInnerHTML={{
+                      __html: sanitizeHtmlFragment(selectedDraft?.bodyHtml ?? ""),
+                    }}
+                  />
+                </div>
+
+                <aside className="space-y-3">
+                  {selectedDraft?.recipient?.addressLines && (
+                    <div className="rounded-md border border-zinc-200 bg-white p-3">
+                      <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-zinc-500">
+                        Address
+                      </p>
+                      <pre className="whitespace-pre-wrap text-xs text-zinc-700">
+                        {selectedDraft.recipient.addressLines}
+                      </pre>
+                    </div>
+                  )}
+                  {selectedRecipientEmail && (
+                    <div className="rounded-md border border-zinc-200 bg-white p-3">
+                      <p className="mb-1 flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-zinc-500">
+                        <Mail className="h-3 w-3" />
+                        Email
+                      </p>
+                      <p className="break-all text-xs text-zinc-700">
+                        {selectedRecipientEmail}
+                      </p>
+                      {selectedEmailSource ? (
+                        <p className="mt-1 text-[11px] text-zinc-500">
+                          {selectedEmailSource}
+                        </p>
+                      ) : null}
+                    </div>
+                  )}
+                  {selected?.sentChannel === "email" && selected.sentTo ? (
+                    <div className="rounded-md border border-emerald-200 bg-emerald-50 p-3">
+                      <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-emerald-800">
+                        Sent by email
+                      </p>
+                      <p className="break-all text-xs text-emerald-900">
+                        {selected.sentTo}
+                      </p>
+                      {selected.sentAt ? (
+                        <p className="mt-1 text-[11px] text-emerald-800">
+                          {new Date(selected.sentAt).toLocaleString("en-GB")}
+                        </p>
+                      ) : null}
+                    </div>
+                  ) : null}
+                  {(selectedDraft?.enrichment?.applicantName ||
+                    selectedDraft?.enrichment?.agentName) && (
+                    <ResearchBriefingCard
+                      displayName={
+                        selectedDraft.enrichment.agentName ||
+                        selectedDraft.enrichment.applicantName
+                      }
+                      hint={
+                        selected.subjectRef
+                          ? `Planning application ${selected.subjectRef}`
+                          : undefined
+                      }
+                    />
+                  )}
+                  <p className="flex items-center gap-1 text-[10px] uppercase tracking-wider text-zinc-400">
+                    <Clock className="h-3 w-3" />
+                    Generated {new Date(selected.createdAt).toLocaleString("en-GB")}
+                  </p>
+                </aside>
               </div>
 
               {selected.status === "pending" ? (
