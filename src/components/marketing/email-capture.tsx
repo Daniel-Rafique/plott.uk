@@ -1,21 +1,9 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
-import {
-  AnimatePresence,
-  motion,
-  useReducedMotion,
-  type HTMLMotionProps,
-} from "framer-motion";
-import { X } from "lucide-react";
 import posthog from "posthog-js";
-import { authClient } from "@/lib/auth/client";
 import { cn } from "@/lib/utils";
-
-type CaptureVariant = "inline" | "popup";
-type CaptureDismissReason = "form" | "success";
-type PopupState = "hidden" | "launcher" | "expanded";
 
 type KlaviyoBrowserApi = {
   identify?: (properties: Record<string, unknown>) => Promise<unknown> | unknown;
@@ -23,30 +11,18 @@ type KlaviyoBrowserApi = {
 };
 
 type EmailCaptureProps = {
-  variant?: CaptureVariant;
   source: string;
   leadMagnet: string;
   title: string;
   description: string;
   className?: string;
   onSuccess?: () => void;
-  onDismiss?: (reason: CaptureDismissReason) => void;
 };
 
 const CONSENT_COPY =
   "I agree to receive Plott planning lead resources, product updates and marketing emails. I can unsubscribe at any time.";
 
-const DISMISSED_KEY = "plott_marketing_capture_dismissed_at";
 const SUBSCRIBED_KEY = "plott_marketing_capture_subscribed_at";
-const COOLDOWN_MS = 1000 * 60 * 60 * 24 * 14;
-
-function recentlyStored(key: string) {
-  if (typeof window === "undefined") return true;
-  const value = window.localStorage.getItem(key);
-  if (!value) return false;
-  const timestamp = Number(value);
-  return Number.isFinite(timestamp) && Date.now() - timestamp < COOLDOWN_MS;
-}
 
 function storeNow(key: string) {
   window.localStorage.setItem(key, String(Date.now()));
@@ -83,7 +59,6 @@ function identifyLeadInKlaviyo(args: {
   company?: string;
   source: string;
   leadMagnet: string;
-  variant: CaptureVariant;
   path: string | null;
 }) {
   if (typeof window === "undefined") return;
@@ -108,7 +83,7 @@ function identifyLeadInKlaviyo(args: {
       klaviyo.track?.("Marketing Lead Submitted", {
         source: args.source,
         lead_magnet: args.leadMagnet,
-        variant: args.variant,
+        variant: "inline",
         path: args.path,
       }),
     )
@@ -116,14 +91,12 @@ function identifyLeadInKlaviyo(args: {
 }
 
 export function EmailCapture({
-  variant = "inline",
   source,
   leadMagnet,
   title,
   description,
   className,
   onSuccess,
-  onDismiss,
 }: EmailCaptureProps) {
   const pathname = usePathname();
   const [email, setEmail] = useState("");
@@ -138,10 +111,10 @@ export function EmailCapture({
     posthog.capture("marketing_capture_impression", {
       source,
       lead_magnet: leadMagnet,
-      variant,
+      variant: "inline",
       path: pathname,
     });
-  }, [leadMagnet, pathname, source, variant]);
+  }, [leadMagnet, pathname, source]);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -175,7 +148,7 @@ export function EmailCapture({
       posthog.capture("marketing_capture_submitted", {
         source,
         lead_magnet: leadMagnet,
-        variant,
+        variant: "inline",
         path: pathname,
       });
       identifyLeadInKlaviyo({
@@ -184,7 +157,6 @@ export function EmailCapture({
         company,
         source,
         leadMagnet,
-        variant,
         path: pathname,
       });
       onSuccess?.();
@@ -199,30 +171,13 @@ export function EmailCapture({
       <div
         className={cn(
           "rounded-3xl border border-emerald-200 bg-emerald-50 p-6 text-emerald-950 md:p-8",
-          variant === "popup" && "border-zinc-800 bg-white shadow-2xl",
           className,
         )}
       >
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <p className="editorial-chapter-label text-emerald-700">
-              Check your inbox
-            </p>
-            <h2 className="mt-3 font-[family-name:var(--font-display)] text-[28px] font-normal leading-tight tracking-tight text-zinc-950">
-              Your resource is on its way.
-            </h2>
-          </div>
-          {variant === "popup" ? (
-            <button
-              type="button"
-              onClick={() => onDismiss?.("success")}
-              className="rounded-full border border-zinc-200 p-2 text-zinc-500 transition hover:border-zinc-400 hover:text-zinc-900"
-              aria-label="Dismiss success message"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          ) : null}
-        </div>
+        <p className="editorial-chapter-label text-emerald-700">Check your inbox</p>
+        <h2 className="mt-3 font-[family-name:var(--font-display)] text-[28px] font-normal leading-tight tracking-tight text-zinc-950">
+          Your resource is on its way.
+        </h2>
         <p className="mt-4 text-[15px] leading-relaxed text-zinc-700">
           Thanks. We sent {leadMagnet.toLowerCase()} to{" "}
           <span className="font-semibold text-zinc-950">{email}</span>. You can
@@ -239,31 +194,14 @@ export function EmailCapture({
     <div
       className={cn(
         "rounded-3xl border border-zinc-200 bg-white p-6 shadow-sm md:p-8",
-        variant === "popup" && "border-zinc-800 p-6 shadow-2xl",
         className,
       )}
     >
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <p className="editorial-chapter-label text-brand-dark">Free resource</p>
-          <h2 className="mt-3 font-[family-name:var(--font-display)] text-[28px] font-normal leading-tight tracking-tight text-zinc-950">
-            {title}
-          </h2>
-        </div>
-        {variant === "popup" ? (
-          <button
-            type="button"
-            onClick={() => onDismiss?.("form")}
-            className="rounded-full border border-zinc-200 p-2 text-zinc-500 transition hover:border-zinc-400 hover:text-zinc-900"
-            aria-label="Dismiss email signup"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        ) : null}
-      </div>
-      <p className="mt-4 text-[14px] leading-relaxed text-zinc-600">
-        {description}
-      </p>
+      <p className="editorial-chapter-label text-brand-dark">Free resource</p>
+      <h2 className="mt-3 font-[family-name:var(--font-display)] text-[28px] font-normal leading-tight tracking-tight text-zinc-950">
+        {title}
+      </h2>
+      <p className="mt-4 text-[14px] leading-relaxed text-zinc-600">{description}</p>
 
       <form onSubmit={submit} className="mt-6 space-y-4">
         <input
@@ -314,9 +252,7 @@ export function EmailCapture({
             .
           </span>
         </label>
-        {error ? (
-          <p className="text-[13px] text-red-600">{error}</p>
-        ) : null}
+        {error ? <p className="text-[13px] text-red-600">{error}</p> : null}
         <button
           type="submit"
           disabled={status === "submitting"}
@@ -325,157 +261,6 @@ export function EmailCapture({
           {status === "submitting" ? "Subscribing..." : "Send me the resource"}
         </button>
       </form>
-    </div>
-  );
-}
-
-export function MarketingCapturePopup() {
-  const pathname = usePathname();
-  const { data: session } = authClient.useSession();
-  const prefersReducedMotion = useReducedMotion();
-  const [popupState, setPopupState] = useState<PopupState>("hidden");
-  const [dismissed, setDismissed] = useState(false);
-
-  const allowed = useMemo(() => {
-    if (!pathname) return false;
-    return ![
-      "/api",
-      "/app",
-      "/auth",
-      "/invites",
-      "/monitoring",
-      "/onboarding",
-      "/subscribe",
-    ].some((prefix) => pathname.startsWith(prefix));
-  }, [pathname]);
-
-  useEffect(() => {
-    if (!allowed || session?.user || dismissed) return;
-    if (recentlyStored(DISMISSED_KEY) || recentlyStored(SUBSCRIBED_KEY)) return;
-
-    const show = () => {
-      setPopupState((current) => (current === "hidden" ? "launcher" : current));
-    };
-    const delay = window.setTimeout(show, pathname === "/pricing" ? 8000 : 45_000);
-    const onScroll = () => {
-      const scrollable = document.documentElement.scrollHeight - window.innerHeight;
-      if (scrollable <= 0) return;
-      if (window.scrollY / scrollable >= 0.6) show();
-    };
-    const onMouseLeave = (event: MouseEvent) => {
-      if (event.clientY <= 0 && window.innerWidth >= 900) show();
-    };
-
-    window.addEventListener("scroll", onScroll, { passive: true });
-    document.addEventListener("mouseleave", onMouseLeave);
-    return () => {
-      window.clearTimeout(delay);
-      window.removeEventListener("scroll", onScroll);
-      document.removeEventListener("mouseleave", onMouseLeave);
-    };
-  }, [allowed, dismissed, pathname, session?.user]);
-
-  function dismiss() {
-    storeNow(DISMISSED_KEY);
-    setDismissed(true);
-    setPopupState("hidden");
-    posthog.capture("marketing_capture_dismissed", {
-      source: "site_popup",
-      path: pathname,
-    });
-  }
-
-  function expand() {
-    setPopupState("expanded");
-    posthog.capture("marketing_capture_opened", {
-      source: "site_popup",
-      path: pathname,
-    });
-  }
-
-  function collapse() {
-    setPopupState("launcher");
-  }
-
-  function handleCaptureDismiss(reason: CaptureDismissReason) {
-    if (reason === "success") {
-      dismiss();
-      return;
-    }
-    collapse();
-  }
-
-  if (!allowed || session?.user || popupState === "hidden") return null;
-
-  const launcherMotion: HTMLMotionProps<"div"> = prefersReducedMotion
-    ? { initial: false, animate: { opacity: 1 }, exit: { opacity: 0 } }
-    : {
-        initial: { opacity: 0, y: 18, scale: 0.98 },
-        animate: { opacity: 1, y: 0, scale: 1 },
-        exit: { opacity: 0, y: 12, scale: 0.98 },
-        transition: { duration: 0.28, ease: "easeOut" },
-      };
-  const cardMotion: HTMLMotionProps<"div"> = prefersReducedMotion
-    ? { initial: false, animate: { opacity: 1 }, exit: { opacity: 0 } }
-    : {
-        initial: { opacity: 0, y: 24, scale: 0.96, filter: "blur(8px)" },
-        animate: { opacity: 1, y: 0, scale: 1, filter: "blur(0px)" },
-        exit: { opacity: 0, y: 16, scale: 0.98, filter: "blur(6px)" },
-        transition: { duration: 0.36, ease: "easeOut" },
-      };
-
-  return (
-    <div className="fixed inset-x-0 bottom-0 z-[80] px-4 pb-4 sm:left-auto sm:right-6 sm:max-w-md sm:px-0 sm:pb-6">
-      <AnimatePresence mode="wait">
-        {popupState === "launcher" ? (
-          <motion.div key="launcher" {...launcherMotion}>
-            <div className="flex items-center justify-end gap-2">
-              <button
-                type="button"
-                onClick={expand}
-                className="group rounded-full border border-zinc-200/80 bg-white/90 px-4 py-3 text-left shadow-[0_18px_60px_rgb(24_24_27_/_0.16)] backdrop-blur-xl transition hover:-translate-y-0.5 hover:border-brand/50 hover:bg-white hover:shadow-[0_22px_70px_rgb(24_24_27_/_0.2)]"
-                aria-label="Open free planning checklist signup"
-              >
-                <span className="flex items-center gap-3">
-                  <span className="flex h-9 w-9 items-center justify-center rounded-full bg-zinc-950 text-[11px] font-semibold uppercase tracking-[0.16em] text-white">
-                    Free
-                  </span>
-                  <span>
-                    <span className="block text-[11px] font-semibold uppercase tracking-[0.2em] text-brand-dark">
-                      Planning checklist
-                    </span>
-                    <span className="mt-0.5 block text-[13px] font-medium text-zinc-900">
-                      Open the resource
-                    </span>
-                  </span>
-                </span>
-              </button>
-              <button
-                type="button"
-                onClick={dismiss}
-                className="rounded-full border border-zinc-200 bg-white/90 p-2.5 text-zinc-500 shadow-sm backdrop-blur-xl transition hover:border-zinc-400 hover:text-zinc-900"
-                aria-label="Dismiss planning checklist prompt"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-          </motion.div>
-        ) : (
-          <motion.div key="expanded" {...cardMotion}>
-            <EmailCapture
-              variant="popup"
-              source="site_popup"
-              leadMagnet="UK Planning Lead Checklist"
-              title="Get the UK Planning Lead Checklist"
-              description="Qualify new planning applications, enrich contacts and start privacy-aware outreach with a short practical checklist."
-              onDismiss={handleCaptureDismiss}
-              onSuccess={() => {
-                storeNow(DISMISSED_KEY);
-              }}
-            />
-          </motion.div>
-        )}
-      </AnimatePresence>
     </div>
   );
 }

@@ -4,7 +4,6 @@ import { Suspense } from "react";
 import { Geist, Geist_Mono, Playfair_Display } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import { MarketingShell } from "@/lib/animation/marketing-shell";
-import { MarketingCapturePopup } from "@/components/marketing/email-capture";
 import { PublicSiteShell } from "@/components/public-site-shell";
 import { RouteProgress } from "@/components/route-progress";
 import {
@@ -177,7 +176,6 @@ export default function RootLayout({
         <MarketingShell>
           <PublicSiteShell>{children}</PublicSiteShell>
         </MarketingShell>
-        <MarketingCapturePopup />
         <Analytics />
         <Script
           src={`https://www.googletagmanager.com/gtag/js?id=${GOOGLE_TAG_ID}`}
