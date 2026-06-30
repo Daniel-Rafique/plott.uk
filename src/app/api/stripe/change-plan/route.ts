@@ -16,6 +16,9 @@ import {
   type BillingInterval,
 } from "@/lib/stripe/plan-prices";
 import {
+  formatPriceLabelWithInterval,
+} from "@/lib/stripe/price-display";
+import {
   applySubscription,
   subscriptionPeriodEnd,
 } from "@/lib/stripe/subscription-state";
@@ -34,24 +37,6 @@ function subscriptionPrice(sub: Stripe.Subscription): Stripe.Price | null {
   const item = licensedSubscriptionItem(sub);
   const price = item?.price;
   return price && typeof price !== "string" ? price : null;
-}
-
-function formatPriceLabel(price: Stripe.Price | null): string | null {
-  if (!price?.currency) return null;
-  const minor =
-    price.unit_amount != null
-      ? price.unit_amount
-      : price.unit_amount_decimal != null
-        ? Math.round(Number(price.unit_amount_decimal))
-        : null;
-  if (minor == null) return null;
-  const amount = new Intl.NumberFormat("en-GB", {
-    style: "currency",
-    currency: price.currency.toUpperCase(),
-    maximumFractionDigits: minor % 100 === 0 ? 0 : 2,
-  }).format(minor / 100);
-  const interval = price.recurring?.interval;
-  return interval ? `${amount} / ${interval}` : amount;
 }
 
 function includedAiCreditGbp(price: Stripe.Price | null): number | null {
@@ -210,7 +195,7 @@ export async function POST(req: Request) {
         to: ctx.user.email,
         companyName: ctx.company.name,
         planName: planLabel(plan),
-        priceLabel: formatPriceLabel(price),
+        priceLabel: formatPriceLabelWithInterval(price),
         renewalDate: subscriptionPeriodEnd(updated),
         includedAiCreditGbp: includedAiCreditGbp(price),
       }).catch((emailErr) => {

@@ -1,10 +1,16 @@
-import { getStripe } from "@/lib/stripe";
+import { cache } from "react";
+import type Stripe from "stripe";
 import { defaultMonthlyBudgetCapGbp } from "@/lib/ai/tiers";
 import {
   billingIntervalForPriceId,
   planForPriceId,
   type BillingInterval,
 } from "@/lib/stripe/plan-prices";
+import {
+  annualEffectiveMonthlyLabel,
+  fetchStripePricesById,
+  formatStripePriceAmount,
+} from "@/lib/stripe/price-display";
 import { hasSubscriptionAccess } from "@/lib/subscription-entitlement";
 
 export type { BillingInterval };
@@ -45,12 +51,6 @@ const PLAN_DEFINITIONS: PlanDef[] = [
     annualPriceId: null,
     name: "Starter",
     tagline: "For sole traders and small teams getting started.",
-    priceLabel: "£49.99",
-    monthlyPriceLabel: "£49.99",
-    annualPriceLabel: "£499.90",
-    annualEffectiveMonthlyLabel: "~£41.66/mo",
-    interval: "month",
-    currency: "GBP",
     seatLimit: 1,
     extraSeatPrice: null,
     savedSearchLimit: 0,
@@ -65,12 +65,6 @@ const PLAN_DEFINITIONS: PlanDef[] = [
     name: "Pro",
     tagline: "For growing contractors who need an edge.",
     highlight: true,
-    priceLabel: "£99",
-    monthlyPriceLabel: "£99",
-    annualPriceLabel: "£990",
-    annualEffectiveMonthlyLabel: "~£82.50/mo",
-    interval: "month",
-    currency: "GBP",
     seatLimit: 3,
     extraSeatPrice: 2500,
     extraSeatPriceLabel: "£25/seat",
@@ -85,12 +79,6 @@ const PLAN_DEFINITIONS: PlanDef[] = [
     annualPriceId: null,
     name: "Agency",
     tagline: "For multi-office firms and lead generation agencies.",
-    priceLabel: "£199",
-    monthlyPriceLabel: "£199",
-    annualPriceLabel: "£1,990",
-    annualEffectiveMonthlyLabel: "~£165.83/mo",
-    interval: "month",
-    currency: "GBP",
     seatLimit: 10,
     extraSeatPrice: 2000,
     extraSeatPriceLabel: "£20/seat",
@@ -198,32 +186,14 @@ function toPlan(def: PlanDef): Plan {
   return { ...def, features: buildPlanFeatures(def as Plan) };
 }
 
-function formatPriceMinor(minor: number, currency: string): string {
-  const n = minor / 100;
-  return new Intl.NumberFormat("en-GB", {
-    style: "currency",
-    currency: currency.toUpperCase(),
-    maximumFractionDigits: n % 1 === 0 ? 0 : 2,
-  }).format(n);
-}
-
-function formatStripePrice(p: import("stripe").Stripe.Price): {
-  priceLabel?: string;
-  interval?: string;
-  currency?: string;
-} {
-  if (!p.currency) return {};
-  const minor =
-    p.unit_amount != null
-      ? p.unit_amount
-      : p.unit_amount_decimal != null
-        ? Math.round(parseFloat(String(p.unit_amount_decimal)))
-        : null;
-  if (minor == null) return {};
+function stripePriceMetadata(price: Stripe.Price): Record<string, string> {
   return {
-    priceLabel: formatPriceMinor(minor, p.currency),
-    currency: p.currency.toUpperCase(),
-    interval: p.recurring?.interval ?? undefined,
+    ...(typeof price.product === "object" &&
+    price.product &&
+    "metadata" in price.product
+      ? price.product.metadata
+      : {}),
+    ...price.metadata,
   };
 }
 
@@ -251,7 +221,7 @@ function applyMetadata(
 
 function mergeDefsFromStripe(
   defs: PlanDef[],
-  byId: Map<string, import("stripe").Stripe.Price>,
+  byId: Map<string, Stripe.Price>,
 ): PlanDef[] {
   return defs.map((def) => {
     let next = { ...def };
@@ -259,48 +229,36 @@ function mergeDefsFromStripe(
     const annual = def.annualPriceId ? byId.get(def.annualPriceId) : null;
 
     if (monthly) {
-      const formatted = formatStripePrice(monthly);
-      const meta = {
-        ...(typeof monthly.product === "object" &&
-        monthly.product &&
-        "metadata" in monthly.product
-          ? monthly.product.metadata
-          : {}),
-        ...monthly.metadata,
-      };
-      next = applyMetadata(
-        {
-          ...next,
-          ...formatted,
-          monthlyPriceLabel: formatted.priceLabel,
-          priceLabel: formatted.priceLabel ?? next.priceLabel,
-        },
-        meta,
-      );
+      const formatted = formatStripePriceAmount(monthly);
+      if (formatted) {
+        next = applyMetadata(
+          {
+            ...next,
+            priceLabel: formatted.priceLabel,
+            monthlyPriceLabel: formatted.priceLabel,
+            interval: formatted.interval ?? "month",
+            currency: formatted.currency,
+          },
+          stripePriceMetadata(monthly),
+        );
+      }
     }
     if (annual) {
-      const formatted = formatStripePrice(annual);
-      const annualMinor = annual.unit_amount ?? 0;
-      const effective = annualMinor > 0 ? annualMinor / 12 / 100 : 0;
-      const effectiveLabel =
-        effective > 0
-          ? `~${new Intl.NumberFormat("en-GB", {
-              style: "currency",
-              currency: (annual.currency ?? "gbp").toUpperCase(),
-              maximumFractionDigits: effective % 1 === 0 ? 0 : 2,
-            }).format(effective)}/mo`
-          : next.annualEffectiveMonthlyLabel;
-      next = {
-        ...next,
-        annualPriceLabel: formatted.priceLabel ?? next.annualPriceLabel,
-        annualEffectiveMonthlyLabel: effectiveLabel,
-      };
+      const formatted = formatStripePriceAmount(annual);
+      if (formatted) {
+        next = {
+          ...next,
+          annualPriceLabel: formatted.priceLabel,
+          annualEffectiveMonthlyLabel:
+            annualEffectiveMonthlyLabel(annual) ?? undefined,
+        };
+      }
     }
     return next;
   });
 }
 
-export async function loadPlans(): Promise<Plan[]> {
+export const loadPlans = cache(async function loadPlans(): Promise<Plan[]> {
   const defs = PLAN_DEFINITIONS.map(planDefWithEnvIds);
   const priceIds = [
     ...defs.map((p) => p.monthlyPriceId),
@@ -313,26 +271,20 @@ export async function loadPlans(): Promise<Plan[]> {
 
   if (!process.env.STRIPE_SECRET_KEY) {
     console.warn(
-      "STRIPE_SECRET_KEY not set — pricing page and billing use static plan defaults.",
+      "STRIPE_SECRET_KEY not set — plan prices are unavailable until Stripe is configured.",
     );
     return defs.map((d) => toPlan(d));
   }
 
   try {
-    const stripe = getStripe();
-    const prices = await Promise.all(
-      priceIds.map((id) =>
-        stripe.prices.retrieve(id, { expand: ["product"] }).catch(() => null),
-      ),
-    );
-    const byId = new Map(prices.filter((p) => p).map((p) => [p!.id, p!]));
+    const byId = await fetchStripePricesById(priceIds);
     const merged = mergeDefsFromStripe(defs, byId);
     return merged.map((d) => toPlan(d));
   } catch (e) {
     console.error("Pricing fetch failed:", e);
     return defs.map((d) => toPlan(d));
   }
-}
+});
 
 export const FREE_PLAN: Plan = {
   id: "starter",

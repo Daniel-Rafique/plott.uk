@@ -9,20 +9,27 @@ import {
 } from "@/lib/seo";
 import { PricingContent } from "./pricing-content";
 
-export const metadata: Metadata = publicPageMetadata({
-  title: "Pricing",
-  description:
-    "Simple, transparent pricing for Plott. Start from £49.99/month with a 3-day trial. Annual billing saves two months. Cancel any time, VAT may apply.",
-  path: "/pricing",
-  openGraphTitle: "Pricing — Plott",
-  openGraphDescription:
-    "Simple, transparent pricing. Start from £49.99/month with a 3-day trial.",
-  twitterTitle: "Pricing — Plott",
-  twitterDescription:
-    "Simple, transparent pricing. Start from £49.99/month with a 3-day trial.",
-});
-
 export const revalidate = 3600;
+
+function starterPriceCopy(plans: Awaited<ReturnType<typeof loadPlans>>): string {
+  const starter = plans.find((plan) => plan.id === "starter");
+  const label = starter?.monthlyPriceLabel ?? starter?.priceLabel;
+  return label ? `Start from ${label}/month` : "Start with a 3-day trial";
+}
+
+export async function generateMetadata(): Promise<Metadata> {
+  const plans = await loadPlans();
+  const trialCopy = starterPriceCopy(plans);
+  return publicPageMetadata({
+    title: "Pricing",
+    description: `Simple, transparent pricing for Plott. ${trialCopy} with a 3-day trial. Annual billing saves two months. Cancel any time, VAT may apply.`,
+    path: "/pricing",
+    openGraphTitle: "Pricing — Plott",
+    openGraphDescription: `Simple, transparent pricing. ${trialCopy} with a 3-day trial.`,
+    twitterTitle: "Pricing — Plott",
+    twitterDescription: `Simple, transparent pricing. ${trialCopy} with a 3-day trial.`,
+  });
+}
 
 export default async function PricingPage() {
   const plans = await loadPlans();
@@ -36,10 +43,18 @@ export default async function PricingPage() {
       description:
         "Planning intelligence, applicant enrichment, saved searches and branded outreach for UK construction and property teams.",
       path: "/pricing",
-      offers: plans.map((plan) => ({
-        price: (plan.priceLabel ?? "£99").replace(/[^0-9.]/g, ""),
-        priceCurrency: plan.currency ?? "GBP",
-      })),
+      offers: plans
+        .map((plan) => {
+          const label = plan.monthlyPriceLabel ?? plan.priceLabel;
+          if (!label) return null;
+          return {
+            price: label.replace(/[^0-9.]/g, ""),
+            priceCurrency: plan.currency ?? "GBP",
+          };
+        })
+        .filter((offer): offer is { price: string; priceCurrency: string } =>
+          Boolean(offer?.price),
+        ),
     }),
     faqJsonLd([
       {

@@ -18,7 +18,7 @@ function displayPrice(plan: Plan, interval: BillingInterval): {
 } {
   if (interval === "year") {
     return {
-      label: plan.annualPriceLabel ?? plan.priceLabel ?? "—",
+      label: plan.annualPriceLabel ?? "—",
       suffix: "year",
       sub: plan.annualEffectiveMonthlyLabel
         ? `${plan.annualEffectiveMonthlyLabel} billed annually`
@@ -104,8 +104,8 @@ export function PricingGrid({ plans }: { plans: Plan[] }) {
             const price = displayPrice(plan, interval);
             const hasPrice =
               interval === "year"
-                ? Boolean(plan.annualPriceId ?? plan.annualPriceLabel)
-                : Boolean(plan.monthlyPriceId ?? plan.priceId ?? plan.priceLabel);
+                ? Boolean(plan.annualPriceId)
+                : Boolean(plan.monthlyPriceId ?? plan.priceId);
             return (
               <article
                 key={plan.id}
