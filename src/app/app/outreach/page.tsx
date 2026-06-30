@@ -58,18 +58,21 @@ export default async function OutreachPage() {
   ]);
 
   return (
-    <div className="mx-auto w-full max-w-6xl px-6 py-10 overflow-auto">
+    <div className="mx-auto w-full max-w-[1600px] px-6 py-6 overflow-auto">
       <header className="mb-6">
         <h1 className="text-2xl font-semibold tracking-tight">
           Outreach approvals
         </h1>
         <p className="mt-1 text-sm text-zinc-600">
-          Shared review queue for auto-drafted letters and email drafts. Email
-          sends require workspace opt-in, compliance checks, and human approval.
+          One drafted message per lead — send by email when an address is found,
+          or approve as a printable letter. Email sends require workspace
+          opt-in, compliance checks, and human approval.
         </p>
       </header>
       <OutreachInbox
         canSendProspectEmail={ctx.company.prospectEmailOutreachEnabled}
+        companyName={ctx.company.name}
+        replyToEmail={ctx.company.email ?? ctx.user.email ?? null}
         initialApprovals={approvals.map((a) => ({
           id: a.id,
           status: a.status,
