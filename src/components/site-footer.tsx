@@ -21,6 +21,11 @@ const columns: { title: string; links: LinkItem[] }[] = [
       { href: "/about", label: "About" },
       { href: "/contact", label: "Contact" },
       { href: "/pricing", label: "Pricing" },
+      {
+        href: "https://plottuk.substack.com/",
+        label: "Blog",
+        external: true,
+      },
     ],
   },
   {
