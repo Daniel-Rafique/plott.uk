@@ -11,6 +11,10 @@ import Image from "next/image";
 import { useGsapReveal } from "@/lib/animation/use-gsap-reveal";
 import { useTextReveal } from "@/lib/animation/use-text-reveal";
 import { HOME_CHAPTERS, type MarketingImage } from "@/lib/marketing/images";
+import {
+  lpaCoverageFull,
+  MARKETING_STATS,
+} from "@/lib/marketing/copy";
 
 type ChapterData = {
   number: string;
@@ -27,7 +31,7 @@ const CHAPTERS: ChapterData[] = [
     number: "01",
     kicker: "Draw the patch",
     title: "Find every site before your competitors.",
-    body: "Zoom to any part of the UK, draw the polygon you care about, and we surface every live planning application inside it across all 337 local planning authorities — in around two seconds.",
+    body: `Zoom to any part of the UK, draw the polygon you care about, and we surface every live planning application inside it across ${lpaCoverageFull()} — in around two seconds.`,
     bullets: [
       "Photorealistic 3D maps via Google's aerial imagery",
       "Save any polygon as a standing search",
@@ -42,7 +46,7 @@ const CHAPTERS: ChapterData[] = [
     title: "The right name on the envelope, every time.",
     body: "Applicant, agent and return address are enriched from authoritative government and commercial sources automatically — no manual cross-referencing, no mismatched records.",
     bullets: [
-      "78% named-agent hit rate",
+      MARKETING_STATS.applicantMatchRate.bullet,
       "Multi-source fallback cascade",
       "Compliant outreach starts with the correct recipient",
     ],

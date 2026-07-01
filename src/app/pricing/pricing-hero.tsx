@@ -4,6 +4,7 @@ import { AnimatedMarketingHero } from "@/components/marketing/animated-marketing
 import { useTextReveal } from "@/lib/animation/use-text-reveal";
 import { useGsapReveal } from "@/lib/animation/use-gsap-reveal";
 import { PRICING_HERO } from "@/lib/marketing/images";
+import { pricingHeroDescription } from "@/lib/marketing/copy";
 
 export function PricingHero() {
   return (
@@ -11,7 +12,7 @@ export function PricingHero() {
       eyebrow="Pricing"
       title="One workspace."
       accent="Three ways in."
-      description="Start with a 3-day trial on any plan. Cancel from the billing portal any time. VAT added automatically where applicable."
+      description={pricingHeroDescription()}
       image={PRICING_HERO}
     />
   );

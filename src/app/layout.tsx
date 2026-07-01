@@ -7,6 +7,11 @@ import { MarketingShell } from "@/lib/animation/marketing-shell";
 import { PublicSiteShell } from "@/components/public-site-shell";
 import { RouteProgress } from "@/components/route-progress";
 import {
+  PRODUCT_DESCRIPTION_SHORT,
+  PRODUCT_META_DESCRIPTION,
+  SEO_TITLE,
+} from "@/lib/marketing/copy";
+import {
   DEFAULT_OG_IMAGE,
   SITE_NAME,
   SITE_URL,
@@ -42,11 +47,10 @@ const GOOGLE_TAG_ID = GOOGLE_ANALYTICS_ID;
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
-    default: "Plott — Win every planning application in the UK",
+    default: SEO_TITLE,
     template: "%s · Plott",
   },
-  description:
-    "Turn open UK planning applications into signed contracts. 3D maps, applicant enrichment, branded letter generation and saved-search digests for construction firms.",
+  description: PRODUCT_META_DESCRIPTION,
   keywords: [
     "UK planning applications",
     "Plott",
@@ -63,9 +67,9 @@ export const metadata: Metadata = {
   openGraph: {
     type: "website",
     siteName: "Plott",
-    title: "Plott — Win every planning application in the UK",
+    title: SEO_TITLE,
     description:
-      "Turn open UK planning applications into signed contracts. 3D maps, applicant enrichment, branded letter generation and saved-search digests.",
+      "Turn open UK planning applications into signed contracts. 3D maps, applicant enrichment, AI-drafted letter and email outreach, and saved-search digests.",
     url: SITE_URL,
     locale: "en_GB",
     images: [
@@ -79,9 +83,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "Plott — Win every planning application in the UK",
-    description:
-      "Turn open UK planning applications into signed contracts.",
+    title: SEO_TITLE,
+    description: PRODUCT_DESCRIPTION_SHORT,
     images: [DEFAULT_OG_IMAGE],
   },
   icons: {
@@ -108,8 +111,7 @@ const jsonLd = {
   name: "Plott",
   applicationCategory: "BusinessApplication",
   operatingSystem: "Web",
-  description:
-    "Turn open UK planning applications into signed contracts. 3D maps, applicant enrichment, branded letter generation and saved-search digests for construction firms.",
+  description: PRODUCT_META_DESCRIPTION,
   url: SITE_URL,
   author: {
     "@type": "Organization",

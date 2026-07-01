@@ -3,6 +3,7 @@ import { SignInForm } from "./sign-in-form";
 import { AuthMarketingShell } from "@/components/auth/auth-marketing-shell";
 import { AuthPageAnalytics } from "@/components/auth/auth-page-analytics";
 import { AuthTransitionLink } from "@/components/auth/auth-transition-link";
+import { startFreeTrialLabel } from "@/lib/trial";
 
 export const metadata = privatePageMetadata({
   title: "Sign in",
@@ -76,7 +77,7 @@ export default async function AuthSignInPage({
                 direction="signup"
                 className="inline-flex w-full items-center justify-center rounded-full border border-zinc-300 bg-white px-6 py-3 text-sm font-semibold text-zinc-900 transition hover:border-zinc-900"
               >
-                Start free trial
+                {startFreeTrialLabel()}
               </AuthTransitionLink>
             ) : null}
             <p className="text-center text-sm text-zinc-500">

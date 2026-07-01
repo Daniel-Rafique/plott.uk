@@ -9,6 +9,12 @@ import { RevealGroup, RevealHeading } from "@/lib/animation/reveal";
 import { AutonomousMonitoringSection } from "./autonomous-monitoring-section";
 import { ArcadeDemoSection } from "./arcade-demo-section";
 import { HowItWorksHero } from "./how-it-works-hero";
+import {
+  lpaCoverageFull,
+  MARKETING_STATS,
+  UK_LPA_COUNT,
+} from "@/lib/marketing/copy";
+import { startFreeTrialLabel, startTrialHeroCopy } from "@/lib/trial";
 
 if (typeof window !== "undefined") {
   gsap.registerPlugin(ScrollTrigger);
@@ -21,7 +27,7 @@ const STEPS = [
     title: "Draw the patch",
     subtitle: "Define your territory in seconds",
     description:
-      "Zoom to any part of the UK on our photorealistic 3D map. Draw a polygon around the area you care about — a postcode, a borough, an entire county. We query all 337 local planning authorities and surface every live application inside your boundary in under two seconds.",
+      `Zoom to any part of the UK on our photorealistic 3D map. Draw a polygon around the area you care about — a postcode, a borough, an entire county. We query ${lpaCoverageFull()} and surface every live application inside your boundary in under two seconds.`,
     details: [
       "Photorealistic 3D maps powered by Google's aerial imagery",
       "Filter by application status, decision window, or use class",
@@ -36,7 +42,7 @@ const STEPS = [
     description:
       "Raw planning data rarely includes contact details. Our enrichment pipeline cross-references each application against property ownership records, Companies House filings, and council portals to surface the applicant, agent, and return address — automatically.",
     details: [
-      "78% named-agent hit rate across all applications",
+      MARKETING_STATS.applicantMatchRate.bullet,
       "Fallback cascade: PlanWire → Land Registry → Companies House → LPA portal",
       "Results cached for instant retrieval on repeat views",
     ],
@@ -63,8 +69,11 @@ const DIAGRAM_STEPS = [
 ];
 
 const DIAGRAM_STATS = [
-  { value: "337", label: "UK planning authorities" },
-  { value: "78%", label: "agent name hit rate" },
+  { value: String(UK_LPA_COUNT), label: "UK planning authorities" },
+  {
+    value: MARKETING_STATS.applicantMatchRate.display,
+    label: "applicant match rate",
+  },
   { value: "<10s", label: "to a letter or email draft" },
 ];
 
@@ -379,9 +388,7 @@ export function HowItWorksContent() {
               data-reveal
               className="mx-auto mt-6 max-w-xl text-[15px] leading-relaxed text-zinc-600"
             >
-              Start your 3-day trial and draw your
-              first polygon in under a minute. Letters and email outreach both
-              stay behind your review step.
+              {startTrialHeroCopy()}
             </p>
             <div
               data-reveal
@@ -391,7 +398,7 @@ export function HowItWorksContent() {
                 href="/auth/sign-up"
                 className="inline-flex items-center gap-2 rounded-full border border-zinc-900 bg-zinc-900 px-8 py-4 text-[14px] font-semibold text-white transition hover:border-zinc-700 hover:bg-zinc-700"
               >
-                Start free trial
+                {startFreeTrialLabel()}
                 <ArrowRight className="h-4 w-4" strokeWidth={2} aria-hidden />
               </Link>
               <Link

@@ -14,7 +14,17 @@ import { useGsapReveal } from "@/lib/animation/use-gsap-reveal";
 import { StackingSections } from "@/lib/animation/stacking-sections";
 import { authClient } from "@/lib/auth/client";
 import { EmailCapture } from "@/components/marketing/email-capture";
-import { trialChargeCopy } from "@/lib/trial";
+import {
+  lpaCoverageShort,
+  PRODUCT_DESCRIPTION,
+  PRODUCT_TAGLINE,
+} from "@/lib/marketing/copy";
+import {
+  freeTrialBadgeLabel,
+  startFreeTrialLabel,
+  startTrialButtonLabel,
+  trialChargeCopy,
+} from "@/lib/trial";
 
 const Map3DHero = dynamic(
   () => import("./map3d-hero").then((m) => m.Map3DHero),
@@ -67,7 +77,7 @@ export function HomePageContent({ heroFontClassName }: Props) {
               className="inline-flex items-center gap-2 rounded-full border border-brand-light/30 bg-brand/20 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.22em] text-brand-light backdrop-blur-md"
             >
               <Compass className="h-3.5 w-3.5" aria-hidden />
-              Live planning intelligence for the UK
+              {PRODUCT_TAGLINE}
             </motion.div>
             <motion.h1
               variants={{
@@ -88,9 +98,7 @@ export function HomePageContent({ heroFontClassName }: Props) {
               }}
               className="max-w-2xl text-lg leading-relaxed text-zinc-200 md:text-xl"
             >
-              Map-first planning-application search with photorealistic 3D,
-              applicant enrichment and branded outreach — all in one workspace
-              built for construction, property and planning professionals.
+              {PRODUCT_DESCRIPTION}
             </motion.p>
             <motion.div
               variants={{
@@ -105,7 +113,7 @@ export function HomePageContent({ heroFontClassName }: Props) {
                     href="/auth/sign-up"
                     className="group inline-flex items-center gap-2 rounded-full bg-white/90 px-8 py-3.5 text-sm font-semibold text-zinc-900 shadow-lg shadow-brand/20  transition-all duration-300 ease-out hover:-translate-y-0.5 hover:bg-white/20 hover:text-white hover:shadow-xl"
                   >
-                    Start 3-day trial
+                    {startTrialButtonLabel()}
                     <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-0.5" aria-hidden />
                   </Link>
                   <Link
@@ -134,7 +142,7 @@ export function HomePageContent({ heroFontClassName }: Props) {
             >
               <span className="inline-flex items-center gap-2">
                 <span className="h-2 w-2 rounded-full bg-brand-light" />
-                FREE 3-day trial
+                {freeTrialBadgeLabel({ uppercase: true })}
               </span>
               <span className="inline-flex items-center gap-2">
                 <ShieldCheck className="h-3.5 w-3.5 text-brand-light" aria-hidden />
@@ -142,7 +150,7 @@ export function HomePageContent({ heroFontClassName }: Props) {
               </span>
               <span className="inline-flex items-center gap-2">
                 <Ruler className="h-3.5 w-3.5 text-brand-light" aria-hidden />
-                337 LPAs covered
+                {lpaCoverageShort()}
               </span>
             </motion.div>
           </motion.div>
@@ -196,7 +204,7 @@ export function HomePageContent({ heroFontClassName }: Props) {
               href={isSignedIn ? "/app/dashboard" : "/auth/sign-up"}
               className="inline-flex items-center gap-2 rounded-full border border-zinc-900 bg-zinc-900 px-7 py-3.5 text-[13px] font-medium text-white transition hover:border-zinc-700 hover:bg-zinc-700"
             >
-              {isSignedIn ? "Open dashboard" : "Start free trial"}
+              {isSignedIn ? "Open dashboard" : startFreeTrialLabel()}
               <ArrowRight className="h-4 w-4" strokeWidth={1.5} aria-hidden />
             </Link>
             <Link

@@ -63,7 +63,7 @@ export default async function AuthSignUpPage({
         subtitle={
           isInvite
             ? "Create an account to accept your invitation."
-            : "Map every planning application in your patch. Enrich applicants. Send branded outreach."
+            : "Map every application in your patch. Enrich applicants. Send branded letter and email outreach."
         }
         stepIndicator={
           isInvite ? null : (

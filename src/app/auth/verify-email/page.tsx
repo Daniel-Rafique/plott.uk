@@ -6,6 +6,7 @@ import { redirectForStage, resolveStage } from "@/lib/auth/onboarding-gate";
 import { privatePageMetadata } from "@/lib/seo";
 import { AuthMarketingShell } from "@/components/auth/auth-marketing-shell";
 import { AuthFunnelStep } from "@/components/auth/auth-funnel-step";
+import { verifyEmailSubtitle } from "@/lib/marketing/copy";
 
 export const metadata = privatePageMetadata({
   title: "Verify email",
@@ -40,7 +41,7 @@ export default async function VerifyEmailPage({
       subtitle={
         isInvite
           ? "We sent a 6-digit code to your email. Enter it below to finish joining your team."
-          : "You're one step from searching 2.4M planning applications. Enter the code we sent to your email."
+          : verifyEmailSubtitle()
       }
       banner={
         justCreated ? (

@@ -4,40 +4,11 @@ import { animate, useInView, useReducedMotion } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
 import { useGsapReveal } from "@/lib/animation/use-gsap-reveal";
 import { useTextReveal } from "@/lib/animation/use-text-reveal";
+import { BY_THE_NUMBERS_STATS, type ByTheNumbersStat } from "@/lib/marketing/copy";
 
-type Stat = {
-  value: number;
-  suffix?: string;
-  prefix?: string;
-  label: string;
-  sublabel: string;
-};
+type Stat = ByTheNumbersStat;
 
-const STATS: Stat[] = [
-  {
-    value: 2.4,
-    suffix: "M",
-    label: "Planning applications indexed",
-    sublabel: "Updated daily from the national dataset",
-  },
-  {
-    value: 337,
-    label: "Local planning authorities",
-    sublabel: "England-wide coverage",
-  },
-  {
-    value: 94,
-    suffix: "%",
-    label: "Applicant match rate",
-    sublabel: "Multi-source enrichment pipeline",
-  },
-  {
-    value: 48,
-    suffix: "h",
-    label: "Digest cadence",
-    sublabel: "New leads every two working days",
-  },
-];
+const STATS = BY_THE_NUMBERS_STATS;
 
 function Counter({
   stat,

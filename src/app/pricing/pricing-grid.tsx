@@ -10,6 +10,7 @@ import type { BillingInterval } from "@/lib/stripe/plan-prices";
 import { cn } from "@/lib/utils";
 import { useGsapReveal } from "@/lib/animation/use-gsap-reveal";
 import { BillingIntervalToggle } from "@/components/pricing/billing-interval-toggle";
+import { startFreeTrialLabel } from "@/lib/trial";
 
 function displayPrice(plan: Plan, interval: BillingInterval): {
   label: string;
@@ -155,7 +156,7 @@ export function PricingGrid({ plans }: { plans: Plan[] }) {
                   {loadingId === plan.id
                     ? "Loading…"
                     : hasPrice
-                      ? "Start free trial"
+                      ? startFreeTrialLabel()
                       : "Contact sales"}
                 </button>
 

@@ -12,49 +12,19 @@ import {
   MapPinned,
   Radar,
   ShieldCheck,
-  type LucideIcon,
 } from "lucide-react";
 import { useGsapReveal } from "@/lib/animation/use-gsap-reveal";
 import { useTextReveal } from "@/lib/animation/use-text-reveal";
+import { HOMEPAGE_FEATURES } from "@/lib/marketing/copy";
 
-type Feature = {
-  icon: LucideIcon;
-  title: string;
-  body: string;
-};
-
-const FEATURES: Feature[] = [
-  {
-    icon: MapPinned,
-    title: "Photorealistic 3D discovery",
-    body: "Scan sites in true 3D with Google's aerial tiles. See buildable footprints, rooflines and street context before you pick up the phone.",
-  },
-  {
-    icon: Layers3,
-    title: "Every LPA in one index",
-    body: "337 local planning authorities, unified into a single dataset. Search by map area, reference, development type, status or decision window.",
-  },
-  {
-    icon: Radar,
-    title: "Saved searches, delivered",
-    body: "Pin a patch. We'll email you a digest of new applications every 48 hours — no manual re-running, no duplicates.",
-  },
-  {
-    icon: FileSignature,
-    title: "Branded outreach letters",
-    body: "Generate A4 PDFs with your logo, letterhead and signature. Single letter, or a bulk ZIP for 50+ leads.",
-  },
-  {
-    icon: ShieldCheck,
-    title: "Applicant enrichment",
-    body: "Names, agents and return addresses resolved automatically from authoritative sources. Compliant outreach starts with the right recipient.",
-  },
-  {
-    icon: HardHat,
-    title: "Built for construction teams",
-    body: "Teams, roles and seat-level billing. Bring your BD, QS and ops team into one workspace without juggling spreadsheets.",
-  },
-];
+const FEATURE_ICONS = [
+  MapPinned,
+  Layers3,
+  Radar,
+  FileSignature,
+  ShieldCheck,
+  HardHat,
+] as const;
 
 export function FeaturesGrid() {
   const ref = useGsapReveal<HTMLDivElement>({ stagger: 0.08, start: "top 85%" });
@@ -84,13 +54,15 @@ export function FeaturesGrid() {
         </div>
 
         <ul className="mt-16 grid grid-cols-1 gap-x-12 gap-y-10 sm:grid-cols-2 lg:grid-cols-3 lg:gap-x-16">
-          {FEATURES.map((f) => (
+          {HOMEPAGE_FEATURES.map((f, index) => {
+            const Icon = FEATURE_ICONS[index] ?? MapPinned;
+            return (
             <li
               key={f.title}
               data-reveal
               className="editorial-hairline pt-8"
             >
-              <f.icon
+              <Icon
                 className="h-5 w-5 text-brand-dark"
                 strokeWidth={1.5}
                 aria-hidden
@@ -102,7 +74,8 @@ export function FeaturesGrid() {
                 {f.body}
               </p>
             </li>
-          ))}
+            );
+          })}
         </ul>
       </div>
     </section>

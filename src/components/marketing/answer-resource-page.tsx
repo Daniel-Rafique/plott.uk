@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { ResourcePage } from "@/lib/resources";
 import { EmailCapture } from "@/components/marketing/email-capture";
+import { startFreeTrialLabel } from "@/lib/trial";
 
 export function AnswerResourcePage({ resource }: { resource: ResourcePage }) {
   return (
@@ -78,7 +79,7 @@ export function AnswerResourcePage({ resource }: { resource: ResourcePage }) {
                   href="/auth/sign-up"
                   className="rounded-full bg-white px-6 py-3 text-[13px] font-semibold text-zinc-950 transition hover:bg-zinc-200"
                 >
-                  Start free trial
+                  {startFreeTrialLabel()}
                 </Link>
                 <Link
                   href="/contact"

@@ -1,5 +1,13 @@
 import { HomePageContent } from "@/components/home/home-page-content";
 import {
+  faqUkCoverage,
+  faqWhatIsPlott,
+  faqWhoIsPlottFor,
+  PRODUCT_DESCRIPTION_SHORT,
+  PRODUCT_META_DESCRIPTION,
+  SEO_TITLE,
+} from "@/lib/marketing/copy";
+import {
   breadcrumbJsonLd,
   faqJsonLd,
   jsonLdScriptProps,
@@ -7,16 +15,13 @@ import {
 } from "@/lib/seo";
 
 export const metadata = publicPageMetadata({
-  title: "Plott — Win every planning application in the UK",
-  description:
-    "Turn open UK planning applications into signed contracts. 3D maps, applicant enrichment, branded letter generation and saved-search digests for construction firms.",
+  title: SEO_TITLE,
+  description: PRODUCT_META_DESCRIPTION,
   path: "/",
-  openGraphTitle: "Plott — Win every planning application in the UK",
-  openGraphDescription:
-    "Turn open UK planning applications into signed contracts with map-first planning intelligence.",
-  twitterTitle: "Plott — Win every planning application in the UK",
-  twitterDescription:
-    "Turn open UK planning applications into signed contracts.",
+  openGraphTitle: SEO_TITLE,
+  openGraphDescription: PRODUCT_DESCRIPTION_SHORT,
+  twitterTitle: SEO_TITLE,
+  twitterDescription: PRODUCT_DESCRIPTION_SHORT,
   titleAbsolute: true,
 });
 
@@ -25,18 +30,15 @@ const homeJsonLd = [
   faqJsonLd([
     {
       question: "What is Plott?",
-      answer:
-        "Plott is a map-first planning intelligence platform that helps UK construction, property and planning teams find live planning applications, enrich applicant details, and create outreach.",
+      answer: faqWhatIsPlott(),
     },
     {
       question: "Who is Plott for?",
-      answer:
-        "Plott is built for builders, architects, property consultants and planning teams that want to find high-intent local projects before competitors do.",
+      answer: faqWhoIsPlottFor(),
     },
     {
       question: "Does Plott cover the whole UK?",
-      answer:
-        "Plott covers all 337 UK local planning authorities and combines planning data with applicant enrichment and saved-search monitoring.",
+      answer: faqUkCoverage(),
     },
   ]),
 ];

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { SignOutButton } from "@/components/sign-out-button";
 import { MobileNav } from "@/components/mobile-nav";
 import { authClient } from "@/lib/auth/client";
+import { startFreeTrialLabel } from "@/lib/trial";
 
 export function SiteHeaderSessionActions() {
   const { data: session } = authClient.useSession();
@@ -35,7 +36,7 @@ export function SiteHeaderSessionActions() {
             href="/auth/sign-up"
             className="inline-flex items-center gap-1.5 rounded-full border border-zinc-900 bg-zinc-900 px-5 py-2.5 text-[11px] font-semibold uppercase tracking-[0.2em] text-white transition hover:border-zinc-700 hover:bg-zinc-700 max-md:hidden"
           >
-            Start free trial
+            {startFreeTrialLabel()}
           </Link>
         </>
       )}

@@ -6,6 +6,7 @@ import {
   jsonLdScriptProps,
   publicPageMetadata,
 } from "@/lib/seo";
+import { termsTrialSentence } from "@/lib/marketing/copy";
 
 export const metadata: Metadata = publicPageMetadata({
   title: "Terms of Service",
@@ -75,7 +76,7 @@ export default function TermsPage() {
               <p className="mt-5">
                 Plott provides a map-first interface to UK planning
                 application data, enriched with applicant and agent details from
-                public sources, plus branded outreach letter generation, team
+                public sources, plus branded letter and email outreach, team
                 collaboration, saved searches, email digests and reminders. We may
                 modify features over time but will not materially degrade the
                 service during a paid term.
@@ -147,8 +148,7 @@ export default function TermsPage() {
                   <span className="mt-2 h-1 w-1 shrink-0 rounded-full bg-brand" />
                   <span>
                     Plans are billed monthly via Stripe. Prices exclude VAT unless
-                    stated. A 3-day trial is available on the first
-                    subscription per Customer.
+                    stated. {termsTrialSentence()}
                   </span>
                 </li>
                 <li className="flex items-start gap-3">

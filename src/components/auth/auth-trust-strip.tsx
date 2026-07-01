@@ -1,4 +1,5 @@
 import { Ruler, ShieldCheck } from "lucide-react";
+import { lpaCoverageShort } from "@/lib/marketing/copy";
 import { freeTrialEyebrow } from "@/lib/trial";
 
 type Props = {
@@ -26,7 +27,7 @@ export function AuthTrustStrip({ variant = "light", className = "" }: Props) {
       </span>
       <span className="inline-flex items-center gap-2">
         <Ruler className={`h-3.5 w-3.5 ${accent}`} aria-hidden />
-        337 LPAs covered
+        {lpaCoverageShort()}
       </span>
     </div>
   );

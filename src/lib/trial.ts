@@ -19,3 +19,22 @@ export function trialChargeCopy(): string {
 export function trialNoChargeDuringCopy(): string {
   return `No charge during your ${TRIAL_DAYS}-day trial. Cancel any time.`;
 }
+
+export function startFreeTrialLabel(): string {
+  return "Start free trial";
+}
+
+export function startTrialButtonLabel(): string {
+  const word = TRIAL_DAYS === 1 ? "day" : "days";
+  return `Start ${TRIAL_DAYS}-${word} trial`;
+}
+
+export function freeTrialBadgeLabel(options?: { uppercase?: boolean }): string {
+  const label = freeTrialEyebrow();
+  return options?.uppercase ? label.toUpperCase() : label;
+}
+
+export function startTrialHeroCopy(): string {
+  const word = TRIAL_DAYS === 1 ? "day" : "days";
+  return `Start your ${TRIAL_DAYS}-${word} trial and draw your first polygon in under a minute. Letters and email outreach both stay behind your review step.`;
+}

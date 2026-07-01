@@ -4,6 +4,7 @@ import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { AboutHero } from "./about-hero";
 import { RevealGroup, RevealHeading } from "@/lib/animation/reveal";
+import { startFreeTrialLabel } from "@/lib/trial";
 
 export function AboutContent() {
   return (
@@ -174,7 +175,7 @@ export function AboutContent() {
                   href="/auth/sign-up"
                   className="inline-flex items-center gap-2 rounded-full border border-zinc-900 bg-zinc-900 px-7 py-3.5 text-[13px] font-medium text-white transition hover:border-zinc-700 hover:bg-zinc-700"
                 >
-                  Start free trial
+                  {startFreeTrialLabel()}
                   <ArrowRight className="h-4 w-4" strokeWidth={1.5} aria-hidden />
                 </Link>
                 <Link

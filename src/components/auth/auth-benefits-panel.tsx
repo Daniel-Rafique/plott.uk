@@ -1,32 +1,18 @@
 import Image from "next/image";
 import { ArrowRight, Map, Mail, Users } from "lucide-react";
 import { HOME_CHAPTERS } from "@/lib/marketing/images";
+import {
+  AUTH_BENEFITS,
+  AUTH_STATS,
+  PRODUCT_DESCRIPTION,
+  PRODUCT_HEADLINE,
+  PRODUCT_SIGNIN_HEADLINE,
+} from "@/lib/marketing/copy";
+import { startFreeTrialLabel } from "@/lib/trial";
 import { AuthTrustStrip } from "@/components/auth/auth-trust-strip";
 import { AuthTransitionLink } from "@/components/auth/auth-transition-link";
 
-const BENEFITS = [
-  {
-    icon: Map,
-    title: "Map-first search",
-    description: "Draw your patch and see every planning application as it lands.",
-  },
-  {
-    icon: Users,
-    title: "Applicant enrichment",
-    description: "Match applicants and agents from multiple authoritative sources.",
-  },
-  {
-    icon: Mail,
-    title: "Branded outreach",
-    description: "Send print-ready letters and emails from one workspace.",
-  },
-] as const;
-
-const STATS = [
-  { value: "2.4M", label: "Applications indexed" },
-  { value: "337", label: "Local planning authorities" },
-  { value: "94%", label: "Applicant match rate" },
-] as const;
+const BENEFIT_ICONS = [Map, Users, Mail] as const;
 
 type Props = {
   variant?: "signup" | "signin" | "verify";
@@ -41,17 +27,17 @@ export function AuthBenefitsPanel({
 
   const headline =
     variant === "signin"
-      ? "Win every planning application in your patch."
+      ? PRODUCT_SIGNIN_HEADLINE
       : variant === "verify"
         ? "You're almost in."
-        : "See every site before your competitors do.";
+        : PRODUCT_HEADLINE;
 
   const subline =
     variant === "signin"
       ? "Live planning intelligence for construction, property and planning teams."
       : variant === "verify"
         ? "Verify your email to unlock map search, enrichment and branded outreach."
-        : "Map-first planning search with enrichment and outreach — built for UK professionals.";
+        : PRODUCT_DESCRIPTION;
 
   return (
     <div className="relative flex min-h-full flex-col justify-between overflow-hidden bg-zinc-950 p-10 lg:p-12 xl:p-14">
@@ -91,7 +77,9 @@ export function AuthBenefitsPanel({
 
       <div className="relative z-10 mt-10 space-y-8">
         <ul className="space-y-5">
-          {BENEFITS.map(({ icon: Icon, title, description }) => (
+          {AUTH_BENEFITS.map(({ title, description }, index) => {
+            const Icon = BENEFIT_ICONS[index] ?? Map;
+            return (
             <li key={title} className="flex gap-3">
               <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-brand-light/25 bg-brand/15">
                 <Icon className="h-4 w-4 text-brand-light" aria-hidden />
@@ -103,11 +91,12 @@ export function AuthBenefitsPanel({
                 </p>
               </div>
             </li>
-          ))}
+            );
+          })}
         </ul>
 
         <div className="grid grid-cols-3 gap-4 border-t border-white/10 pt-8">
-          {STATS.map(({ value, label }) => (
+          {AUTH_STATS.map(({ value, label }) => (
             <div key={label}>
               <p className="font-[family-name:var(--font-display)] text-2xl text-white">
                 {value}
@@ -131,7 +120,7 @@ export function AuthBenefitsPanel({
               direction="signup"
               className="mt-4 inline-flex items-center gap-2 rounded-full bg-white/90 px-5 py-2.5 text-[13px] font-semibold text-zinc-900 transition hover:bg-white"
             >
-              Start free trial
+              {startFreeTrialLabel()}
               <ArrowRight className="h-3.5 w-3.5" aria-hidden />
             </AuthTransitionLink>
           </div>

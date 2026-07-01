@@ -4,15 +4,18 @@ import { useState } from "react";
 import { Minus, Plus } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
-import { TRIAL_DAYS, trialNoChargeDuringCopy } from "@/lib/trial";
+import {
+  faqDataSources,
+  faqGdpr,
+  faqTrialWorks,
+} from "@/lib/marketing/copy";
 
 type Item = { q: string; a: string };
 
+const trialFaq = faqTrialWorks();
+
 const FAQ: Item[] = [
-  {
-    q: `How does the ${TRIAL_DAYS}-day trial work?`,
-    a: `Start any plan from the pricing grid, enter your card details in Stripe Checkout, and you won't be charged for ${TRIAL_DAYS} days. Cancel any time from the billing portal with a single click.`,
-  },
+  { q: trialFaq.question, a: trialFaq.answer },
   {
     q: "Can I switch plans later?",
     a: "Yes — upgrades are prorated and take effect immediately. Downgrades take effect at the end of your current billing period so you don't lose access you've already paid for.",
@@ -27,11 +30,11 @@ const FAQ: Item[] = [
   },
   {
     q: "Where does your data come from?",
-    a: "We aggregate data from official UK government registers and commercial planning databases, covering all 337 local planning authorities with continuous refresh. Applicant enrichment combines multiple authoritative sources including property ownership records and corporate filings. Coverage varies by council — we're transparent about this in the app.",
+    a: faqDataSources(),
   },
   {
     q: "Is this GDPR compliant?",
-    a: "Yes. We're a UK-registered company, store customer data on UK and EU infrastructure, and use only lawful sources for planning-application data. All outreach generated through the platform uses legitimate-interest basis for B2B contact.",
+    a: faqGdpr(),
   },
 ];
 
