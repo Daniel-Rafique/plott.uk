@@ -77,8 +77,8 @@ export function AuthMarketingShellClient({
         </div>
       </header>
 
-      <div className="flex flex-1 flex-col lg:grid lg:grid-cols-2">
-        <div ref={benefitsRef} className="hidden lg:block" key={variant}>
+      <div className="grid min-h-0 flex-1 lg:grid-cols-2">
+        <div ref={benefitsRef} className="hidden min-h-0 lg:block" key={variant}>
           <AuthBenefitsPanel variant={variant} signUpHref={signUpHref} />
         </div>
 
