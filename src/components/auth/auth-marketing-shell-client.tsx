@@ -82,13 +82,13 @@ export function AuthMarketingShellClient({
           <AuthBenefitsPanel variant={variant} signUpHref={signUpHref} />
         </div>
 
-        <div className="flex flex-1 flex-col items-center justify-center px-4 py-10 lg:px-10 lg:py-16">
-          <div className="w-full max-w-md">
+        <div className="flex h-full min-h-0 flex-col bg-white px-6 py-10 lg:justify-center lg:px-10 lg:py-12 xl:px-14">
+          <div ref={panelRef} data-auth-panel className="w-full max-w-md">
             <div className="mb-8 space-y-4 lg:hidden" data-auth-reveal>
               {eyebrow ? (
-                <span className="inline-flex items-center rounded-full border border-brand-light/40 bg-brand/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-brand-dark">
+                <p className="editorial-chapter-label text-brand-dark">
                   {eyebrow}
-                </span>
+                </p>
               ) : null}
               <div>
                 <h1 className="font-[family-name:var(--font-display)] text-[clamp(28px,6vw,36px)] font-normal leading-tight tracking-tight text-zinc-950">
@@ -101,40 +101,36 @@ export function AuthMarketingShellClient({
               <AuthTrustStrip />
             </div>
 
-            <div ref={panelRef} data-auth-panel>
-              <div className="rounded-2xl border border-zinc-200 bg-white p-8 shadow-sm">
-                {banner ? <div data-auth-reveal>{banner}</div> : null}
-                {stepIndicator ? (
-                  <div data-auth-reveal>{stepIndicator}</div>
-                ) : null}
+            {banner ? <div className="mb-6" data-auth-reveal>{banner}</div> : null}
+            {stepIndicator ? (
+              <div data-auth-reveal>{stepIndicator}</div>
+            ) : null}
 
-                <div className="mb-6 hidden lg:block" data-auth-reveal>
-                  {eyebrow ? (
-                    <p className="editorial-chapter-label mb-3 text-brand-dark">
-                      {eyebrow}
-                    </p>
-                  ) : null}
-                  <h1 className="font-[family-name:var(--font-display)] text-[clamp(28px,3vw,36px)] font-normal leading-tight tracking-tight text-zinc-950">
-                    {title}
-                  </h1>
-                  <p className="mt-2 text-[15px] leading-relaxed text-zinc-600">
-                    {subtitle}
-                  </p>
-                </div>
-
-                <div data-auth-reveal>{children}</div>
-
-                <div className="mt-6 hidden lg:block" data-auth-reveal>
-                  <AuthTrustStrip />
-                </div>
-              </div>
-
-              {footer ? (
-                <div className="mt-6" data-auth-reveal>
-                  {footer}
-                </div>
+            <div className="mb-8 hidden lg:block" data-auth-reveal>
+              {eyebrow ? (
+                <p className="editorial-chapter-label text-brand-dark">
+                  {eyebrow}
+                </p>
               ) : null}
+              <h1 className="mt-3 font-[family-name:var(--font-display)] text-[clamp(28px,3.2vw,40px)] font-normal leading-tight tracking-tight text-zinc-950">
+                {title}
+              </h1>
+              <p className="mt-3 max-w-sm text-[15px] leading-relaxed text-zinc-600">
+                {subtitle}
+              </p>
             </div>
+
+            <div data-auth-reveal>{children}</div>
+
+            <div className="mt-8 hidden lg:block" data-auth-reveal>
+              <AuthTrustStrip className="justify-start" />
+            </div>
+
+            {footer ? (
+              <div className="mt-8" data-auth-reveal>
+                {footer}
+              </div>
+            ) : null}
           </div>
         </div>
       </div>

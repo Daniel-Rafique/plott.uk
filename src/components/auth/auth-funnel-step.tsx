@@ -7,12 +7,12 @@ type Props = {
 
 export function AuthFunnelStep({ step, total, label, hint }: Props) {
   return (
-    <div className="mb-6 rounded-lg border border-brand-light/30 bg-brand/5 px-4 py-3">
-      <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-brand-dark">
+    <div className="mb-8 border-b border-zinc-200/80 pb-4">
+      <p className="editorial-chapter-label text-brand-dark">
         Step {step} of {total} — {label}
       </p>
       {hint ? (
-        <p className="mt-1 text-xs leading-relaxed text-zinc-600">{hint}</p>
+        <p className="mt-2 text-[13px] leading-relaxed text-zinc-500">{hint}</p>
       ) : null}
     </div>
   );

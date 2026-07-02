@@ -180,7 +180,7 @@ export function buildPlanFeatures(plan: Plan): string[] {
     "Autonomous outreach pipeline",
     "AI-drafted letters and emails with human approval inbox",
     "Bulk letter generation (ZIP download)",
-    "Priority LPA portal enrichment",
+    "Priority applicant enrichment",
     "ICP-based lead filtering",
     "Dedicated onboarding + phone support",
     aiBudgetLine(plan),

@@ -47,7 +47,7 @@ const CHAPTERS: ChapterData[] = [
     body: "Applicant, agent and return address are enriched from authoritative government and commercial sources automatically — no manual cross-referencing, no mismatched records.",
     bullets: [
       MARKETING_STATS.applicantMatchRate.bullet,
-      "Multi-source fallback cascade",
+      "Multi-source enrichment in seconds",
       "Compliant outreach starts with the correct recipient",
     ],
     image: HOME_CHAPTERS.enrichment,

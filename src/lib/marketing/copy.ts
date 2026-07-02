@@ -47,6 +47,18 @@ export const MARKETING_STATS = {
   },
 } as const;
 
+/** Public-facing enrichment copy — no vendor names or pipeline order. */
+export const ENRICHMENT_MARKETING = {
+  stepSubtitle: "Multi-source enrichment",
+  stepDescription:
+    "Raw planning data rarely includes contact details. Plott enriches each application from authoritative UK sources to surface applicant, agent, and return address — automatically.",
+  detailBullets: [
+    MARKETING_STATS.applicantMatchRate.bullet,
+    "Multiple authoritative sources cross-referenced in seconds",
+    "Results cached for instant retrieval on repeat views",
+  ],
+} as const;
+
 export const SEO_TITLE = "Plott — Win every planning application in the UK";
 
 export const PRODUCT_TAGLINE = "Live planning intelligence for the UK";

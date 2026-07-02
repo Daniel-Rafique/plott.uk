@@ -10,6 +10,7 @@ import { AutonomousMonitoringSection } from "./autonomous-monitoring-section";
 import { ArcadeDemoSection } from "./arcade-demo-section";
 import { HowItWorksHero } from "./how-it-works-hero";
 import {
+  ENRICHMENT_MARKETING,
   lpaCoverageFull,
   MARKETING_STATS,
   UK_LPA_COUNT,
@@ -38,14 +39,9 @@ const STEPS = [
     number: "02",
     icon: Users,
     title: "We resolve the people",
-    subtitle: "Multi-source enrichment cascade",
-    description:
-      "Raw planning data rarely includes contact details. Our enrichment pipeline cross-references each application against property ownership records, Companies House filings, and council portals to surface the applicant, agent, and return address — automatically.",
-    details: [
-      MARKETING_STATS.applicantMatchRate.bullet,
-      "Fallback cascade: PlanWire → Land Registry → Companies House → LPA portal",
-      "Results cached for instant retrieval on repeat views",
-    ],
+    subtitle: ENRICHMENT_MARKETING.stepSubtitle,
+    description: ENRICHMENT_MARKETING.stepDescription,
+    details: [...ENRICHMENT_MARKETING.detailBullets],
   },
   {
     number: "03",
