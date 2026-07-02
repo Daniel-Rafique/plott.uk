@@ -18,11 +18,17 @@
 
 import { NodeTracerProvider } from "@opentelemetry/sdk-trace-node";
 import { LangfuseSpanProcessor } from "@langfuse/otel";
+import * as Sentry from "@sentry/nextjs";
 
 export let langfuseSpanProcessor: LangfuseSpanProcessor | null = null;
 
 export async function register() {
   if (process.env.NEXT_RUNTIME === "nodejs") {
+    // Initialize Sentry (server). The config sets `skipOpenTelemetrySetup: true`
+    // so Sentry does NOT register its own global tracer provider — that lets the
+    // custom Langfuse/PostHog provider below own OpenTelemetry without conflict.
+    await import("../sentry.server.config");
+
     const disabled =
       process.env.LANGFUSE_DISABLE?.trim().toLowerCase() === "1" ||
       process.env.LANGFUSE_DISABLE?.trim().toLowerCase() === "true" ||
@@ -57,4 +63,14 @@ export async function register() {
       tracerProvider.register();
     }
   }
+
+  if (process.env.NEXT_RUNTIME === "edge") {
+    // Initialize Sentry for edge features (middleware, edge routes).
+    await import("../sentry.edge.config");
+  }
 }
+
+// Capture server-side errors (React Server Components, route handlers, Server
+// Actions) in Sentry. Required by the Next.js SDK — without this export those
+// errors never reach Sentry.
+export const onRequestError = Sentry.captureRequestError;

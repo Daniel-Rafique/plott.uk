@@ -1,8 +1,11 @@
 /**
- * Lightweight facade over Sentry + PostHog that stays silent when not
- * configured. Avoids hard-importing @sentry/* so the app still builds without
- * them during initial setup.
+ * Lightweight facade over Sentry + PostHog. Sentry is initialized via
+ * `src/instrumentation.ts` (server/edge) and `src/instrumentation-client.ts`
+ * (browser); `captureException` is a no-op when no DSN is configured, so this
+ * stays safe to call everywhere.
  */
+
+import * as Sentry from "@sentry/nextjs";
 
 type Props = Record<string, string | number | boolean | null | undefined>;
 
@@ -10,11 +13,15 @@ export function captureError(
   err: unknown,
   context?: { userId?: string; companyId?: string; extra?: Props },
 ): void {
-  const msg = err instanceof Error ? err.message : String(err);
+  const error = err instanceof Error ? err : new Error(String(err));
   if (process.env.NODE_ENV !== "production") {
-    console.error("[error]", msg, context);
+    console.error("[error]", error.message, context);
   }
-  // Sentry wires up via `instrumentation.ts` when configured.
+  Sentry.captureException(error, {
+    user: context?.userId ? { id: context.userId } : undefined,
+    tags: context?.companyId ? { companyId: context.companyId } : undefined,
+    extra: context?.extra,
+  });
 }
 
 export function trackEvent(

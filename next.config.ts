@@ -102,7 +102,7 @@ export default withSentryConfig(withWorkflow(nextConfig), {
 
  org: "koynlabs",
 
- project: "javascript-nextjs",
+ project: "plott",
 
  // Only upload source maps when explicitly enabled with a valid token.
  authToken: process.env.SENTRY_AUTH_TOKEN,
