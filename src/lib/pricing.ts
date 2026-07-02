@@ -70,7 +70,7 @@ const PLAN_DEFINITIONS: PlanDef[] = [
     name: "Pro",
     tagline: "For growing contractors who need an edge.",
     highlight: true,
-    seatLimit: 3,
+    seatLimit: 5,
     extraSeatPrice: 2500,
     extraSeatPriceLabel: "£25/seat",
     savedSearchLimit: 5,
@@ -138,7 +138,7 @@ function aiBudgetLine(plan: Plan): string {
 export function buildPlanFeatures(plan: Plan): string[] {
   if (plan.id === "starter") {
     return [
-      "1 user seat",
+      `${plan.seatLimit} user seat${plan.seatLimit === 1 ? "" : "s"} included`,
       "25 map searches per day",
       "Photorealistic 3D map view",
       "CSV export of results",
@@ -154,7 +154,7 @@ export function buildPlanFeatures(plan: Plan): string[] {
     const saved = savedSearchFeatureLine(plan);
     const pinned = pinnedApplicationFeatureLine(plan);
     return [
-      "3 team seats included",
+      `${plan.seatLimit} team seats included`,
       ...(extra ? [extra] : []),
       "Unlimited map searches",
       "Everything in Starter, plus:",
@@ -335,7 +335,7 @@ export const FREE_PLAN: Plan = {
   pinnedApplicationLimit: 0,
   aiBudgetGbp: 0,
   features: [
-    "1 user seat",
+    "1 user seat included",
     "5 map searches per day",
     "2D map view only",
     "Limited AI features",
