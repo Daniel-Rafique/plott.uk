@@ -17,7 +17,6 @@ export type AuthMarketingShellProps = {
   title: string;
   subtitle: string;
   banner?: ReactNode;
-  stepIndicator?: ReactNode;
   children: ReactNode;
   footer?: ReactNode;
   signUpHref?: string;
@@ -29,7 +28,6 @@ export function AuthMarketingShellClient({
   title,
   subtitle,
   banner,
-  stepIndicator,
   children,
   footer,
   signUpHref = "/auth/sign-up",
@@ -102,9 +100,6 @@ export function AuthMarketingShellClient({
             </div>
 
             {banner ? <div className="mb-6" data-auth-reveal>{banner}</div> : null}
-            {stepIndicator ? (
-              <div data-auth-reveal>{stepIndicator}</div>
-            ) : null}
 
             <div className="mb-8 hidden lg:block" data-auth-reveal>
               {eyebrow ? (

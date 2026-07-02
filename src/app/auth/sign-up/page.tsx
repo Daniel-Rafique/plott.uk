@@ -1,7 +1,6 @@
 import { privatePageMetadata } from "@/lib/seo";
 import { SignUpForm } from "./sign-up-form";
 import { AuthMarketingShell } from "@/components/auth/auth-marketing-shell";
-import { AuthFunnelStep } from "@/components/auth/auth-funnel-step";
 import { AuthPageAnalytics } from "@/components/auth/auth-page-analytics";
 import { AuthTransitionLink } from "@/components/auth/auth-transition-link";
 import { freeTrialEyebrow } from "@/lib/trial";
@@ -64,16 +63,6 @@ export default async function AuthSignUpPage({
           isInvite
             ? "Create an account to accept your invitation."
             : "Map every application in your patch. Enrich applicants. Send branded letter and email outreach."
-        }
-        stepIndicator={
-          isInvite ? null : (
-            <AuthFunnelStep
-              step={1}
-              total={3}
-              label="Create account"
-              hint="Verify email → Set up workspace → Choose plan"
-            />
-          )
         }
         footer={
           <p className="text-center text-sm text-zinc-500">

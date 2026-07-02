@@ -5,7 +5,6 @@ import { VerifyEmailForm } from "./verify-email-form";
 import { redirectForStage, resolveStage } from "@/lib/auth/onboarding-gate";
 import { privatePageMetadata } from "@/lib/seo";
 import { AuthMarketingShell } from "@/components/auth/auth-marketing-shell";
-import { AuthFunnelStep } from "@/components/auth/auth-funnel-step";
 import { verifyEmailSubtitle } from "@/lib/marketing/copy";
 
 export const metadata = privatePageMetadata({
@@ -52,16 +51,6 @@ export default async function VerifyEmailPage({
             </p>
           </div>
         ) : null
-      }
-      stepIndicator={
-        isInvite ? null : (
-          <AuthFunnelStep
-            step={2}
-            total={3}
-            label="Verify email"
-            hint="Set up workspace → Choose plan"
-          />
-        )
       }
       footer={
         <p className="text-center text-sm text-zinc-500">
