@@ -28,6 +28,14 @@ export type PlanCatalogEntry = {
 /** Annual prices = 10× monthly (two months free). */
 export const ANNUAL_MONTHS_PAID = 10;
 
+/**
+ * Stripe product tax code applied to every Plott subscription product.
+ * `txcd_10103001` = Software as a Service (SaaS) - Business Use, which is
+ * eligible for Managed Payments (Stripe as merchant of record). Every product
+ * sold through a Managed Payments Checkout Session must carry an eligible code.
+ */
+export const MANAGED_PAYMENTS_TAX_CODE = "txcd_10103001";
+
 const STARTER_META = {
   ai_monthly_budget_gbp: "10",
   saved_search_limit: "0",
@@ -60,7 +68,7 @@ export const PLAN_CATALOG: PlanCatalogEntry[] = [
     label: "Starter",
     productName: "Plott Starter",
     productDescription: "Sole traders: NL search + digest summaries",
-    amountPence: 4999,
+    amountPence: 4900,
     priceNickname: "Starter / monthly",
     metadata: { ...STARTER_META },
   },
@@ -71,7 +79,7 @@ export const PLAN_CATALOG: PlanCatalogEntry[] = [
     label: "Starter",
     productName: "Plott Starter",
     productDescription: "Sole traders: NL search + digest summaries",
-    amountPence: 49990,
+    amountPence: 49900,
     priceNickname: "Starter / annual (2 months free)",
     metadata: { ...STARTER_META },
   },

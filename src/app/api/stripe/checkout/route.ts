@@ -253,41 +253,53 @@ export async function POST(req: Request) {
     lineItems.push({ price: overagePriceId });
   }
 
+  // Managed Payments = Stripe acts as merchant of record. Gated behind an env
+  // flag because it requires (a) account activation + eligibility approval in
+  // the Dashboard and (b) eligible product tax codes; flipping it on before
+  // those are in place makes every Checkout Session fail.
+  const managedPayments = process.env.STRIPE_MANAGED_PAYMENTS === "true";
+
+  const sessionParams: Stripe.Checkout.SessionCreateParams = {
+    mode: "subscription",
+    customer: customerId,
+    line_items: lineItems,
+    // Land back on /subscribe — it detects `?checkout=success` and shows
+    // an activating spinner while the webhook catches up, then redirects
+    // forward to /app/dashboard once resolveStage() sees the subscription.
+    success_url: `${origin}/subscribe?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
+    cancel_url: `${origin}/subscribe?checkout=cancelled`,
+    client_reference_id: ctx.company.id,
+    metadata: {
+      userId: ctx.user.id,
+      companyId: ctx.company.id,
+    },
+    subscription_data: {
+      metadata: {
+        userId: ctx.user.id,
+        companyId: ctx.company.id,
+      },
+      trial_period_days: trialPeriodDays,
+    },
+    billing_address_collection: "required",
+    tax_id_collection: { enabled: true },
+    allow_promotion_codes: true,
+  };
+
+  if (managedPayments) {
+    // Under Managed Payments, Stripe always updates the customer name + billing
+    // address itself (so `customer_update` is rejected) and computes/remits
+    // indirect tax as MoR (so our own Stripe Tax `automatic_tax` is redundant).
+    sessionParams.managed_payments = { enabled: true };
+  } else {
+    sessionParams.customer_update = { address: "auto", name: "auto" };
+    sessionParams.automatic_tax = { enabled: automaticTax };
+  }
+
   let session: Stripe.Checkout.Session;
   try {
-    session = await stripe.checkout.sessions.create(
-      {
-        mode: "subscription",
-        customer: customerId,
-        line_items: lineItems,
-        // Land back on /subscribe — it detects `?checkout=success` and shows
-        // an activating spinner while the webhook catches up, then redirects
-        // forward to /app/dashboard once resolveStage() sees the subscription.
-        success_url: `${origin}/subscribe?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url: `${origin}/subscribe?checkout=cancelled`,
-        client_reference_id: ctx.company.id,
-        metadata: {
-          userId: ctx.user.id,
-          companyId: ctx.company.id,
-        },
-        subscription_data: {
-          metadata: {
-            userId: ctx.user.id,
-            companyId: ctx.company.id,
-          },
-          trial_period_days: trialPeriodDays,
-        },
-        billing_address_collection: "required",
-        customer_update: {
-          address: "auto",
-          name: "auto",
-        },
-        tax_id_collection: { enabled: true },
-        automatic_tax: { enabled: automaticTax },
-        allow_promotion_codes: true,
-      },
-      { idempotencyKey },
-    );
+    session = await stripe.checkout.sessions.create(sessionParams, {
+      idempotencyKey,
+    });
   } catch (err) {
     // Self-heal once: if the customer we just verified disappeared between
     // retrieve() and session creation, clear the id and bail with a 409 so

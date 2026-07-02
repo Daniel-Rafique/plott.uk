@@ -9,7 +9,7 @@
 import { config as loadEnv } from "dotenv";
 import { resolve } from "node:path";
 import Stripe from "stripe";
-import { PLAN_CATALOG } from "./stripe-plan-catalog";
+import { MANAGED_PAYMENTS_TAX_CODE, PLAN_CATALOG } from "./stripe-plan-catalog";
 import {
   isMeteredOveragePrice,
   licensedSubscriptionItem,
@@ -32,6 +32,15 @@ function mergeMetadata(price: Stripe.Price): Record<string, string> {
       ? (price.product as Stripe.Product).metadata
       : {};
   return { ...p, ...price.metadata };
+}
+
+/** Tax code from the expanded product (string id), or null when unset. */
+function productTaxCode(price: Stripe.Price): string | null {
+  if (typeof price.product !== "object" || !price.product) return null;
+  if ("deleted" in price.product && price.product.deleted) return null;
+  const taxCode = (price.product as Stripe.Product).tax_code;
+  if (!taxCode) return null;
+  return typeof taxCode === "string" ? taxCode : taxCode.id;
 }
 
 async function findMeter(stripe: Stripe) {
@@ -99,6 +108,13 @@ async function main() {
             message: `${entry.envVar} metadata[${k}]: ${merged[k] ?? "(unset)"} ≠ ${v}`,
           });
         }
+      }
+      const taxCode = productTaxCode(price);
+      if (taxCode !== MANAGED_PAYMENTS_TAX_CODE) {
+        findings.push({
+          level: "warn",
+          message: `${entry.envVar} tax_code ${taxCode ?? "(unset)"} ≠ ${MANAGED_PAYMENTS_TAX_CODE} — required for Managed Payments`,
+        });
       }
     } catch (e) {
       findings.push({

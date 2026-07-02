@@ -12,7 +12,11 @@
 import { config as loadEnv } from "dotenv";
 import { resolve } from "node:path";
 import Stripe from "stripe";
-import { catalogByPlanId, type PlanId } from "./stripe-plan-catalog";
+import {
+  catalogByPlanId,
+  MANAGED_PAYMENTS_TAX_CODE,
+  type PlanId,
+} from "./stripe-plan-catalog";
 
 loadEnv({ path: resolve(process.cwd(), ".env") });
 loadEnv({ path: resolve(process.cwd(), ".env.local"), override: true });
@@ -37,6 +41,7 @@ async function main() {
     const product = await stripe.products.create({
       name: first.productName,
       description: first.productDescription,
+      tax_code: MANAGED_PAYMENTS_TAX_CODE,
     });
 
     for (const plan of entries) {

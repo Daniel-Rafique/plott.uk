@@ -9,6 +9,7 @@ import { config as loadEnv } from "dotenv";
 import { resolve } from "node:path";
 import Stripe from "stripe";
 import { SEAT_ADDON_CATALOG } from "./stripe-seat-catalog";
+import { MANAGED_PAYMENTS_TAX_CODE } from "./stripe-plan-catalog";
 
 loadEnv({ path: resolve(process.cwd(), ".env") });
 loadEnv({ path: resolve(process.cwd(), ".env.local"), override: true });
@@ -57,6 +58,7 @@ async function main() {
     if (!price && fix) {
       const product = await stripe.products.create({
         name: entry.productName,
+        tax_code: MANAGED_PAYMENTS_TAX_CODE,
         metadata: { purpose: "extra_seat", plan_id: entry.planId },
       });
       price = await stripe.prices.create({

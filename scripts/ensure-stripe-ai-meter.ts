@@ -12,6 +12,7 @@
 import { config as loadEnv } from "dotenv";
 import { resolve } from "node:path";
 import Stripe from "stripe";
+import { MANAGED_PAYMENTS_TAX_CODE } from "./stripe-plan-catalog";
 
 loadEnv({ path: resolve(process.cwd(), ".env") });
 loadEnv({ path: resolve(process.cwd(), ".env.local"), override: true });
@@ -77,6 +78,7 @@ async function main() {
     const product = await stripe.products.create({
       name: "Plott AI Overage",
       description: "Metered AI usage beyond included monthly allowance (1 unit = £0.01 of billed overage)",
+      tax_code: MANAGED_PAYMENTS_TAX_CODE,
       metadata: { purpose: "ai_overage" },
     });
     price = await stripe.prices.create({

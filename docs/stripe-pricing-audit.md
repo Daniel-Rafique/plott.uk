@@ -8,7 +8,7 @@ Source of truth: [`scripts/stripe-plan-catalog.ts`](../scripts/stripe-plan-catal
 
 | Tier | Monthly | Annual (10× monthly, 2 months free) | Included AI / month |
 |------|---------|--------------------------------------|---------------------|
-| Starter | £49.99 | £499.90 | £10 |
+| Starter | £49.00 | £499.00 | £10 |
 | Pro | £99 | £990 | £25 |
 | Agency | £199 | £1,990 | £75 |
 
