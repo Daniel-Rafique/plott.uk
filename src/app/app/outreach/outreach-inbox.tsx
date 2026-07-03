@@ -82,6 +82,8 @@ const STATUS_FILTERS = [
 ];
 
 const DISMISSED_BANNERS_KEY = "plott.outreach.dismissedBanners";
+// Generic "read before approving" reminder — dismissed once, hidden everywhere.
+const READ_REMINDER_KEY = "global:read-reminder";
 
 export function OutreachInbox({
   canSendProspectEmail,
@@ -427,12 +429,11 @@ export function OutreachInbox({
                     {selected.subjectRef ?? `#${selected.planningEntity}`}
                   </p>
                 </div>
-                <div className="flex max-w-sm flex-col items-end">
-                  <p className="flex items-start justify-end gap-1.5 text-right text-xs leading-snug text-zinc-600">
-                    <Sparkles className="mt-0.5 h-3.5 w-3.5 shrink-0 text-zinc-400" />
-                    Please read before approving.
-                  </p>
-                </div>
+                {!dismissedBanners.has(READ_REMINDER_KEY) && (
+                  <ReadReminder
+                    onDismiss={() => dismissBanner(READ_REMINDER_KEY)}
+                  />
+                )}
               </div>
 
               {selectedIssues && selectedIssues.length > 0 && (
@@ -660,6 +661,37 @@ export function OutreachInbox({
         </section>
       </div>
     </>
+  );
+}
+
+function ReadReminder({ onDismiss }: { onDismiss: () => void }) {
+  const [leaving, setLeaving] = useState(false);
+
+  function handleDismiss() {
+    setLeaving(true);
+    window.setTimeout(onDismiss, 200);
+  }
+
+  return (
+    <div
+      className={cn(
+        "flex items-start gap-1 transition-all duration-200 ease-out motion-reduce:transition-none",
+        leaving ? "-translate-y-0.5 opacity-0" : "opacity-100",
+      )}
+    >
+      <p className="flex max-w-[16rem] items-start justify-end gap-1.5 text-right text-xs leading-snug text-zinc-600">
+        <Sparkles className="mt-0.5 h-3.5 w-3.5 shrink-0 text-zinc-400" />
+        Please read before approving.
+      </p>
+      <button
+        type="button"
+        onClick={handleDismiss}
+        aria-label="Dismiss reminder"
+        className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-md text-zinc-400 outline-none transition-colors hover:bg-zinc-100 hover:text-zinc-600 focus-visible:ring-2 focus-visible:ring-zinc-400/40"
+      >
+        <X className="h-3.5 w-3.5" />
+      </button>
+    </div>
   );
 }
 
