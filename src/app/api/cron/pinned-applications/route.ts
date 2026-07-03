@@ -11,6 +11,7 @@ import {
 } from "@/lib/pinned-applications";
 import { sendPinnedApplicationUpdateEmail } from "@/lib/email";
 import { logger } from "@/lib/logger";
+import { withPrismaRetry } from "@/lib/prisma-retry";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -85,10 +86,14 @@ export async function GET(req: Request) {
   }
 
   const now = new Date();
-  const pinned = await prisma.pinnedApplication.findMany({
-    where: { paused: false },
-    include: { company: true },
-  });
+  const pinned = await withPrismaRetry(
+    () =>
+      prisma.pinnedApplication.findMany({
+        where: { paused: false },
+        include: { company: true },
+      }),
+    { label: "pinned_applications_cron.findMany" },
+  );
 
   const results: {
     id: string;
@@ -109,19 +114,23 @@ export async function GET(req: Request) {
         councilId: pin.councilId,
       });
       if (!latest) {
-        await prisma.pinnedApplication.update({
-          where: { id: pin.id },
-          data: {
-            lastCheckedAt: now,
-            nextCheckAt: nextPinnedApplicationCheckAt({
-              now,
-              targetDecisionDate: pin.targetDecisionDate,
-              status: pin.status,
-              decision: pin.decision,
-              fallbackFrequency: pin.frequency,
+        await withPrismaRetry(
+          () =>
+            prisma.pinnedApplication.update({
+              where: { id: pin.id },
+              data: {
+                lastCheckedAt: now,
+                nextCheckAt: nextPinnedApplicationCheckAt({
+                  now,
+                  targetDecisionDate: pin.targetDecisionDate,
+                  status: pin.status,
+                  decision: pin.decision,
+                  fallbackFrequency: pin.frequency,
+                }),
+              },
             }),
-          },
-        });
+          { label: "pinned_applications_cron.update_not_found" },
+        );
         results.push({ id: pin.id, ran: true, changed: false, error: "not_found" });
         continue;
       }
@@ -134,39 +143,47 @@ export async function GET(req: Request) {
       const changes = comparePinnedApplicationSnapshots(before, after);
 
       if (!changes.length) {
-        await prisma.pinnedApplication.update({
-          where: { id: pin.id },
-          data: {
-            lastCheckedAt: now,
-            nextCheckAt: nextPinnedApplicationCheckAt({
-              now,
-              targetDecisionDate: pin.targetDecisionDate,
-              status: after.status,
-              decision: after.decision,
-              fallbackFrequency: pin.frequency,
+        await withPrismaRetry(
+          () =>
+            prisma.pinnedApplication.update({
+              where: { id: pin.id },
+              data: {
+                lastCheckedAt: now,
+                nextCheckAt: nextPinnedApplicationCheckAt({
+                  now,
+                  targetDecisionDate: pin.targetDecisionDate,
+                  status: after.status,
+                  decision: after.decision,
+                  fallbackFrequency: pin.frequency,
+                }),
+                lastSnapshotJson: after as unknown as Prisma.InputJsonObject,
+                siteAddress: after.siteAddress,
+                description: after.description,
+                status: after.status,
+                decision: after.decision,
+                decisionDate: after.decisionDate,
+                sourceUrl: after.sourceUrl,
+              },
             }),
-            lastSnapshotJson: after as unknown as Prisma.InputJsonObject,
-            siteAddress: after.siteAddress,
-            description: after.description,
-            status: after.status,
-            decision: after.decision,
-            decisionDate: after.decisionDate,
-            sourceUrl: after.sourceUrl,
-          },
-        });
+          { label: "pinned_applications_cron.update_unchanged" },
+        );
         results.push({ id: pin.id, ran: true, changed: false });
         continue;
       }
 
       const changeType = changeTypeFromChanges(changes);
-      const event = await prisma.pinnedApplicationEvent.create({
-        data: {
-          pinnedApplicationId: pin.id,
-          changeType,
-          beforeJson: before as unknown as Prisma.InputJsonObject,
-          afterJson: after as unknown as Prisma.InputJsonObject,
-        },
-      });
+      const event = await withPrismaRetry(
+        () =>
+          prisma.pinnedApplicationEvent.create({
+            data: {
+              pinnedApplicationId: pin.id,
+              changeType,
+              beforeJson: before as unknown as Prisma.InputJsonObject,
+              afterJson: after as unknown as Prisma.InputJsonObject,
+            },
+          }),
+        { label: "pinned_applications_cron.create_event" },
+      );
 
       let emailSent = false;
       try {
@@ -180,37 +197,45 @@ export async function GET(req: Request) {
             applicationUrl: after.sourceUrl,
             changes,
           });
-          await prisma.pinnedApplicationEvent.update({
-            where: { id: event.id },
-            data: { notifiedAt: now },
-          });
+          await withPrismaRetry(
+            () =>
+              prisma.pinnedApplicationEvent.update({
+                where: { id: event.id },
+                data: { notifiedAt: now },
+              }),
+            { label: "pinned_applications_cron.mark_notified" },
+          );
           emailSent = true;
         }
       } catch (err) {
         logger.error({ err, pinnedApplicationId: pin.id }, "pinned_application_email_failed");
       }
 
-      await prisma.pinnedApplication.update({
-        where: { id: pin.id },
-        data: {
-          siteAddress: after.siteAddress,
-          description: after.description,
-          status: after.status,
-          decision: after.decision,
-          decisionDate: after.decisionDate,
-          sourceUrl: after.sourceUrl,
-          lastSnapshotJson: after as unknown as Prisma.InputJsonObject,
-          lastCheckedAt: now,
-          nextCheckAt: nextPinnedApplicationCheckAt({
-            now,
-            targetDecisionDate: pin.targetDecisionDate,
-            status: after.status,
-            decision: after.decision,
-            fallbackFrequency: pin.frequency,
+      await withPrismaRetry(
+        () =>
+          prisma.pinnedApplication.update({
+            where: { id: pin.id },
+            data: {
+              siteAddress: after.siteAddress,
+              description: after.description,
+              status: after.status,
+              decision: after.decision,
+              decisionDate: after.decisionDate,
+              sourceUrl: after.sourceUrl,
+              lastSnapshotJson: after as unknown as Prisma.InputJsonObject,
+              lastCheckedAt: now,
+              nextCheckAt: nextPinnedApplicationCheckAt({
+                now,
+                targetDecisionDate: pin.targetDecisionDate,
+                status: after.status,
+                decision: after.decision,
+                fallbackFrequency: pin.frequency,
+              }),
+              lastNotifiedAt: emailSent ? now : pin.lastNotifiedAt,
+            },
           }),
-          lastNotifiedAt: emailSent ? now : pin.lastNotifiedAt,
-        },
-      });
+        { label: "pinned_applications_cron.update_changed" },
+      );
 
       logger.info(
         { pinnedApplicationId: pin.id, changeType, changeCount: changes.length },

@@ -3,12 +3,14 @@
 // https://docs.sentry.io/platforms/javascript/guides/nextjs/
 
 import * as Sentry from "@sentry/nextjs";
+import { sentryEnvironment } from "@/lib/sentry-env";
 
 const sentryDsn = process.env.SENTRY_DSN ?? process.env.NEXT_PUBLIC_SENTRY_DSN;
 
 if (sentryDsn) {
   Sentry.init({
     dsn: sentryDsn,
+    environment: sentryEnvironment(),
 
     // The app registers its own OpenTelemetry NodeTracerProvider in
     // `src/instrumentation.ts` (for Langfuse + PostHog AI tracing). Let that

@@ -4,6 +4,7 @@
 
 import * as Sentry from "@sentry/nextjs";
 import posthog from "posthog-js";
+import { sentryEnvironment } from "@/lib/sentry-env";
 
 const posthogToken = process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN;
 const sentryDsn = process.env.NEXT_PUBLIC_SENTRY_DSN;
@@ -21,6 +22,7 @@ if (posthogToken) {
 if (sentryDsn) {
   Sentry.init({
     dsn: sentryDsn,
+    environment: sentryEnvironment(),
 
     // Add optional integrations for additional features
     integrations: [Sentry.replayIntegration()],
