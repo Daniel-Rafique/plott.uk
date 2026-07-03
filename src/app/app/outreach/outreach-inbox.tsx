@@ -7,7 +7,13 @@
  */
 
 import Link from "next/link";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
 import { toast } from "sonner";
 import {
   CheckCircle2,
@@ -19,6 +25,7 @@ import {
   Loader2,
   Mail,
   MapPin,
+  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ResearchBriefingCard } from "@/components/research-briefing-card";
@@ -74,6 +81,8 @@ const STATUS_FILTERS = [
   { id: "all", label: "All" },
 ];
 
+const DISMISSED_BANNERS_KEY = "plott.outreach.dismissedBanners";
+
 export function OutreachInbox({
   canSendProspectEmail,
   initialApprovals,
@@ -96,6 +105,32 @@ export function OutreachInbox({
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
   const [rejectTargetId, setRejectTargetId] = useState<string | null>(null);
   const [rejectionNote, setRejectionNote] = useState("");
+  const [dismissedBanners, setDismissedBanners] = useState<Set<string>>(
+    () => new Set(),
+  );
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(DISMISSED_BANNERS_KEY);
+      if (raw) setDismissedBanners(new Set(JSON.parse(raw) as string[]));
+    } catch {
+      /* ignore malformed storage */
+    }
+  }, []);
+
+  const dismissBanner = useCallback((key: string) => {
+    setDismissedBanners((prev) => {
+      if (prev.has(key)) return prev;
+      const next = new Set(prev);
+      next.add(key);
+      try {
+        localStorage.setItem(DISMISSED_BANNERS_KEY, JSON.stringify([...next]));
+      } catch {
+        /* storage unavailable — dismissal stays for this session only */
+      }
+      return next;
+    });
+  }, []);
 
   const visible = useMemo(() => {
     let list =
@@ -427,31 +462,42 @@ export function OutreachInbox({
                 </div>
               )}
 
-              {!selectedRecipientEmail && (
-                <div className="mb-4 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-                  No email found — approve as a postal letter only.{" "}
-                  <Link
-                    href={mapHref}
-                    className="font-medium text-amber-950 underline underline-offset-2 hover:text-amber-800"
+              {!selectedRecipientEmail &&
+                !dismissedBanners.has(`${selected.id}:no-email`) && (
+                  <DismissibleBanner
+                    tone="amber"
+                    onDismiss={() => dismissBanner(`${selected.id}:no-email`)}
                   >
-                    View applicant on map
-                  </Link>
-                </div>
-              )}
+                    No email found — approve as a postal letter only.{" "}
+                    <Link
+                      href={mapHref}
+                      className="font-medium text-amber-950 underline underline-offset-2 hover:text-amber-800"
+                    >
+                      View applicant on map
+                    </Link>
+                  </DismissibleBanner>
+                )}
 
-              {selectedRecipientEmail && !canSendProspectEmail && (
-                <div className="mb-4 rounded-md border border-indigo-200 bg-indigo-50 px-4 py-3 text-sm text-indigo-900">
-                  Email address found, but prospect email outreach is disabled for
-                  this workspace.{" "}
-                  <Link
-                    href="/app/settings/notifications"
-                    className="font-medium text-indigo-950 underline underline-offset-2 hover:text-indigo-800"
+              {selectedRecipientEmail &&
+                !canSendProspectEmail &&
+                !dismissedBanners.has(`${selected.id}:email-disabled`) && (
+                  <DismissibleBanner
+                    tone="indigo"
+                    onDismiss={() =>
+                      dismissBanner(`${selected.id}:email-disabled`)
+                    }
                   >
-                    Enable in Settings → Notifications
-                  </Link>{" "}
-                  to send by email, or approve as a letter below.
-                </div>
-              )}
+                    Email address found, but prospect email outreach is disabled
+                    for this workspace.{" "}
+                    <Link
+                      href="/app/settings/notifications"
+                      className="font-medium text-indigo-950 underline underline-offset-2 hover:text-indigo-800"
+                    >
+                      Enable in Settings → Notifications
+                    </Link>{" "}
+                    to send by email, or approve as a letter below.
+                  </DismissibleBanner>
+                )}
 
               <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_280px]">
                 <div className="overflow-hidden rounded-lg border border-zinc-200 bg-zinc-50">
@@ -614,6 +660,66 @@ export function OutreachInbox({
         </section>
       </div>
     </>
+  );
+}
+
+function DismissibleBanner({
+  tone,
+  onDismiss,
+  children,
+}: {
+  tone: "amber" | "indigo";
+  onDismiss: () => void;
+  children: ReactNode;
+}) {
+  const [leaving, setLeaving] = useState(false);
+
+  const toneClasses =
+    tone === "amber"
+      ? "border-amber-200 bg-amber-50 text-amber-900"
+      : "border-indigo-200 bg-indigo-50 text-indigo-900";
+  const buttonClasses =
+    tone === "amber"
+      ? "text-amber-600 hover:bg-amber-100 hover:text-amber-900 focus-visible:ring-amber-500/40"
+      : "text-indigo-600 hover:bg-indigo-100 hover:text-indigo-900 focus-visible:ring-indigo-500/40";
+
+  function handleDismiss() {
+    // Play the collapse animation, then remove from the tree.
+    setLeaving(true);
+    window.setTimeout(onDismiss, 220);
+  }
+
+  return (
+    <div
+      className={cn(
+        "grid transition-all duration-200 ease-out motion-reduce:transition-none",
+        leaving
+          ? "mb-0 grid-rows-[0fr] opacity-0"
+          : "mb-4 grid-rows-[1fr] opacity-100",
+      )}
+    >
+      <div className="overflow-hidden">
+        <div
+          className={cn(
+            "relative rounded-md border px-4 py-3 pr-10 text-sm",
+            toneClasses,
+          )}
+        >
+          {children}
+          <button
+            type="button"
+            onClick={handleDismiss}
+            aria-label="Dismiss notification"
+            className={cn(
+              "absolute right-2 top-2 inline-flex h-6 w-6 items-center justify-center rounded-md outline-none transition-colors focus-visible:ring-2",
+              buttonClasses,
+            )}
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
