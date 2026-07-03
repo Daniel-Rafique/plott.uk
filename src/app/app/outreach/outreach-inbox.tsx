@@ -82,8 +82,6 @@ const STATUS_FILTERS = [
 ];
 
 const DISMISSED_BANNERS_KEY = "plott.outreach.dismissedBanners";
-// Generic "read before approving" reminder — dismissed once, hidden everywhere.
-const READ_REMINDER_KEY = "global:read-reminder";
 
 export function OutreachInbox({
   canSendProspectEmail,
@@ -149,6 +147,19 @@ export function OutreachInbox({
   const selectedIssues = (selected?.issues as Issue[] | null) ?? null;
   const selectedRecipientEmail = recipientEmail(selectedDraft);
   const selectedEmailSource = emailSourceLabel(selectedDraft);
+
+  // Errors ("Must review") always stay; only the amber "Heads-up" warnings can
+  // be dismissed, keyed per approval + issue so they don't permanently clutter.
+  const visibleIssues = useMemo(() => {
+    if (!selected || !selectedIssues) return [];
+    return selectedIssues
+      .map((issue, index) => ({ issue, index }))
+      .filter(
+        ({ issue, index }) =>
+          issue.severity === "error" ||
+          !dismissedBanners.has(issueKey(selected.id, issue, index)),
+      );
+  }, [selected, selectedIssues, dismissedBanners]);
 
   useEffect(() => {
     if (visible.length === 0) {
@@ -429,35 +440,31 @@ export function OutreachInbox({
                     {selected.subjectRef ?? `#${selected.planningEntity}`}
                   </p>
                 </div>
-                {!dismissedBanners.has(READ_REMINDER_KEY) && (
-                  <ReadReminder
-                    onDismiss={() => dismissBanner(READ_REMINDER_KEY)}
-                  />
-                )}
+                <div className="flex max-w-sm flex-col items-end">
+                  <p className="flex items-start justify-end gap-1.5 text-right text-xs leading-snug text-zinc-600">
+                    <Sparkles className="mt-0.5 h-3.5 w-3.5 shrink-0 text-zinc-400" />
+                    Please read before approving.
+                  </p>
+                </div>
               </div>
 
-              {selectedIssues && selectedIssues.length > 0 && (
+              {selected && visibleIssues.length > 0 && (
                 <div className="mb-4 space-y-2">
                   <p className="text-xs text-zinc-600">
                     Manual review of the draft is required.
                   </p>
                   <div className="space-y-1">
-                    {selectedIssues.map((issue, i) => (
-                      <div
-                        key={`${issue.code}-${i}`}
-                        className={cn(
-                          "flex items-start gap-2 rounded-md border px-3 py-2 text-xs",
+                    {visibleIssues.map(({ issue, index }) => (
+                      <IssueRow
+                        key={`${issue.code}-${index}`}
+                        issue={issue}
+                        onDismiss={
                           issue.severity === "error"
-                            ? "border-red-200 bg-red-50 text-red-900"
-                            : "border-amber-200 bg-amber-50 text-amber-900",
-                        )}
-                      >
-                        <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" />
-                        <div>
-                          <strong>{issueSeverityLabel(issue.severity)}: </strong>
-                          {issue.message}
-                        </div>
-                      </div>
+                            ? undefined
+                            : () =>
+                                dismissBanner(issueKey(selected.id, issue, index))
+                        }
+                      />
                     ))}
                   </div>
                 </div>
@@ -664,33 +671,58 @@ export function OutreachInbox({
   );
 }
 
-function ReadReminder({ onDismiss }: { onDismiss: () => void }) {
+function issueKey(approvalId: string, issue: Issue, index: number): string {
+  return `${approvalId}:issue:${issue.code}:${index}`;
+}
+
+function IssueRow({
+  issue,
+  onDismiss,
+}: {
+  issue: Issue;
+  onDismiss?: () => void;
+}) {
   const [leaving, setLeaving] = useState(false);
 
   function handleDismiss() {
     setLeaving(true);
-    window.setTimeout(onDismiss, 200);
+    window.setTimeout(() => onDismiss?.(), 200);
   }
 
   return (
     <div
       className={cn(
-        "flex items-start gap-1 transition-all duration-200 ease-out motion-reduce:transition-none",
-        leaving ? "-translate-y-0.5 opacity-0" : "opacity-100",
+        "grid transition-all duration-200 ease-out motion-reduce:transition-none",
+        leaving ? "grid-rows-[0fr] opacity-0" : "grid-rows-[1fr] opacity-100",
       )}
     >
-      <p className="flex max-w-[16rem] items-start justify-end gap-1.5 text-right text-xs leading-snug text-zinc-600">
-        <Sparkles className="mt-0.5 h-3.5 w-3.5 shrink-0 text-zinc-400" />
-        Please read before approving.
-      </p>
-      <button
-        type="button"
-        onClick={handleDismiss}
-        aria-label="Dismiss reminder"
-        className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-md text-zinc-400 outline-none transition-colors hover:bg-zinc-100 hover:text-zinc-600 focus-visible:ring-2 focus-visible:ring-zinc-400/40"
-      >
-        <X className="h-3.5 w-3.5" />
-      </button>
+      <div className="overflow-hidden">
+        <div
+          className={cn(
+            "relative flex items-start gap-2 rounded-md border px-3 py-2 text-xs",
+            onDismiss && "pr-9",
+            issue.severity === "error"
+              ? "border-red-200 bg-red-50 text-red-900"
+              : "border-amber-200 bg-amber-50 text-amber-900",
+          )}
+        >
+          <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" />
+          <div>
+            <strong>{issueSeverityLabel(issue.severity)}: </strong>
+            {issue.message}
+          </div>
+          {onDismiss && (
+            <button
+              type="button"
+              onClick={handleDismiss}
+              aria-label="Dismiss heads-up"
+              className="absolute right-1.5 top-1.5 inline-flex h-5 w-5 items-center justify-center rounded-md text-amber-600 outline-none transition-colors hover:bg-amber-100 hover:text-amber-900 focus-visible:ring-2 focus-visible:ring-amber-500/40"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
