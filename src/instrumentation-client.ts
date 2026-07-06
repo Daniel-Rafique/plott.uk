@@ -43,6 +43,27 @@ if (sentryDsn) {
     // Enable sending user PII (Personally Identifiable Information)
     // https://docs.sentry.io/platforms/javascript/guides/nextjs/configuration/options/#sendDefaultPii
     sendDefaultPii: true,
+
+    ignoreErrors: [
+      // Microsoft Outlook / Office browser extension noise
+      "Object Not Found Matching Id",
+      // Next.js chunk prefetch failures across deploys / ad-blockers / flaky nets
+      "Failed to fetch",
+      "Load failed",
+      "NetworkError when attempting to fetch resource",
+      "ChunkLoadError",
+      "Loading chunk",
+      "Loading CSS chunk",
+    ],
+    denyUrls: [
+      // Common third-party noise
+      /extensions\//i,
+      /^chrome:\/\//i,
+      /^chrome-extension:\/\//i,
+      /^moz-extension:\/\//i,
+      /^safari-extension:\/\//i,
+      /^safari-web-extension:\/\//i,
+    ],
   });
 }
 
