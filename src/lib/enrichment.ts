@@ -19,6 +19,11 @@ import {
 } from "@/lib/planwire";
 import { scrapeLpaPortal, type LpaPortalResult } from "@/lib/lpa-portal";
 import type { PlanningApplicationEntity } from "@/lib/planning-data";
+import {
+  looksLikeCompany,
+  resolveCompanyContact,
+  type CompanyContact,
+} from "@/lib/company-lookup";
 
 const DEFAULT_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 
@@ -57,7 +62,157 @@ export type ResolveParams = {
   councilId?: string | null;
   lpaWebsite?: string | null;
   siteAddress?: string;
+  seedApplicant?: string | null;
+  seedAgent?: string | null;
 };
+
+function hasNamedPerson(name: string | null | undefined): boolean {
+  return Boolean(name && !looksLikeCompany(name));
+}
+
+function pickApplicantCompany(
+  r: ResolvedApplication,
+  seeds?: Pick<ResolveParams, "seedApplicant">,
+): string | null {
+  if (r.companyName?.trim()) return r.companyName.trim();
+  if (looksLikeCompany(r.applicantName)) return r.applicantName!.trim();
+  if (looksLikeCompany(seeds?.seedApplicant)) return seeds!.seedApplicant!.trim();
+  return null;
+}
+
+function pickAgentCompany(
+  r: ResolvedApplication,
+  seeds?: Pick<ResolveParams, "seedAgent">,
+): string | null {
+  if (looksLikeCompany(r.agentName)) return r.agentName!.trim();
+  if (looksLikeCompany(seeds?.seedAgent)) return seeds!.seedAgent!.trim();
+  return null;
+}
+
+/** Strip ", Director" suffix so Hunter email finder gets a clean full name. */
+function personNameForHunter(name: string): string {
+  return name.replace(/,\s*(director|secretary|member|partner).*$/i, "").trim();
+}
+
+function mergeApplicantCompanyContact(
+  r: ResolvedApplication,
+  contact: CompanyContact,
+  opts: { fillName: boolean; fillAddress: boolean; fillEmail: boolean },
+): ResolvedApplication {
+  const sources = Array.from(
+    new Set([...(r.sources ?? [r.source]), ...contact.sources]),
+  );
+  const hasAddress = Boolean(r.applicantAddress ?? contact.address);
+  const hasName = Boolean(
+    (opts.fillName ? contact.contactName : r.applicantName) ??
+      contact.companyName,
+  );
+  return {
+    ...r,
+    companyName: contact.companyName,
+    applicantName: opts.fillName
+      ? (contact.contactName ?? r.applicantName ?? contact.companyName)
+      : r.applicantName,
+    applicantAddress: opts.fillAddress
+      ? (r.applicantAddress ?? contact.address)
+      : r.applicantAddress,
+    applicantEmail: opts.fillEmail
+      ? (r.applicantEmail ?? contact.email)
+      : r.applicantEmail,
+    applicantEmailSource: opts.fillEmail
+      ? (r.applicantEmailSource ?? contact.emailSource)
+      : r.applicantEmailSource,
+    applicantEmailConfidence: opts.fillEmail
+      ? (r.applicantEmailConfidence ?? contact.emailConfidence)
+      : r.applicantEmailConfidence,
+    applicantEmailStatus: opts.fillEmail
+      ? (r.applicantEmailStatus ?? contact.emailStatus)
+      : r.applicantEmailStatus,
+    source: contact.email ? "hunter" : r.source === "cache" ? "composite" : r.source,
+    confidence:
+      hasName && hasAddress
+        ? "high"
+        : hasName
+          ? "medium"
+          : r.confidence,
+    sources,
+  };
+}
+
+function mergeAgentCompanyContact(
+  r: ResolvedApplication,
+  contact: CompanyContact,
+  opts: { fillAddress: boolean; fillEmail: boolean },
+): ResolvedApplication {
+  const sources = Array.from(
+    new Set([...(r.sources ?? [r.source]), ...contact.sources]),
+  );
+  return {
+    ...r,
+    agentName: r.agentName ?? contact.companyName,
+    agentAddress: opts.fillAddress
+      ? (r.agentAddress ?? contact.address)
+      : r.agentAddress,
+    agentEmail: opts.fillEmail ? (r.agentEmail ?? contact.email) : r.agentEmail,
+    source: contact.email && !r.applicantEmail ? "hunter" : r.source,
+    confidence:
+      (r.agentName || contact.companyName) && (r.agentAddress || contact.address)
+        ? "high"
+        : r.confidence,
+    sources,
+  };
+}
+
+/**
+ * Deterministic Companies House + Hunter pass. Runs without the LLM so corporate
+ * applicants get a named director addressee and (when configured) a Hunter email.
+ */
+export async function enrichFromCompanyLookup(
+  r: ResolvedApplication,
+  seeds?: Pick<ResolveParams, "seedApplicant" | "seedAgent">,
+): Promise<ResolvedApplication> {
+  let out = r;
+  const hunterConfigured = Boolean(process.env.HUNTER_API_KEY?.trim());
+
+  const applicantCompany = pickApplicantCompany(out, seeds);
+  if (applicantCompany) {
+    const fillName =
+      !hasNamedPerson(out.applicantName) || looksLikeCompany(out.applicantName);
+    const fillAddress = !out.applicantAddress;
+    const fillEmail = hunterConfigured && !out.applicantEmail;
+    if (fillName || fillAddress || fillEmail) {
+      const contact = await resolveCompanyContact(applicantCompany, {
+        needEmail: fillEmail,
+        personName: hasNamedPerson(out.applicantName)
+          ? personNameForHunter(out.applicantName!)
+          : null,
+      });
+      if (contact) {
+        out = mergeApplicantCompanyContact(out, contact, {
+          fillName,
+          fillAddress,
+          fillEmail,
+        });
+      }
+    }
+  }
+
+  const agentCompany = pickAgentCompany(out, seeds);
+  if (agentCompany) {
+    const fillAddress = !out.agentAddress;
+    const fillEmail = hunterConfigured && !out.agentEmail;
+    if (fillAddress || fillEmail) {
+      const contact = await resolveCompanyContact(agentCompany, {
+        needEmail: fillEmail,
+      });
+      if (contact) {
+        out = mergeAgentCompanyContact(out, contact, { fillAddress, fillEmail });
+      }
+    }
+  }
+
+  return out;
+}
 
 function fromPlanwire(
   p: PlanwireApplication,
@@ -240,7 +395,14 @@ export async function resolveApplication(
   if (!applicationRef) return null;
 
   const cached = await readFromCache(params.planningEntity, applicationRef);
-  if (cached && cached.applicantName) return cached;
+  const hunterConfigured = Boolean(process.env.HUNTER_API_KEY?.trim());
+  if (cached?.applicantName) {
+    const emailSatisfied =
+      !hunterConfigured || Boolean(cached.applicantEmail || cached.agentEmail);
+    if (emailSatisfied) return cached;
+  } else if (cached) {
+    // Partial cache (e.g. company name only) — fall through to enrich gaps.
+  }
 
   let composite: ResolvedApplication | null = cached;
 
@@ -279,7 +441,30 @@ export async function resolveApplication(
     }
   }
 
+  // Seed-only path: listing row may already carry a corporate applicant/agent
+  // name even when PlanWire + LPA portal return nothing.
+  if (!composite && (params.seedApplicant || params.seedAgent)) {
+    composite = {
+      applicationRef,
+      applicantName: params.seedApplicant ?? null,
+      agentName: params.seedAgent ?? null,
+      source: "composite",
+      confidence: "low",
+      sources: ["row_seed"],
+    };
+  } else if (composite && !composite.applicantName && params.seedApplicant) {
+    composite = {
+      ...composite,
+      applicantName: params.seedApplicant,
+      sources: [...(composite.sources ?? [composite.source]), "row_seed"],
+    };
+  }
+
   if (composite) {
+    composite = await enrichFromCompanyLookup(composite, {
+      seedApplicant: params.seedApplicant,
+      seedAgent: params.seedAgent,
+    });
     composite.planningEntity = params.planningEntity ?? null;
     composite.organisationEntity = params.organisationEntity ?? null;
     composite.siteAddress = params.siteAddress;

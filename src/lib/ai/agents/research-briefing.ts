@@ -23,6 +23,7 @@ import {
   getCompanyProfile,
   getCompanyOfficers,
 } from "@/lib/ai/tools/companies-house";
+import { looksLikeCompany, pickBestCompany } from "@/lib/company-lookup";
 import { logger } from "@/lib/logger";
 
 /**
@@ -81,34 +82,6 @@ function normaliseName(name: string): string {
     .slice(0, 120);
 }
 
-const COMPANY_SUFFIX_RE =
-  /\b(ltd|limited|llp|plc|l\.?t\.?d\.?|c\.?i\.?c\.?|company|holdings|group|developments?|homes|properties|construction|builders?|associates|partnership)\b/i;
-
-/** Heuristic: does this name look like a UK registered company? */
-function looksLikeCompany(name: string): boolean {
-  return COMPANY_SUFFIX_RE.test(name);
-}
-
-/**
- * Loose comparison to pick the best Companies House hit for a name. Strips the
- * usual corporate noise so "Star Plans Ltd" matches "STAR PLANS LTD".
- */
-function scoreNameMatch(query: string, candidate: string): number {
-  const clean = (s: string) =>
-    s
-      .toLowerCase()
-      .replace(COMPANY_SUFFIX_RE, "")
-      .replace(/[^a-z0-9]+/g, " ")
-      .trim();
-  const q = clean(query);
-  const c = clean(candidate);
-  if (!q || !c) return 0;
-  if (q === c) return 3;
-  if (c.startsWith(q) || q.startsWith(c)) return 2;
-  if (c.includes(q) || q.includes(c)) return 1;
-  return 0;
-}
-
 type PreResolvedCompany = {
   block: string;
   companyNumber: string | null;
@@ -133,15 +106,7 @@ async function preresolveCompany(
     const candidates = await searchCompanies(displayName, 5);
     if (candidates.length === 0) return null;
 
-    const best = candidates
-      .map((c) => ({ c, score: scoreNameMatch(displayName, c.name) }))
-      .sort((a, b) => {
-        if (b.score !== a.score) return b.score - a.score;
-        // Prefer active companies on a tie.
-        const aActive = a.c.status === "active" ? 1 : 0;
-        const bActive = b.c.status === "active" ? 1 : 0;
-        return bActive - aActive;
-      })[0];
+    const best = pickBestCompany(displayName, candidates);
 
     if (!best || best.score === 0) {
       // No confident match — still surface candidates so the model can decide.
@@ -159,7 +124,7 @@ async function preresolveCompany(
       };
     }
 
-    const number = best.c.number;
+    const number = best.company.number;
     const [profile, officers] = await Promise.all([
       getCompanyProfile(number),
       getCompanyOfficers(number),
@@ -167,13 +132,13 @@ async function preresolveCompany(
 
     const lines: string[] = [
       `Verified via Companies House (UK gov register):`,
-      `- Name: ${profile?.name ?? best.c.name}`,
+      `- Name: ${profile?.name ?? best.company.name}`,
       `- Company number: ${number}`,
-      `- Status: ${profile?.status ?? best.c.status}`,
+      `- Status: ${profile?.status ?? best.company.status}`,
     ];
-    if (profile?.incorporatedOn ?? best.c.incorporatedOn) {
+    if (profile?.incorporatedOn ?? best.company.incorporatedOn) {
       lines.push(
-        `- Incorporated: ${profile?.incorporatedOn ?? best.c.incorporatedOn}`,
+        `- Incorporated: ${profile?.incorporatedOn ?? best.company.incorporatedOn}`,
       );
     }
     if (profile?.registeredAddress) {

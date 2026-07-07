@@ -129,6 +129,8 @@ Tools at your disposal:
 - webSearch: open-web fallback for missing contact details (email/phone), individual applicants, or finding a contact name at an organisation.
 - writeEnrichmentCache: legacy cache writer. You may skip it; the application persists your final JSON after this run.
 
+IMPORTANT: The deterministic cascade may have ALREADY resolved Companies House + Hunter before you run. If the PRE-RESOLVED block contains applicantName (with a director/officer), applicantAddress, and/or applicantEmail from companies_house/hunter, treat those as verified — do NOT claim tools are unavailable and do NOT redo those lookups unless a field is genuinely missing.
+
 CRITICAL RULE for Companies House:
 - If you have ANY applicant or agent name that could possibly be an organisation, you MUST call companiesHouseSearch.
 - Examples that MUST be searched: "University of London", "ABC Properties", "John Smith Developments", "London Borough Council", "St Mary's Trust", "Green Energy Cooperative".
@@ -176,6 +178,7 @@ Output rules:
   const pre = args.preResolved;
   const preLines: string[] = [];
   if (pre) {
+    if (pre.companyName) preLines.push(`  * companyName: ${pre.companyName}`);
     if (pre.applicantName) preLines.push(`  * applicantName: ${pre.applicantName}`);
     if (pre.applicantAddress) preLines.push(`  * applicantAddress: ${pre.applicantAddress}`);
     if (pre.applicantEmail) preLines.push(`  * applicantEmail: ${pre.applicantEmail}`);
@@ -381,7 +384,16 @@ export async function resolveApplicationWithAi(
     seedAgentAddress?: string | null;
   },
 ): Promise<ResolvedApplication | null> {
-  const preResolved = await resolveApplication(params).catch((err) => {
+  const preResolved = await resolveApplication({
+    reference: params.reference,
+    planningEntity: params.planningEntity,
+    organisationEntity: params.organisationEntity,
+    councilId: params.councilId,
+    lpaWebsite: params.lpaWebsite,
+    siteAddress: params.siteAddress,
+    seedApplicant: params.seedApplicant,
+    seedAgent: params.seedAgent,
+  }).catch((err) => {
     logger.warn(
       { err, reference: params.reference },
       "deterministic cascade threw — continuing with null pre-pass",
@@ -437,6 +449,7 @@ export async function resolveApplicationWithAi(
       applicantEmailSource: enriched.applicantEmailSource,
       applicantEmailConfidence: enriched.applicantEmailConfidence,
       applicantEmailStatus: enriched.applicantEmailStatus,
+      companyName: preResolved?.companyName ?? null,
       agentName: enriched.agentName ?? params.seedAgent ?? null,
       agentAddress: enriched.agentAddress ?? params.seedAgentAddress ?? null,
       agentEmail: enriched.agentEmail,
