@@ -376,7 +376,7 @@ export function PlanningQaPanel({
             aria-hidden
           />
           <p className="text-sm font-semibold text-zinc-900">
-            Ask about this application
+            Research assistant
           </p>
           {streaming && (
             <span className="flex items-center gap-1.5 text-[11px] font-medium text-indigo-500">
@@ -398,8 +398,9 @@ export function PlanningQaPanel({
         {messages.length === 0 ? (
           <div className="space-y-2">
             <p className="text-xs text-zinc-500">
-              Ask anything about this case — the assistant can look up
-              planning records, council data and applicant details.
+              Ask about this case or search planning data — the assistant can
+              look up records, council data, applicant details, and find other
+              applications.
             </p>
             <div className="flex flex-wrap gap-1.5">
               {SUGGESTIONS.map((s) => (
@@ -499,7 +500,7 @@ export function PlanningQaPanel({
           type="text"
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder="Ask about this application…"
+          placeholder="Ask about this case, or search planning data…"
           disabled={streaming}
           className="flex-1 rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 disabled:bg-zinc-50"
           aria-label="Question"
