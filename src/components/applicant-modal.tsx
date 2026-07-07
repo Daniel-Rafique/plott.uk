@@ -20,7 +20,7 @@ import {
 } from "lucide-react";
 import { ResearchBriefingCard } from "./research-briefing-card";
 import { ConfidenceTooltip } from "./confidence-tooltip";
-import { PlanningQaPanel } from "./planning-qa-panel";
+import { PlanningQaPanel, type QaResultPinActions } from "./planning-qa-panel";
 import { WaveformLoader } from "./ui/loading-indicators";
 import { SkeletonModalBody } from "./ui/skeleton";
 import { Callout } from "./ui/callout";
@@ -71,6 +71,7 @@ export function ApplicantModal({
   onDraftLetter,
   onViewApplicant,
   onSearchResults,
+  pinActions,
 }: {
   reference: string | null;
   /** Planning Data `organisation-entity` — used to resolve PlanWire council. */
@@ -96,6 +97,8 @@ export function ApplicantModal({
   onViewApplicant?: (row: PlanningApplicationEntity) => void;
   /** Fired when a chat search returns results, so the host can sync map/sidebar. */
   onSearchResults?: (entities: PlanningApplicationEntity[]) => void;
+  /** Pin / tracking on chat search results (mirrors dashboard sidebar). */
+  pinActions?: QaResultPinActions;
 }) {
   const [bundle, setBundle] = useState<OutreachContactBundle | null>(null);
   const [loading, setLoading] = useState(false);
@@ -439,6 +442,7 @@ export function ApplicantModal({
                 }}
                 onViewApplicant={onViewApplicant}
                 onResults={onSearchResults}
+                pinActions={pinActions}
                 className="max-h-[520px]"
               />
 

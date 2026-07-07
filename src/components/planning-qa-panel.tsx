@@ -10,7 +10,17 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Send, Sparkles, Bot, User, StopCircle, MapPin, ArrowRight } from "lucide-react";
+import {
+  Send,
+  Sparkles,
+  Bot,
+  User,
+  StopCircle,
+  MapPin,
+  ArrowRight,
+  Pin,
+  RadioTower,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { MarkdownMessage } from "./markdown-message";
 import type { PlanningApplicationEntity } from "@/lib/planning-data";
@@ -129,49 +139,102 @@ function statusPillClass(label: string | undefined): string {
   return "bg-zinc-100 text-zinc-600";
 }
 
+export type QaResultPinActions = {
+  canPin: boolean;
+  isPinned: (row: PlanningApplicationEntity) => boolean;
+  onTogglePin: (row: PlanningApplicationEntity) => void;
+  pinPendingKey: string | null;
+  pinKey: (row: PlanningApplicationEntity) => string;
+};
+
 /** Compact, chat-native result card. Whole card is tappable to open the case. */
 function ResultBubble({
   row,
   onClick,
+  pinActions,
 }: {
   row: PlanningApplicationEntity;
   onClick?: () => void;
+  pinActions?: QaResultPinActions;
 }) {
   const status =
     row["planning-decision-type"] || row["planning-application-status"];
   const address = row["address-text"];
+  const pinned = pinActions?.isPinned(row) ?? false;
+  const pinPending =
+    pinActions != null &&
+    pinActions.pinPendingKey === pinActions.pinKey(row);
+  const showPin = Boolean(pinActions?.canPin && row.reference);
+
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="group w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-left transition-colors hover:border-indigo-300 hover:bg-indigo-50/40 focus:outline-none focus:ring-1 focus:ring-indigo-400"
-    >
-      <p className="line-clamp-2 text-xs font-medium leading-snug text-zinc-900">
-        {row.description || "No description available"}
-      </p>
-      <div className="mt-1.5 flex items-center gap-2 text-[11px] text-zinc-500">
-        {status ? (
-          <span
+    <div className="overflow-hidden rounded-lg border border-zinc-200 bg-white transition-colors hover:border-indigo-300 focus-within:ring-1 focus-within:ring-indigo-400">
+      <button
+        type="button"
+        onClick={onClick}
+        className="group w-full px-3 py-2 text-left transition-colors hover:bg-indigo-50/40 focus:outline-none"
+      >
+        <p className="line-clamp-2 text-xs font-medium leading-snug text-zinc-900">
+          {row.description || "No description available"}
+        </p>
+        <div className="mt-1.5 flex items-center gap-2 text-[11px] text-zinc-500">
+          {status ? (
+            <span
+              className={cn(
+                "shrink-0 rounded-full px-1.5 py-0.5 font-semibold uppercase tracking-wide",
+                statusPillClass(status),
+              )}
+            >
+              {status}
+            </span>
+          ) : null}
+          {address ? (
+            <span className="flex min-w-0 items-center gap-1 truncate">
+              <MapPin className="h-3 w-3 shrink-0" aria-hidden />
+              <span className="truncate">{address}</span>
+            </span>
+          ) : null}
+          <ArrowRight
+            className="ml-auto h-3.5 w-3.5 shrink-0 text-zinc-300 transition-colors group-hover:text-indigo-500"
+            aria-hidden
+          />
+        </div>
+      </button>
+      {showPin && pinActions ? (
+        <div className="border-t border-zinc-100 px-2 py-1.5">
+          <button
+            type="button"
+            disabled={pinPending}
+            onClick={(e) => {
+              e.stopPropagation();
+              void pinActions.onTogglePin(row);
+            }}
             className={cn(
-              "shrink-0 rounded-full px-1.5 py-0.5 font-semibold uppercase tracking-wide",
-              statusPillClass(status),
+              "relative w-full overflow-hidden rounded-md border px-2.5 py-1.5 text-[11px] font-medium transition-colors disabled:opacity-70",
+              pinned
+                ? "border-emerald-200 bg-emerald-50 text-emerald-800 hover:bg-emerald-100"
+                : "border-zinc-300 bg-white text-zinc-900 hover:bg-zinc-50",
             )}
           >
-            {status}
-          </span>
-        ) : null}
-        {address ? (
-          <span className="flex min-w-0 items-center gap-1 truncate">
-            <MapPin className="h-3 w-3 shrink-0" aria-hidden />
-            <span className="truncate">{address}</span>
-          </span>
-        ) : null}
-        <ArrowRight
-          className="ml-auto h-3.5 w-3.5 shrink-0 text-zinc-300 transition-colors group-hover:text-indigo-500"
-          aria-hidden
-        />
-      </div>
-    </button>
+            <span className="flex items-center justify-center gap-1.5">
+              <span className="relative flex h-3.5 w-3.5 items-center justify-center">
+                {pinned ? (
+                  <>
+                    <span
+                      className="absolute inset-0 rounded-full border border-emerald-400/70 bg-emerald-400/15 animate-ping"
+                      aria-hidden
+                    />
+                    <RadioTower className="relative h-3 w-3" aria-hidden />
+                  </>
+                ) : (
+                  <Pin className="h-3 w-3" aria-hidden />
+                )}
+              </span>
+              {pinned ? "Tracking" : "Pin application"}
+            </span>
+          </button>
+        </div>
+      ) : null}
+    </div>
   );
 }
 
@@ -180,6 +243,7 @@ export function PlanningQaPanel({
   className,
   onViewApplicant,
   onResults,
+  pinActions,
 }: {
   application?: PlanningQaContext;
   className?: string;
@@ -187,6 +251,8 @@ export function PlanningQaPanel({
   onViewApplicant?: (row: PlanningApplicationEntity) => void;
   /** Fired when a search returns results, so the host can sync map/sidebar. */
   onResults?: (entities: PlanningApplicationEntity[]) => void;
+  /** Pin / tracking controls — same behaviour as the dashboard sidebar. */
+  pinActions?: QaResultPinActions;
 }) {
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
@@ -469,6 +535,7 @@ export function PlanningQaPanel({
                     <ResultBubble
                       key={row.entity}
                       row={row}
+                      pinActions={pinActions}
                       onClick={
                         onViewApplicant
                           ? () => onViewApplicant(row)

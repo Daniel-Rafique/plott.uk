@@ -865,6 +865,25 @@ export function DashboardClient({ features }: { features: PlanFeatures }) {
     [pinPendingKey, pinnedApplications],
   );
 
+  const qaPinActions = useMemo(
+    () => ({
+      canPin: features.canPinApplications,
+      isPinned: isPinnedApplication,
+      onTogglePin: (row: PlanningApplicationEntity) => {
+        void togglePinnedApplication(row);
+      },
+      pinPendingKey,
+      pinKey: (row: PlanningApplicationEntity) =>
+        pinnedKey(row.reference, row.councilId),
+    }),
+    [
+      features.canPinApplications,
+      isPinnedApplication,
+      togglePinnedApplication,
+      pinPendingKey,
+    ],
+  );
+
   const totalCount = meta?.count;
   const canNext = Boolean(meta?.links?.next);
   const canPrev =
@@ -1996,6 +2015,7 @@ export function DashboardClient({ features }: { features: PlanFeatures }) {
         onDraftLetter={handleApplicantDraftLetter}
         onViewApplicant={handleQaViewApplicant}
         onSearchResults={handleQaSearchResults}
+        pinActions={qaPinActions}
       />
 
       <ProprietorLetterModal
