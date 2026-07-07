@@ -17,6 +17,12 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { runAgent, AgentBudgetError, AgentProviderError } from "@/lib/ai/runtime";
 import { researchToolSet } from "@/lib/ai/tools";
+import {
+  isCompaniesHouseConfigured,
+  searchCompanies,
+  getCompanyProfile,
+  getCompanyOfficers,
+} from "@/lib/ai/tools/companies-house";
 import { logger } from "@/lib/logger";
 
 /**
@@ -75,6 +81,128 @@ function normaliseName(name: string): string {
     .slice(0, 120);
 }
 
+const COMPANY_SUFFIX_RE =
+  /\b(ltd|limited|llp|plc|l\.?t\.?d\.?|c\.?i\.?c\.?|company|holdings|group|developments?|homes|properties|construction|builders?|associates|partnership)\b/i;
+
+/** Heuristic: does this name look like a UK registered company? */
+function looksLikeCompany(name: string): boolean {
+  return COMPANY_SUFFIX_RE.test(name);
+}
+
+/**
+ * Loose comparison to pick the best Companies House hit for a name. Strips the
+ * usual corporate noise so "Star Plans Ltd" matches "STAR PLANS LTD".
+ */
+function scoreNameMatch(query: string, candidate: string): number {
+  const clean = (s: string) =>
+    s
+      .toLowerCase()
+      .replace(COMPANY_SUFFIX_RE, "")
+      .replace(/[^a-z0-9]+/g, " ")
+      .trim();
+  const q = clean(query);
+  const c = clean(candidate);
+  if (!q || !c) return 0;
+  if (q === c) return 3;
+  if (c.startsWith(q) || q.startsWith(c)) return 2;
+  if (c.includes(q) || q.includes(c)) return 1;
+  return 0;
+}
+
+type PreResolvedCompany = {
+  block: string;
+  companyNumber: string | null;
+};
+
+/**
+ * Deterministic Companies House lookup performed BEFORE the LLM runs.
+ *
+ * The research model (Sonnet) is unreliable about actually invoking the
+ * Companies House tool when the prompt pushes hard for JSON output — it tends
+ * to shortcut to "no records found". For anything that looks like a registered
+ * company we resolve the facts ourselves and hand them to the model so the
+ * briefing is grounded in real data instead of a hallucinated blank.
+ */
+async function preresolveCompany(
+  displayName: string,
+): Promise<PreResolvedCompany | null> {
+  if (!isCompaniesHouseConfigured() || !looksLikeCompany(displayName)) {
+    return null;
+  }
+  try {
+    const candidates = await searchCompanies(displayName, 5);
+    if (candidates.length === 0) return null;
+
+    const best = candidates
+      .map((c) => ({ c, score: scoreNameMatch(displayName, c.name) }))
+      .sort((a, b) => {
+        if (b.score !== a.score) return b.score - a.score;
+        // Prefer active companies on a tie.
+        const aActive = a.c.status === "active" ? 1 : 0;
+        const bActive = b.c.status === "active" ? 1 : 0;
+        return bActive - aActive;
+      })[0];
+
+    if (!best || best.score === 0) {
+      // No confident match — still surface candidates so the model can decide.
+      const list = candidates
+        .map(
+          (c) =>
+            `- ${c.name} (${c.number}, ${c.status}${
+              c.incorporatedOn ? `, inc. ${c.incorporatedOn}` : ""
+            })`,
+        )
+        .join("\n");
+      return {
+        companyNumber: null,
+        block: `Companies House candidates for "${displayName}" (no exact match — verify before using):\n${list}`,
+      };
+    }
+
+    const number = best.c.number;
+    const [profile, officers] = await Promise.all([
+      getCompanyProfile(number),
+      getCompanyOfficers(number),
+    ]);
+
+    const lines: string[] = [
+      `Verified via Companies House (UK gov register):`,
+      `- Name: ${profile?.name ?? best.c.name}`,
+      `- Company number: ${number}`,
+      `- Status: ${profile?.status ?? best.c.status}`,
+    ];
+    if (profile?.incorporatedOn ?? best.c.incorporatedOn) {
+      lines.push(
+        `- Incorporated: ${profile?.incorporatedOn ?? best.c.incorporatedOn}`,
+      );
+    }
+    if (profile?.registeredAddress) {
+      lines.push(`- Registered office: ${profile.registeredAddress}`);
+    }
+    if (profile?.sicCodes?.length) {
+      lines.push(`- SIC codes: ${profile.sicCodes.join(", ")}`);
+    }
+    if (profile?.lastAccountsPeriodEnd) {
+      lines.push(`- Last accounts period end: ${profile.lastAccountsPeriodEnd}`);
+    }
+    if (officers.length) {
+      lines.push(
+        `- Officers: ${officers
+          .map((o) => `${o.name} (${o.role})`)
+          .join("; ")}`,
+      );
+    }
+
+    return { companyNumber: number, block: lines.join("\n") };
+  } catch (err) {
+    logger.warn(
+      { err: err instanceof Error ? err.message : String(err), displayName },
+      "companies_house_preresolve_failed",
+    );
+    return null;
+  }
+}
+
 export async function researchApplicant(args: {
   ctx: { companyId: string; userId?: string };
   displayName: string;
@@ -108,10 +236,14 @@ export async function researchApplicant(args: {
     }
   }
 
+  const preResolved = await preresolveCompany(args.displayName);
+
   const system = `You research UK applicants or agents ahead of planning outreach. Produce a concise briefing.
 
+You have live tools connected to real data sources (Companies House and web search). They ARE configured and working. NEVER claim you "lack access" to Companies House or the web — if you have not called a tool yet, call it. Only report "no records found" AFTER a tool returns empty.
+
 Rules:
-1. Use Companies House for limited companies (try companiesHouseSearch first; if a strong match, fetch profile + officers).
+1. For anything that looks like a limited company (name contains Ltd/Limited/LLP/PLC/Group/Holdings etc.), you MUST use Companies House: call companiesHouseSearch, then fetch profile + officers for the best match. If a "Companies House data" block is provided below, treat it as already-verified fact and use it directly — do not contradict it or claim it is unavailable.
 2. Use webSearch for individuals, for general context, or to confirm the company's current website and recent activity.
 3. Keep "summary" under 200 words (minimum ~40 words). It should read like a 20-second briefing before sending outreach.
 4. "riskFlags" lists only verifiable concerns (dissolved company, open insolvency, sanctions, public disputes). Do not invent.
@@ -135,8 +267,16 @@ Output template (all keys required, types must match):
 
   const prompt = `Subject: ${args.displayName}
 ${args.hint ? `Context: ${args.hint}` : ""}
-
-Research this subject. Prefer UK sources. When finished, output a single JSON object matching the template above — include every key, using null or [] for unknown values.`;
+${
+  preResolved
+    ? `\nCompanies House data (already verified — use directly):\n${preResolved.block}\n`
+    : ""
+}
+Research this subject. Prefer UK sources. Use web search to add current website / recent activity where useful. When finished, output a single JSON object matching the template above — include every key, using null or [] for unknown values.${
+    preResolved?.companyNumber
+      ? ` Set entityType to "company" and companyNumber to "${preResolved.companyNumber}".`
+      : ""
+  }`;
 
   try {
     const res = await runAgent<ResearchBriefing>({
