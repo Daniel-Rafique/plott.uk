@@ -73,7 +73,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: "#e4e4e7",
   },
-  logo: { maxHeight: 70, maxWidth: 180 },
+  logo: { maxHeight: 70, maxWidth: 180, objectFit: "contain" },
   headerRight: { textAlign: "right", fontSize: 9, color: "#52525b", lineHeight: 1.45 },
   body: { marginTop: 16 },
   paragraph: { marginBottom: 10 },
@@ -81,7 +81,7 @@ const styles = StyleSheet.create({
   reLine: { fontWeight: 600 },
   siteAddress: { fontSize: 10, color: "#52525b", fontWeight: 400, marginTop: 2 },
   sig: { marginTop: 24 },
-  sigImage: { height: 48, maxWidth: 200, marginBottom: 4 },
+  sigImage: { maxHeight: 48, maxWidth: 200, marginBottom: 4, objectFit: "contain" },
   sigName: { fontWeight: 600 },
   sigTitle: { fontSize: 9, color: "#52525b" },
   footer: {

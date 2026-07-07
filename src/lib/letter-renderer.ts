@@ -288,8 +288,24 @@ export function renderLetterHtml(i: LetterInput): {
     .re .site { display: block; margin-top: 2pt; font-size: 10pt; font-weight: 400; color: #52525b; letter-spacing: 0; }
     p { margin: 0 0 10pt 0; }
     .sig { margin-top: 28pt; }
-    .sig-img { max-height: 60pt; max-width: 220pt; margin-bottom: 4pt; }
-    .sig-img svg { height: 60pt; width: auto; }
+    img.sig-img {
+      display: block;
+      max-height: 60pt;
+      max-width: 220pt;
+      width: auto;
+      height: auto;
+      object-fit: contain;
+      object-position: left bottom;
+      margin-bottom: 4pt;
+    }
+    .sig-img svg {
+      display: block;
+      max-height: 60pt;
+      max-width: 220pt;
+      width: auto;
+      height: auto;
+      margin-bottom: 4pt;
+    }
     .sig-title { font-size: 9pt; color: #52525b; }
     .ftr { margin-top: 36pt; padding-top: 12pt; border-top: 1pt solid #e4e4e7; font-size: 8pt; color: #71717a; }
     a { color: #18181b; text-decoration: underline; text-decoration-color: #d4d4d8; text-underline-offset: 2px; }
