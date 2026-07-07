@@ -812,6 +812,81 @@ export async function fetchPlanwireApplicationByCouncilRef(
   }
 }
 
+export type PlanwireSearchQuery = {
+  q?: string;
+  council?: string;
+  postcode?: string;
+  status?: "Pending" | "Approved" | "Refused" | "Withdrawn";
+  type?: string;
+  dateFrom?: string;
+  dateTo?: string;
+  page?: number;
+  limit?: number;
+};
+
+/**
+ * Keyword / council / postcode / status search over GET /v1/applications.
+ * Mirrors PlanWire's `search_planning_applications` MCP tool so the in-app
+ * agent can answer area and keyword queries without a map bbox.
+ *
+ * Returns lightweight rows only — no per-row enrichApplicationRecord fan-out.
+ */
+export async function fetchPlanwireApplicationsByQuery(
+  query: PlanwireSearchQuery,
+): Promise<PlanwireApplication[]> {
+  const apiKey = process.env.PLANWIRE_API_KEY;
+  if (!apiKey) {
+    console.warn("PLANWIRE_API_KEY not set. PlanWire integration is disabled.");
+    return [];
+  }
+  if (planwireInCooldown()) return [];
+
+  const url = new URL("https://api.planwire.io/v1/applications");
+  if (query.q) url.searchParams.set("q", query.q);
+  if (query.council) url.searchParams.set("council", query.council);
+  if (query.postcode) url.searchParams.set("postcode", query.postcode);
+  if (query.status) url.searchParams.set("status", query.status);
+  if (query.type) url.searchParams.set("type", query.type);
+  if (query.dateFrom) url.searchParams.set("date_from", query.dateFrom);
+  if (query.dateTo) url.searchParams.set("date_to", query.dateTo);
+  url.searchParams.set("page", String(query.page ?? 1));
+  url.searchParams.set("limit", String(Math.min(query.limit ?? 20, 100)));
+
+  try {
+    const res = await fetch(url.toString(), {
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        Accept: "application/json",
+      },
+      next: { revalidate: 300 },
+    });
+
+    if (res.status === 429) {
+      tripPlanwireCooldown(res, "applications?search");
+      const retryAfterMs = Math.max(0, planwireState.cooldownUntil - Date.now());
+      throw new PlanwireRateLimitedError("applications?search", retryAfterMs);
+    }
+    if (!res.ok) {
+      logger.warn({ status: res.status }, "planwire_query_search_non_ok");
+      return [];
+    }
+
+    const json = (await res.json()) as PlanwireListResponse<
+      Record<string, unknown>
+    >;
+    return (json.data ?? [])
+      .map(mapToPlanwireApplication)
+      .filter((a): a is PlanwireApplication => a !== null);
+  } catch (error) {
+    if (error instanceof PlanwireRateLimitedError) throw error;
+    logger.warn(
+      { err: error instanceof Error ? error.message : String(error) },
+      "planwire_query_search_error",
+    );
+    return [];
+  }
+}
+
 /** Fallback: full-text search on address + description (weak for ref matching). */
 export async function fetchPlanwireApplicationByTextSearch(
   query: string,

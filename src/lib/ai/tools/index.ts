@@ -4,7 +4,7 @@
  */
 
 import type { ToolSet } from "ai";
-import { planwireLookupTool } from "./planwire";
+import { planwireLookupTool, planwireSearchTool } from "./planwire";
 import { lpaPortalScrapeTool } from "./lpa-portal";
 import { lpaRefusalNoticeScrapeTool } from "./lpa-refusal";
 import {
@@ -27,6 +27,7 @@ import { makeIcpTool } from "./icp";
 
 export {
   planwireLookupTool,
+  planwireSearchTool,
   lpaPortalScrapeTool,
   lpaRefusalNoticeScrapeTool,
   companiesHouseSearchTool,
@@ -48,6 +49,7 @@ export function enrichmentToolSet(): ToolSet {
     readEnrichmentCache: readEnrichmentCacheTool,
     writeEnrichmentCache: writeEnrichmentCacheTool,
     planwireLookup: planwireLookupTool,
+    planwireSearch: planwireSearchTool,
     lpaPortalScrape: lpaPortalScrapeTool,
     companiesHouseSearch: companiesHouseSearchTool,
     companiesHouseProfile: companiesHouseProfileTool,
@@ -82,6 +84,7 @@ export function draftingToolSet(companyId: string): ToolSet {
 export function planningQaToolSet(): ToolSet {
   return {
     planwireLookup: planwireLookupTool,
+    planwireSearch: planwireSearchTool,
     readEnrichmentCache: readEnrichmentCacheTool,
   };
 }

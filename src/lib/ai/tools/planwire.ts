@@ -7,7 +7,9 @@ import { tool } from "ai";
 import { z } from "zod";
 import {
   fetchPlanwireApplication,
+  fetchPlanwireApplicationsByQuery,
   isPlanwireInCooldown,
+  PlanwireRateLimitedError,
 } from "@/lib/planwire";
 
 export const planwireLookupTool = tool({
@@ -60,5 +62,67 @@ export const planwireLookupTool = tool({
       applicantCompany: app.applicant?.company ?? null,
       applicantNamesNotInFeed: app.applicantNamesNotInFeed ?? false,
     };
+  },
+});
+
+export const planwireSearchTool = tool({
+  description:
+    "Search UK planning applications by keyword, council, postcode, status, type, or date range. Use for questions like 'recent applications in Camden' or 'refused householder extensions in OX1'. Returns a list of matches (reference, address, description, status, dates). For applicant/agent contact details on a specific result, follow up with planwireLookup.",
+  inputSchema: z.object({
+    q: z
+      .string()
+      .optional()
+      .describe("Free-text across address, description, reference."),
+    council: z.string().optional().describe("Council slug, e.g. 'camden'."),
+    postcode: z.string().optional().describe("Postcode or prefix, e.g. 'OX1'."),
+    status: z
+      .enum(["Pending", "Approved", "Refused", "Withdrawn"])
+      .optional(),
+    type: z
+      .string()
+      .optional()
+      .describe("Application type, e.g. 'Householder'."),
+    dateFrom: z.string().optional().describe("Earliest date, YYYY-MM-DD."),
+    dateTo: z.string().optional().describe("Latest date, YYYY-MM-DD."),
+    limit: z.number().int().min(1).max(100).optional(),
+  }),
+  execute: async (args) => {
+    if (isPlanwireInCooldown().cooldown) {
+      return {
+        found: false as const,
+        rateLimited: true as const,
+        count: 0,
+        results: [],
+      };
+    }
+    try {
+      const apps = await fetchPlanwireApplicationsByQuery(args);
+      return {
+        found: apps.length > 0,
+        count: apps.length,
+        results: apps.map((a) => ({
+          id: a.id,
+          reference: a.reference,
+          councilId: a.councilId,
+          address: a.address,
+          postcode: a.postcode,
+          description: a.description,
+          status: a.status,
+          decision: a.decision,
+          decisionDate: a.decisionDate,
+          url: a.url,
+        })),
+      };
+    } catch (err) {
+      if (err instanceof PlanwireRateLimitedError) {
+        return {
+          found: false as const,
+          rateLimited: true as const,
+          count: 0,
+          results: [],
+        };
+      }
+      throw err;
+    }
   },
 });
