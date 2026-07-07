@@ -356,23 +356,47 @@ export function DashboardClient({ features }: { features: PlanFeatures }) {
       }
       // No usable coordinates — leave the map where it is rather than jumping.
       if (coords.length === 0) return;
-      let west = coords[0].lng;
-      let east = coords[0].lng;
-      let south = coords[0].lat;
-      let north = coords[0].lat;
-      for (const c of coords) {
-        west = Math.min(west, c.lng);
-        east = Math.max(east, c.lng);
-        south = Math.min(south, c.lat);
-        north = Math.max(north, c.lat);
-      }
-      // Pad a hair so single-point results aren't a zero-area bbox.
-      const pad = 0.002;
+
+      // Fit to the DENSE cluster, not the extremes. Results can span the whole
+      // country (e.g. a keyword search hitting several councils); a single
+      // far-flung outlier would otherwise stretch the bbox to the entire UK.
+      // We trim to the 10th–90th percentile of lat/lng independently so the map
+      // frames where most results actually are.
+      const lats = coords.map((c) => c.lat).sort((a, b) => a - b);
+      const lngs = coords.map((c) => c.lng).sort((a, b) => a - b);
+      const percentile = (sorted: number[], p: number): number => {
+        if (sorted.length === 1) return sorted[0];
+        const idx = Math.min(
+          sorted.length - 1,
+          Math.max(0, Math.round((sorted.length - 1) * p)),
+        );
+        return sorted[idx];
+      };
+      // With few points, outlier-trimming isn't meaningful — use full extent.
+      const lo = coords.length >= 5 ? 0.1 : 0;
+      const hi = coords.length >= 5 ? 0.9 : 1;
+      const south = percentile(lats, lo);
+      const north = percentile(lats, hi);
+      const west = percentile(lngs, lo);
+      const east = percentile(lngs, hi);
+
+      // Pad so single-point / tight clusters aren't a zero-area bbox, and clamp
+      // the overall span so we never zoom out past a city-region view.
+      const pad = 0.01;
+      const MAX_SPAN_DEG = 0.6; // ~55-65km; keeps it at borough/city scale
+      const clampSpan = (min: number, max: number): [number, number] => {
+        const span = max - min;
+        if (span <= MAX_SPAN_DEG) return [min - pad, max + pad];
+        const mid = (min + max) / 2;
+        return [mid - MAX_SPAN_DEG / 2, mid + MAX_SPAN_DEG / 2];
+      };
+      const [southC, northC] = clampSpan(south, north);
+      const [westC, eastC] = clampSpan(west, east);
       const bounds: Bounds = {
-        west: west - pad,
-        south: south - pad,
-        east: east + pad,
-        north: north + pad,
+        west: westC,
+        south: southC,
+        east: eastC,
+        north: northC,
       };
       mapRef.current?.panAndZoomTo(bounds);
       setLastBounds(bounds);
