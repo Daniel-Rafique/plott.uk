@@ -156,3 +156,108 @@ export async function geocodePlace(
     return null;
   }
 }
+
+type LatLng = { lat: number; lng: number };
+
+const postcodeCache = new Map<string, LatLng | null>();
+
+function normalisePostcode(pc: string): string {
+  return pc.replace(/\s+/g, "").toUpperCase();
+}
+
+/**
+ * Bulk-geocode UK postcodes to coordinates via postcodes.io (free, no API key,
+ * UK-only). Used to place map pins for PlanWire search results, whose list
+ * endpoint returns postcodes but not lat/lng. Results are cached per-postcode
+ * for the process lifetime since postcode centroids are effectively static.
+ *
+ * Returns a map keyed by the ORIGINAL postcode string supplied by the caller.
+ */
+export async function geocodePostcodes(
+  postcodes: string[],
+): Promise<Map<string, LatLng>> {
+  const out = new Map<string, LatLng>();
+
+  // De-duplicate by normalised form while remembering the original spellings
+  // so callers can look results up by whatever string they passed in.
+  const originalsByNorm = new Map<string, string[]>();
+  for (const original of postcodes) {
+    if (!original || !original.trim()) continue;
+    const norm = normalisePostcode(original);
+    if (norm.length < 5) continue; // too short to be a full UK postcode
+    const list = originalsByNorm.get(norm) ?? [];
+    list.push(original);
+    originalsByNorm.set(norm, list);
+  }
+
+  const assign = (norm: string, coords: LatLng | null) => {
+    if (!coords) return;
+    for (const original of originalsByNorm.get(norm) ?? []) {
+      out.set(original, coords);
+    }
+  };
+
+  const toFetch: string[] = [];
+  for (const norm of originalsByNorm.keys()) {
+    const cached = postcodeCache.get(norm);
+    if (cached !== undefined) {
+      assign(norm, cached);
+    } else {
+      toFetch.push(norm);
+    }
+  }
+
+  // postcodes.io bulk endpoint accepts up to 100 postcodes per request.
+  const chunks: string[][] = [];
+  for (let i = 0; i < toFetch.length; i += 100) {
+    chunks.push(toFetch.slice(i, i + 100));
+  }
+
+  for (const chunk of chunks) {
+    try {
+      const res = await fetch("https://api.postcodes.io/postcodes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ postcodes: chunk }),
+        signal: AbortSignal.timeout(8_000),
+      });
+      if (!res.ok) {
+        logger.warn({ status: res.status }, "postcode_geocode_http_error");
+        // Cache misses briefly so a transient outage doesn't get pinned.
+        for (const norm of chunk) postcodeCache.set(norm, null);
+        continue;
+      }
+      const data = (await res.json()) as {
+        result?: Array<{
+          query: string;
+          result: { latitude?: number; longitude?: number } | null;
+        }>;
+      };
+      const seen = new Set<string>();
+      for (const row of data.result ?? []) {
+        const norm = normalisePostcode(row.query);
+        seen.add(norm);
+        const lat = row.result?.latitude;
+        const lng = row.result?.longitude;
+        if (Number.isFinite(lat) && Number.isFinite(lng)) {
+          const coords = { lat: lat as number, lng: lng as number };
+          postcodeCache.set(norm, coords);
+          assign(norm, coords);
+        } else {
+          postcodeCache.set(norm, null);
+        }
+      }
+      // Any requested postcode the API didn't echo back is a miss.
+      for (const norm of chunk) {
+        if (!seen.has(norm)) postcodeCache.set(norm, null);
+      }
+    } catch (err) {
+      logger.warn(
+        { err: err instanceof Error ? err.message : String(err) },
+        "postcode_geocode_failed",
+      );
+    }
+  }
+
+  return out;
+}

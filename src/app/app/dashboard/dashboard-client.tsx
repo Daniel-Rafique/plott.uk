@@ -345,10 +345,16 @@ export function DashboardClient({ features }: { features: PlanFeatures }) {
         if (!m) continue;
         const lng = Number(m[1]);
         const lat = Number(m[2]);
-        if (Number.isFinite(lng) && Number.isFinite(lat)) {
-          coords.push({ lng, lat });
-        }
+        if (!Number.isFinite(lng) || !Number.isFinite(lat)) continue;
+        // Drop "Null Island" (0,0) — PlanWire rows without coordinates default
+        // to 0/0, which would otherwise fly the map into the ocean (grey).
+        if (Math.abs(lat) < 0.001 && Math.abs(lng) < 0.001) continue;
+        // PlanWire is UK-only; ignore anything well outside a generous UK box
+        // so a stray/garbage coordinate can't blank the map.
+        if (lat < 49 || lat > 61 || lng < -11 || lng > 2) continue;
+        coords.push({ lng, lat });
       }
+      // No usable coordinates — leave the map where it is rather than jumping.
       if (coords.length === 0) return;
       let west = coords[0].lng;
       let east = coords[0].lng;

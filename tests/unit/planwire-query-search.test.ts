@@ -84,6 +84,57 @@ describe("fetchPlanwireApplicationsByQuery", () => {
     });
   });
 
+  it("backfills coordinates from postcodes.io when the row has no lat/lng", async () => {
+    vi.stubEnv("PLANWIRE_API_KEY", "pw_test_key");
+    const fetchMock = vi.fn().mockImplementation((input: string | URL) => {
+      const href = typeof input === "string" ? input : input.toString();
+      if (href.includes("api.postcodes.io")) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            result: [
+              {
+                query: "NW6 1DE",
+                result: { latitude: 51.5432, longitude: -0.1987 },
+              },
+            ],
+          }),
+        });
+      }
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({
+          data: [
+            {
+              id: "app-uuid-2",
+              councilId: "camden",
+              reference: "2026/2245/P",
+              address: "10 Ingham Road, London, NW6 1DE",
+              postcode: "NW6 1DE",
+              lat: null,
+              lng: null,
+              description: "Rear extension",
+              status: "REGISTERED",
+              url: "https://example.com/app",
+            },
+          ],
+        }),
+      });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const results = await fetchPlanwireApplicationsByQuery({ council: "camden" });
+
+    expect(results).toHaveLength(1);
+    expect(results[0].lat).toBeCloseTo(51.5432, 4);
+    expect(results[0].lng).toBeCloseTo(-0.1987, 4);
+
+    const postcodeCall = fetchMock.mock.calls.find((c) =>
+      String(c[0]).includes("api.postcodes.io"),
+    );
+    expect(postcodeCall).toBeTruthy();
+  });
+
   it("omits unset optional params and defaults page/limit", async () => {
     vi.stubEnv("PLANWIRE_API_KEY", "pw_test_key");
     const fetchMock = vi.fn().mockResolvedValue({

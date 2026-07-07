@@ -3,6 +3,7 @@ import type {
   PlanningSearchFilters,
 } from "@/lib/planning-data";
 import { logger } from "@/lib/logger";
+import { geocodePostcodes } from "@/lib/geocode";
 
 /**
  * Typed error for PlanWire 429 / circuit-breaker cooldowns. API routes catch
@@ -874,9 +875,16 @@ export async function fetchPlanwireApplicationsByQuery(
     const json = (await res.json()) as PlanwireListResponse<
       Record<string, unknown>
     >;
-    return (json.data ?? [])
+    const apps = (json.data ?? [])
       .map(mapToPlanwireApplication)
       .filter((a): a is PlanwireApplication => a !== null);
+
+    // PlanWire's list endpoint returns postcodes but not coordinates, so the
+    // client can't place map pins. Geocode the postcodes (bulk, UK-only, free)
+    // and backfill lat/lng so search results appear live on the map.
+    await backfillCoordsFromPostcodes(apps);
+
+    return apps;
   } catch (error) {
     if (error instanceof PlanwireRateLimitedError) throw error;
     logger.warn(
@@ -884,6 +892,43 @@ export async function fetchPlanwireApplicationsByQuery(
       "planwire_query_search_error",
     );
     return [];
+  }
+}
+
+/** True when a PlanWire row has no usable coordinates (missing or 0/0). */
+function missingCoords(app: PlanwireApplication): boolean {
+  return (
+    !Number.isFinite(app.lat) ||
+    !Number.isFinite(app.lng) ||
+    (Math.abs(app.lat) < 0.001 && Math.abs(app.lng) < 0.001)
+  );
+}
+
+/**
+ * Mutates `apps` in place, filling lat/lng for rows that lack coordinates by
+ * geocoding their postcode. Best-effort: rows without a postcode or that fail
+ * to geocode are left as-is (the client skips coordinate-less rows).
+ */
+async function backfillCoordsFromPostcodes(
+  apps: PlanwireApplication[],
+): Promise<void> {
+  const needing = apps.filter((a) => missingCoords(a) && a.postcode);
+  if (needing.length === 0) return;
+
+  try {
+    const coords = await geocodePostcodes(needing.map((a) => a.postcode));
+    for (const app of needing) {
+      const hit = coords.get(app.postcode);
+      if (hit) {
+        app.lat = hit.lat;
+        app.lng = hit.lng;
+      }
+    }
+  } catch (err) {
+    logger.warn(
+      { err: err instanceof Error ? err.message : String(err) },
+      "planwire_postcode_backfill_failed",
+    );
   }
 }
 
