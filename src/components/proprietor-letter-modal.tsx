@@ -106,6 +106,20 @@ export function ProprietorLetterModal({
   const [letterLoading, setLetterLoading] = useState(false);
   const [assistOpen, setAssistOpen] = useState(false);
   const [resolvedPostcode, setResolvedPostcode] = useState<string>("");
+  const [previewSrcDoc, setPreviewSrcDoc] = useState("");
+  const [previewLoading, setPreviewLoading] = useState(false);
+
+  const currentLetterBody = letterBody ?? "";
+
+  const previewIframeKey = useMemo(() => {
+    if (!previewSrcDoc) return previewLoading ? "loading" : "empty";
+    let h = 0;
+    const s = previewSrcDoc;
+    for (let i = 0; i < s.length; i++) {
+      h = (Math.imul(31, h) + s.charCodeAt(i)) | 0;
+    }
+    return `${s.length}-${h}`;
+  }, [previewSrcDoc, previewLoading]);
 
   const address = application?.["address-text"]?.trim() ?? "";
   const feedPostcode = application?.postcode?.trim() ?? "";
@@ -242,13 +256,43 @@ export function ProprietorLetterModal({
         setLetterBody(null);
         setResolvedPostcode("");
         setLetterId(null);
+        setPreviewSrcDoc("");
         setBundleLoading(false);
         setProprietorLoading(false);
         setPurchaseLoading(false);
         setLetterLoading(false);
+        setPreviewLoading(false);
       });
     }
   }, [isOpen]);
+
+  // Compose preview from in-memory body via POST override so AI rewrites
+  // appear immediately — don't rely on GET /render which reads the DB and
+  // can race the PATCH that persists an assist apply.
+  useEffect(() => {
+    if (!isOpen || !letterHtml || !letterId) return;
+    let cancelled = false;
+    queueMicrotask(() => setPreviewLoading(true));
+    void fetch(`/api/letter/${letterId}/render`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ bodyHtml: currentLetterBody }),
+    })
+      .then(async (res) => {
+        if (!res.ok) throw new Error("Preview failed");
+        const html = await res.text();
+        if (!cancelled) setPreviewSrcDoc(html);
+      })
+      .catch(() => {
+        if (!cancelled) setPreviewSrcDoc("");
+      })
+      .finally(() => {
+        if (!cancelled) setPreviewLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen, letterHtml, letterId, currentLetterBody]);
 
   function handleOpenChange(open: boolean) {
     if (!open) onClose();
@@ -438,13 +482,19 @@ export function ProprietorLetterModal({
                 </button>
               </div>
               {letterId ? (
-                <iframe
-                  id="letter-preview-frame"
-                  key={letterBody ?? "initial"}
-                  title="Letter preview"
-                  className="h-[min(420px,50vh)] w-full rounded-md border border-zinc-200 bg-white"
-                  src={`/api/letter/${letterId}/render`}
-                />
+                previewLoading && !previewSrcDoc ? (
+                  <div className="flex h-[min(420px,50vh)] items-center justify-center rounded-md border border-zinc-200 bg-white">
+                    <PulseIndicator label="Updating preview" />
+                  </div>
+                ) : (
+                  <iframe
+                    id="letter-preview-frame"
+                    key={previewIframeKey}
+                    title="Letter preview"
+                    className="h-[min(420px,50vh)] w-full rounded-md border border-zinc-200 bg-white"
+                    srcDoc={previewSrcDoc}
+                  />
+                )
               ) : (
                 <iframe
                   id="letter-preview-frame"
@@ -674,18 +724,16 @@ export function ProprietorLetterModal({
           siteAddress={address}
           onApply={async (nextBody) => {
             setLetterBody(nextBody);
-            // Persist the new body so the preview iframe (which hits
-            // /render) reflects the change on reload, and the PDF Print
-            // button prints the saved version.
             if (letterId) {
               try {
-                await fetch(`/api/letter/${letterId}`, {
+                const res = await fetch(`/api/letter/${letterId}`, {
                   method: "PATCH",
                   headers: { "content-type": "application/json" },
                   body: JSON.stringify({ bodyHtml: nextBody }),
                 });
+                if (!res.ok) throw new Error("Failed to save rewrite");
               } catch {
-                /* preview will still reload from previously-saved body */
+                setError("Rewrite applied in preview but could not save — try again before printing.");
               }
             }
           }}
