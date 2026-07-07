@@ -10,12 +10,17 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Send, Sparkles, Bot, User, StopCircle } from "lucide-react";
+import { Send, Sparkles, Bot, User, StopCircle, MapPin, ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { MarkdownMessage } from "./markdown-message";
+import type { PlanningApplicationEntity } from "@/lib/planning-data";
 import gsap from "gsap";
 
-type Msg = { role: "user" | "assistant"; content: string };
+type Msg = {
+  role: "user" | "assistant";
+  content: string;
+  results?: PlanningApplicationEntity[];
+};
 
 export type PlanningQaContext = {
   reference?: string;
@@ -26,13 +31,16 @@ export type PlanningQaContext = {
   status?: string | null;
   applicationType?: string | null;
   lpaName?: string | null;
+  postcode?: string | null;
+  applicantName?: string | null;
 };
 
 const SUGGESTIONS = [
   "Summarise this application in plain English.",
   "What stage is this at and what happens next?",
   "Who is the applicant and are they a company?",
-  "Any risk flags I should know about?",
+  "Other recent applications in this council",
+  "Refused applications nearby",
 ];
 
 const BAR_HEIGHTS = [10, 14, 18, 14, 10, 16, 12];
@@ -109,12 +117,76 @@ function StreamingSparkle() {
   );
 }
 
+/** Colour a status/decision label green/red/neutral like the sidebar badges. */
+function statusPillClass(label: string | undefined): string {
+  const l = (label ?? "").toLowerCase();
+  if (l.includes("approve") || l.includes("grant")) {
+    return "bg-green-100 text-green-700";
+  }
+  if (l.includes("refuse") || l.includes("reject")) {
+    return "bg-red-100 text-red-700";
+  }
+  return "bg-zinc-100 text-zinc-600";
+}
+
+/** Compact, chat-native result card. Whole card is tappable to open the case. */
+function ResultBubble({
+  row,
+  onClick,
+}: {
+  row: PlanningApplicationEntity;
+  onClick?: () => void;
+}) {
+  const status =
+    row["planning-decision-type"] || row["planning-application-status"];
+  const address = row["address-text"];
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="group w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-left transition-colors hover:border-indigo-300 hover:bg-indigo-50/40 focus:outline-none focus:ring-1 focus:ring-indigo-400"
+    >
+      <p className="line-clamp-2 text-xs font-medium leading-snug text-zinc-900">
+        {row.description || "No description available"}
+      </p>
+      <div className="mt-1.5 flex items-center gap-2 text-[11px] text-zinc-500">
+        {status ? (
+          <span
+            className={cn(
+              "shrink-0 rounded-full px-1.5 py-0.5 font-semibold uppercase tracking-wide",
+              statusPillClass(status),
+            )}
+          >
+            {status}
+          </span>
+        ) : null}
+        {address ? (
+          <span className="flex min-w-0 items-center gap-1 truncate">
+            <MapPin className="h-3 w-3 shrink-0" aria-hidden />
+            <span className="truncate">{address}</span>
+          </span>
+        ) : null}
+        <ArrowRight
+          className="ml-auto h-3.5 w-3.5 shrink-0 text-zinc-300 transition-colors group-hover:text-indigo-500"
+          aria-hidden
+        />
+      </div>
+    </button>
+  );
+}
+
 export function PlanningQaPanel({
   application,
   className,
+  onViewApplicant,
+  onResults,
 }: {
   application?: PlanningQaContext;
   className?: string;
+  /** Open a result in the modal (re-seeds the focused case). */
+  onViewApplicant?: (row: PlanningApplicationEntity) => void;
+  /** Fired when a search returns results, so the host can sync map/sidebar. */
+  onResults?: (entities: PlanningApplicationEntity[]) => void;
 }) {
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
@@ -202,22 +274,71 @@ export function PlanningQaPanel({
         const reader = res.body.getReader();
         const decoder = new TextDecoder();
         let buffer = "";
+        let text = "";
+
+        const applyFrame = (line: string) => {
+          const trimmedLine = line.trim();
+          if (!trimmedLine) return;
+          let frame: {
+            type?: string;
+            delta?: string;
+            entities?: PlanningApplicationEntity[];
+            message?: string;
+          };
+          try {
+            frame = JSON.parse(trimmedLine);
+          } catch {
+            return;
+          }
+          if (frame.type === "text" && frame.delta) {
+            text += frame.delta;
+            const snapshot = text;
+            setMessages((m) => {
+              const copy = [...m];
+              copy[copy.length - 1] = {
+                ...copy[copy.length - 1],
+                role: "assistant",
+                content: snapshot,
+              };
+              return copy;
+            });
+          } else if (frame.type === "results" && frame.entities?.length) {
+            const entities = frame.entities;
+            setMessages((m) => {
+              const copy = [...m];
+              copy[copy.length - 1] = {
+                ...copy[copy.length - 1],
+                role: "assistant",
+                results: entities,
+              };
+              return copy;
+            });
+            onResults?.(entities);
+          } else if (frame.type === "error" && frame.message) {
+            setError(frame.message);
+          }
+        };
+
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
           buffer += decoder.decode(value, { stream: true });
-          const snapshot = buffer;
-          setMessages((m) => {
-            const copy = [...m];
-            copy[copy.length - 1] = { role: "assistant", content: snapshot };
-            return copy;
-          });
+          let nl = buffer.indexOf("\n");
+          while (nl !== -1) {
+            applyFrame(buffer.slice(0, nl));
+            buffer = buffer.slice(nl + 1);
+            nl = buffer.indexOf("\n");
+          }
         }
+        if (buffer.trim()) applyFrame(buffer);
       } catch (err) {
         if ((err as Error).name === "AbortError") return;
         setError(err instanceof Error ? err.message : "Unknown error");
         setMessages((m) =>
-          m.length && m[m.length - 1].role === "assistant" && m[m.length - 1].content === ""
+          m.length &&
+          m[m.length - 1].role === "assistant" &&
+          m[m.length - 1].content === "" &&
+          !m[m.length - 1].results?.length
             ? m.slice(0, -1)
             : m,
         );
@@ -226,7 +347,7 @@ export function PlanningQaPanel({
         abortRef.current = null;
       }
     },
-    [messages, streaming, application],
+    [messages, streaming, application, onResults],
   );
 
   const stop = useCallback(() => {
@@ -295,48 +416,65 @@ export function PlanningQaPanel({
           </div>
         ) : (
           messages.map((m, i) => (
-            <div
-              key={i}
-              className={cn(
-                "flex gap-2",
-                m.role === "user" ? "justify-end" : "justify-start",
-              )}
-            >
-              {m.role === "assistant" ? (
-                <div className="mt-0.5 rounded-full bg-indigo-100 p-1">
-                  <Bot className="h-3 w-3 text-indigo-700" aria-hidden />
-                </div>
-              ) : null}
+            <div key={i} className="space-y-2">
               <div
                 className={cn(
-                  "max-w-[85%] rounded-lg px-3 py-2 text-sm leading-snug transition-shadow duration-300",
-                  m.role === "user"
-                    ? "whitespace-pre-wrap bg-zinc-900 text-white"
-                    : "bg-zinc-50 text-zinc-800",
-                  // Glow while this specific bubble is still being written
-                  m.role === "assistant" && !m.content && streaming
-                    ? "ring-1 ring-indigo-200 shadow-[0_0_12px_rgba(99,102,241,0.15)]"
-                    : "",
+                  "flex gap-2",
+                  m.role === "user" ? "justify-end" : "justify-start",
                 )}
               >
-                {m.content ? (
-                  m.role === "assistant" ? (
-                    <MarkdownMessage content={m.content} />
+                {m.role === "assistant" ? (
+                  <div className="mt-0.5 rounded-full bg-indigo-100 p-1">
+                    <Bot className="h-3 w-3 text-indigo-700" aria-hidden />
+                  </div>
+                ) : null}
+                <div
+                  className={cn(
+                    "max-w-[85%] rounded-lg px-3 py-2 text-sm leading-snug transition-shadow duration-300",
+                    m.role === "user"
+                      ? "whitespace-pre-wrap bg-zinc-900 text-white"
+                      : "bg-zinc-50 text-zinc-800",
+                    // Glow while this specific bubble is still being written
+                    m.role === "assistant" && !m.content && streaming
+                      ? "ring-1 ring-indigo-200 shadow-[0_0_12px_rgba(99,102,241,0.15)]"
+                      : "",
+                  )}
+                >
+                  {m.content ? (
+                    m.role === "assistant" ? (
+                      <MarkdownMessage content={m.content} />
+                    ) : (
+                      m.content
+                    )
                   ) : (
-                    m.content
-                  )
-                ) : (
-                  <span className="inline-flex items-center gap-2 py-1">
-                    <StreamingWaveform />
-                    <span className="text-[11px] font-medium text-indigo-400 tracking-wide">
-                      thinking
+                    <span className="inline-flex items-center gap-2 py-1">
+                      <StreamingWaveform />
+                      <span className="text-[11px] font-medium text-indigo-400 tracking-wide">
+                        thinking
+                      </span>
                     </span>
-                  </span>
-                )}
+                  )}
+                </div>
+                {m.role === "user" ? (
+                  <div className="mt-0.5 rounded-full bg-zinc-800 p-1">
+                    <User className="h-3 w-3 text-white" aria-hidden />
+                  </div>
+                ) : null}
               </div>
-              {m.role === "user" ? (
-                <div className="mt-0.5 rounded-full bg-zinc-800 p-1">
-                  <User className="h-3 w-3 text-white" aria-hidden />
+
+              {m.role === "assistant" && m.results?.length ? (
+                <div className="ml-8 space-y-1.5">
+                  {m.results.map((row) => (
+                    <ResultBubble
+                      key={row.entity}
+                      row={row}
+                      onClick={
+                        onViewApplicant
+                          ? () => onViewApplicant(row)
+                          : undefined
+                      }
+                    />
+                  ))}
                 </div>
               ) : null}
             </div>

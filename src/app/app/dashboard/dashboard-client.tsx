@@ -332,6 +332,81 @@ export function DashboardClient({ features }: { features: PlanFeatures }) {
     return mapRef.current?.getCurrentBounds() ?? lastBounds;
   }, [lastBounds]);
 
+  /**
+   * Fit the map to a set of result entities by deriving a bbox from their
+   * `POINT(lng lat)` values. Used to sync the map when a chat search (from the
+   * applicant modal's Q&A panel) returns results. No-op when no points.
+   */
+  const fitMapToEntities = useCallback(
+    (entities: PlanningApplicationEntity[]) => {
+      const coords: Array<{ lng: number; lat: number }> = [];
+      for (const e of entities) {
+        const m = e.point?.match(/POINT\s*\(\s*(-?\d+\.?\d*)\s+(-?\d+\.?\d*)\s*\)/i);
+        if (!m) continue;
+        const lng = Number(m[1]);
+        const lat = Number(m[2]);
+        if (Number.isFinite(lng) && Number.isFinite(lat)) {
+          coords.push({ lng, lat });
+        }
+      }
+      if (coords.length === 0) return;
+      let west = coords[0].lng;
+      let east = coords[0].lng;
+      let south = coords[0].lat;
+      let north = coords[0].lat;
+      for (const c of coords) {
+        west = Math.min(west, c.lng);
+        east = Math.max(east, c.lng);
+        south = Math.min(south, c.lat);
+        north = Math.max(north, c.lat);
+      }
+      // Pad a hair so single-point results aren't a zero-area bbox.
+      const pad = 0.002;
+      const bounds: Bounds = {
+        west: west - pad,
+        south: south - pad,
+        east: east + pad,
+        north: north + pad,
+      };
+      mapRef.current?.panAndZoomTo(bounds);
+      setLastBounds(bounds);
+    },
+    [],
+  );
+
+  const handleQaSearchResults = useCallback(
+    (entities: PlanningApplicationEntity[]) => {
+      handleDeepSearchResults(entities, {
+        total: entities.length,
+        mode: "fast",
+      });
+      fitMapToEntities(entities);
+    },
+    [handleDeepSearchResults, fitMapToEntities],
+  );
+
+  const handleQaViewApplicant = useCallback(
+    (row: PlanningApplicationEntity) => {
+      if (!row.reference) return;
+      openApplicantModal(row.reference, row["organisation-entity"] ?? null, {
+        planningEntity: row.entity ?? null,
+        siteAddress: row["address-text"] ?? null,
+        description: row.description ?? null,
+        applicationType: row["planning-application-type"] ?? null,
+        status: row["planning-application-status"] ?? null,
+        postcode: row.postcode ?? null,
+        point: row.point ?? null,
+        seedApplicant: row.enrichment?.applicantName ?? null,
+        seedAgent: row.enrichment?.agentName ?? null,
+        seedAgentAddress: row.enrichment?.agentAddress ?? null,
+      });
+    },
+    // openApplicantModal is a stable module-scope closure defined below in the
+    // component; it does not need to be in deps (it only calls setState).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  );
+
   const runManualFilterDeepSearch = useCallback(async () => {
     if (suppressManualFilterDeepSearchRef.current) return;
     manualFiltersDirtyRef.current = false;
@@ -1889,6 +1964,8 @@ export function DashboardClient({ features }: { features: PlanFeatures }) {
         seedAgent={selectedApplicant?.seedAgent ?? null}
         seedAgentAddress={selectedApplicant?.seedAgentAddress ?? null}
         onDraftLetter={handleApplicantDraftLetter}
+        onViewApplicant={handleQaViewApplicant}
+        onSearchResults={handleQaSearchResults}
       />
 
       <ProprietorLetterModal

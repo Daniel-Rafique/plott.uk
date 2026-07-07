@@ -25,6 +25,7 @@ import { WaveformLoader } from "./ui/loading-indicators";
 import { SkeletonModalBody } from "./ui/skeleton";
 import { Callout } from "./ui/callout";
 import { useMountReveal } from "@/lib/animation/use-mount-reveal";
+import type { PlanningApplicationEntity } from "@/lib/planning-data";
 import type {
   OutreachContact,
   OutreachContactBundle,
@@ -68,6 +69,8 @@ export function ApplicantModal({
   isOpen,
   onClose,
   onDraftLetter,
+  onViewApplicant,
+  onSearchResults,
 }: {
   reference: string | null;
   /** Planning Data `organisation-entity` — used to resolve PlanWire council. */
@@ -89,6 +92,10 @@ export function ApplicantModal({
   onClose: () => void;
   /** Called when the user clicks "Draft outreach letter from this contact". */
   onDraftLetter?: (h: ApplicantModalHandoff) => void;
+  /** Open a chat result in this modal (re-seeds the focused case). */
+  onViewApplicant?: (row: PlanningApplicationEntity) => void;
+  /** Fired when a chat search returns results, so the host can sync map/sidebar. */
+  onSearchResults?: (entities: PlanningApplicationEntity[]) => void;
 }) {
   const [bundle, setBundle] = useState<OutreachContactBundle | null>(null);
   const [loading, setLoading] = useState(false);
@@ -416,6 +423,7 @@ export function ApplicantModal({
               ) : null}
 
               <PlanningQaPanel
+                key={reference ?? "no-ref"}
                 application={{
                   reference: reference ?? undefined,
                   planningEntity: planningEntity ?? undefined,
@@ -426,7 +434,11 @@ export function ApplicantModal({
                   applicationType: applicationType ?? undefined,
                   status: status ?? undefined,
                   lpaName: lpaName ?? undefined,
+                  postcode: postcode ?? undefined,
+                  applicantName: seedApplicant ?? undefined,
                 }}
+                onViewApplicant={onViewApplicant}
+                onResults={onSearchResults}
                 className="max-h-[520px]"
               />
 

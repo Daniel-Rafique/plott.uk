@@ -25,6 +25,7 @@ import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import { isProviderConfigured, providerEnvKey } from "@/lib/ai/router";
 import { requireAiEntitlement } from "@/lib/ai/entitlements";
 import { forceFlushOtelTraces } from "@/lib/ai/trace";
+import type { PlanningApplicationEntity } from "@/lib/planning-data";
 import type { ModelMessage } from "ai";
 
 export const runtime = "nodejs";
@@ -128,6 +129,7 @@ You have access to tools that can fetch authoritative data:
 
 Rules:
 1. Use the tools whenever the user asks for details you don't already know. Prefer planningEntity for status / dates / description; planwireSearch for area/keyword/postcode/status queries; planwireLookup for applicant / agent contact details on a specific reference.
+1a. When you call planwireSearch, reply with a single short intro line only (e.g. "Here are the matching applications:"). The UI renders the results as interactive cards below your message, so do NOT list, number, or describe the individual applications in prose. If there are no matches, say so briefly.
 2. NEVER invent facts. If a tool returns nothing, say so plainly.
 3. Always caveat legal / policy advice — you are a research assistant, not a planning consultant.
 4. Keep answers concise (4–8 short sentences or a short bulleted list). Use GitHub-flavoured Markdown (bold, italics, bullet lists, tables, links) for readability. Do NOT append a "Sources: …" trailer — the UI renders sources separately.
@@ -151,7 +153,62 @@ ${appLines}`;
     await forceFlushOtelTraces();
   });
 
-  return result.toTextStreamResponse();
+  // Stream NDJSON so the client receives both assistant text and structured
+  // planwireSearch results (rendered as clickable cards). Mirrors the framing
+  // approach used by /api/ai/deep-search.
+  const encoder = new TextEncoder();
+  const stream = new ReadableStream<Uint8Array>({
+    async start(controller) {
+      const enqueue = (obj: unknown) => {
+        try {
+          controller.enqueue(encoder.encode(`${JSON.stringify(obj)}\n`));
+        } catch {
+          /* controller may already be closed */
+        }
+      };
+      try {
+        for await (const part of result.fullStream) {
+          if (part.type === "text-delta") {
+            enqueue({ type: "text", delta: part.text });
+          } else if (
+            part.type === "tool-result" &&
+            part.toolName === "planwireSearch"
+          ) {
+            const output = part.output as
+              | { entities?: PlanningApplicationEntity[] }
+              | undefined;
+            if (output?.entities?.length) {
+              enqueue({ type: "results", entities: output.entities });
+            }
+          } else if (part.type === "error") {
+            enqueue({
+              type: "error",
+              message:
+                part.error instanceof Error
+                  ? part.error.message
+                  : String(part.error),
+            });
+          }
+        }
+        enqueue({ type: "done" });
+      } catch (err) {
+        enqueue({
+          type: "error",
+          message: err instanceof Error ? err.message : "Stream failed",
+        });
+      } finally {
+        controller.close();
+      }
+    },
+  });
+
+  return new Response(stream, {
+    headers: {
+      "Content-Type": "application/x-ndjson; charset=utf-8",
+      "Cache-Control": "no-store",
+      "X-Accel-Buffering": "no",
+    },
+  });
 }
 
 function trimHistory(

@@ -9,6 +9,7 @@ import {
   fetchPlanwireApplication,
   fetchPlanwireApplicationsByQuery,
   isPlanwireInCooldown,
+  mapPlanwireToPlanningEntity,
   PlanwireRateLimitedError,
 } from "@/lib/planwire";
 
@@ -112,6 +113,10 @@ export const planwireSearchTool = tool({
           decisionDate: a.decisionDate,
           url: a.url,
         })),
+        // Full planning entities for the client to render clickable result
+        // cards, sync the map/sidebar, and open View Applicant. Same shape the
+        // dashboard sidebar uses so behaviour matches exactly.
+        entities: apps.map(mapPlanwireToPlanningEntity),
       };
     } catch (err) {
       if (err instanceof PlanwireRateLimitedError) {
