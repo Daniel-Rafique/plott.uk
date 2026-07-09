@@ -271,7 +271,7 @@ export default function PrivacyPage() {
                 9. Contact
               </h2>
               <p className="mt-5">
-                Plott Ltd, registered in England &amp; Wales. Privacy
+                PLOTT is a trading name of VYCEVERSA LTD, registered in England &amp; Wales. Privacy
                 enquiries:{" "}
                 <a href="mailto:privacy@plott.uk" className="font-medium text-brand-dark underline decoration-brand/40 underline-offset-4 transition-colors hover:text-brand">
                   privacy@plott.uk

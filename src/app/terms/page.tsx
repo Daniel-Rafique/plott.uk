@@ -59,10 +59,9 @@ export default function TermsPage() {
               </h2>
               <p className="mt-5">
                 These Terms of Service (&ldquo;Terms&rdquo;) form a legally binding
-                agreement between Plott Ltd (&ldquo;we&rdquo;,
-                &ldquo;us&rdquo;) and the business that subscribes to Planning
-                Leads (&ldquo;Customer&rdquo;). Where an individual uses Planning
-                Leads on behalf of a Customer, they represent that they are
+                agreement between PLOTT is a trading name of VYCEVERSA LTD (&ldquo;we&rdquo;,
+                &ldquo;us&rdquo;) and the business that subscribes to PLOTT (&ldquo;Customer&rdquo;). 
+                Where an individual uses PLOTT on behalf of a Customer, they represent that they are
                 authorised to bind the Customer to these Terms. We may update
                 these Terms from time to time; material changes will be notified
                 at least 30 days in advance.
@@ -279,7 +278,7 @@ export default function TermsPage() {
                 12. Contact
               </h2>
               <p className="mt-5">
-                Plott Ltd, registered in England &amp; Wales. Contract
+                PLOTT is a trading name of VYCEVERSA LTD, registered in England &amp; Wales. Contract
                 enquiries:{" "}
                 <a href="mailto:legal@plott.uk" className="font-medium text-brand-dark underline decoration-brand/40 underline-offset-4 transition-colors hover:text-brand">
                   legal@plott.uk
