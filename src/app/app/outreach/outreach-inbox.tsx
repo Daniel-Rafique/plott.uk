@@ -536,7 +536,7 @@ export function OutreachInbox({
         </DialogContent>
       </Dialog>
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(280px,320px)_1fr]">
+      <div className="grid min-w-0 grid-cols-1 gap-4 lg:grid-cols-[minmax(280px,320px)_minmax(0,1fr)]">
         <aside className="overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm">
           <div className="flex flex-wrap items-center gap-1.5 border-b border-zinc-100 p-3">
             {STATUS_FILTERS.map((f) => (
@@ -625,7 +625,7 @@ export function OutreachInbox({
           </div>
         </aside>
 
-        <section className="min-w-0 min-h-[60vh] rounded-xl border border-zinc-200 bg-white p-5 shadow-sm">
+        <section className="min-h-[60vh] min-w-0 overflow-x-hidden rounded-xl border border-zinc-200 bg-white p-5 shadow-sm">
           {!selected ? (
             <p className="text-sm text-zinc-500">Select an approval to review.</p>
           ) : (
@@ -707,8 +707,8 @@ export function OutreachInbox({
                   </DismissibleBanner>
                 )}
 
-              <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_280px]">
-                <div className="overflow-hidden rounded-lg border border-zinc-200 bg-zinc-50">
+              <div className="grid min-w-0 grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,260px)]">
+                <div className="min-w-0 overflow-hidden rounded-lg border border-zinc-200 bg-zinc-50">
                   <div className="border-b border-zinc-200 bg-white px-4 py-3">
                     <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500">
                       Message preview
@@ -745,7 +745,7 @@ export function OutreachInbox({
                   ) : null}
                 </div>
 
-                <aside className="space-y-3">
+                <aside className="min-w-0 space-y-3">
                   {selectedDraft?.recipient?.addressLines && (
                     <div className="rounded-md border border-zinc-200 bg-white p-3">
                       <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-zinc-500">
@@ -835,6 +835,7 @@ export function OutreachInbox({
                     planningEntity={selected.planningEntity}
                     applicationRef={selected.subjectRef}
                     siteAddress={selectedDraft?.siteAddress}
+                    compact
                     onApplyBallpark={
                       selected.status === "pending"
                         ? applyBallparkToDraft

@@ -1,13 +1,18 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Loader2, RefreshCw } from "lucide-react";
+import { RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import {
   formatBallparkRange,
   formatBallparkWeeks,
 } from "@/lib/pipeline-shared";
 import { cn } from "@/lib/utils";
+import {
+  PulseIndicator,
+  ShimmerBar,
+  WaveformLoader,
+} from "@/components/ui/loading-indicators";
 
 export type BallparkLead = {
   id: string;
@@ -15,7 +20,14 @@ export type BallparkLead = {
   estimateMaxGbp: number | null;
   estimateWeeks: number | null;
   includeBallparkInOutreach: boolean;
+  estimateJson?: unknown;
 };
+
+function scopeSummaryFromLead(lead: BallparkLead | null): string | null {
+  if (!lead?.estimateJson || typeof lead.estimateJson !== "object") return null;
+  const summary = (lead.estimateJson as { scopeSummary?: unknown }).scopeSummary;
+  return typeof summary === "string" && summary.trim() ? summary.trim() : null;
+}
 
 type Props = {
   planningEntity: number | null | undefined;
@@ -45,6 +57,7 @@ export function BallparkPanel({
   const [lead, setLead] = useState<BallparkLead | null>(null);
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [estimating, setEstimating] = useState(false);
   const [editing, setEditing] = useState(false);
   const [minGbp, setMinGbp] = useState("");
   const [maxGbp, setMaxGbp] = useState("");
@@ -166,6 +179,7 @@ export function BallparkPanel({
   }
 
   async function regenerate() {
+    setEstimating(true);
     setBusy(true);
     try {
       const current = await ensureLead();
@@ -193,6 +207,7 @@ export function BallparkPanel({
       toast.error("Network error running estimate");
     } finally {
       setBusy(false);
+      setEstimating(false);
     }
   }
 
@@ -243,26 +258,30 @@ export function BallparkPanel({
     return (
       <div
         className={cn(
-          "rounded-md border border-zinc-200 bg-white p-3 text-xs text-zinc-500",
+          "min-w-0 rounded-md border border-indigo-100 bg-indigo-50/30 p-3",
           className,
         )}
       >
-        Loading estimate…
+        <p className="flex items-center gap-2 text-xs text-zinc-600">
+          <WaveformLoader tone="ai" label="Loading estimate" />
+          Loading estimate…
+        </p>
       </div>
     );
   }
 
   const hasFigures =
     lead?.estimateMinGbp != null && lead?.estimateMaxGbp != null;
+  const scopeSummary = scopeSummaryFromLead(lead);
 
   return (
     <div
       className={cn(
-        "rounded-md border border-zinc-200 bg-white p-3 space-y-2",
+        "min-w-0 overflow-hidden rounded-md border border-zinc-200 bg-white p-3 space-y-2",
         className,
       )}
     >
-      <div className="flex items-center justify-between gap-2">
+      <div className="flex min-w-0 items-center justify-between gap-2">
         <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500">
           Ballpark estimate
         </p>
@@ -270,10 +289,10 @@ export function BallparkPanel({
           type="button"
           disabled={busy}
           onClick={() => void regenerate()}
-          className="inline-flex items-center gap-1 text-[11px] font-medium text-zinc-600 hover:text-zinc-900 disabled:opacity-50"
+          className="inline-flex shrink-0 items-center gap-1 text-[11px] font-medium text-zinc-600 hover:text-zinc-900 disabled:opacity-50"
         >
-          {busy ? (
-            <Loader2 className="h-3 w-3 animate-spin" aria-hidden />
+          {estimating ? (
+            <PulseIndicator tone="ai" label="Estimating" />
           ) : (
             <RefreshCw className="h-3 w-3" aria-hidden />
           )}
@@ -281,18 +300,44 @@ export function BallparkPanel({
         </button>
       </div>
 
-      {hasFigures && !editing ? (
-        <p className="text-xs text-zinc-800">
-          {formatBallparkRange(lead!.estimateMinGbp!, lead!.estimateMaxGbp!)}
-          {lead!.estimateWeeks != null
-            ? ` · ${formatBallparkWeeks(lead!.estimateWeeks)}`
-            : ""}
-        </p>
+      {estimating ? (
+        <div className="space-y-2 rounded-md border border-indigo-100 bg-indigo-50/30 p-2.5">
+          <p className="flex items-center gap-2 text-xs text-zinc-600">
+            <WaveformLoader tone="ai" label="Summarising application" />
+            Summarising the application…
+          </p>
+          <div className="space-y-1.5">
+            <ShimmerBar height={10} width="100%" />
+            <ShimmerBar height={10} width="82%" />
+            <ShimmerBar height={10} width="64%" />
+          </div>
+        </div>
       ) : null}
 
-      {editing || !hasFigures ? (
-        <div className="grid grid-cols-3 gap-2">
-          <label className="grid gap-0.5 text-[10px] text-zinc-500">
+      {hasFigures && !editing && !estimating ? (
+        <>
+          <p className="text-xs text-zinc-800">
+            {formatBallparkRange(lead!.estimateMinGbp!, lead!.estimateMaxGbp!)}
+            {lead!.estimateWeeks != null
+              ? ` · ${formatBallparkWeeks(lead!.estimateWeeks)}`
+              : ""}
+          </p>
+          {scopeSummary ? (
+            <p className="text-[11px] leading-relaxed text-zinc-600">
+              {scopeSummary}
+            </p>
+          ) : null}
+        </>
+      ) : null}
+
+      {(editing || !hasFigures) && !estimating ? (
+        <div
+          className={cn(
+            "grid min-w-0 gap-2",
+            compact ? "grid-cols-1" : "grid-cols-3",
+          )}
+        >
+          <label className="grid min-w-0 gap-0.5 text-[10px] text-zinc-500">
             Min £
             <input
               type="number"
@@ -300,10 +345,10 @@ export function BallparkPanel({
               value={minGbp}
               disabled={busy}
               onChange={(e) => setMinGbp(e.target.value)}
-              className="rounded border border-zinc-300 px-1.5 py-1 text-xs text-zinc-900"
+              className="w-full min-w-0 rounded border border-zinc-300 px-1.5 py-1 text-xs text-zinc-900"
             />
           </label>
-          <label className="grid gap-0.5 text-[10px] text-zinc-500">
+          <label className="grid min-w-0 gap-0.5 text-[10px] text-zinc-500">
             Max £
             <input
               type="number"
@@ -311,10 +356,10 @@ export function BallparkPanel({
               value={maxGbp}
               disabled={busy}
               onChange={(e) => setMaxGbp(e.target.value)}
-              className="rounded border border-zinc-300 px-1.5 py-1 text-xs text-zinc-900"
+              className="w-full min-w-0 rounded border border-zinc-300 px-1.5 py-1 text-xs text-zinc-900"
             />
           </label>
-          <label className="grid gap-0.5 text-[10px] text-zinc-500">
+          <label className="grid min-w-0 gap-0.5 text-[10px] text-zinc-500">
             Weeks
             <input
               type="number"
@@ -323,14 +368,14 @@ export function BallparkPanel({
               value={weeks}
               disabled={busy}
               onChange={(e) => setWeeks(e.target.value)}
-              className="rounded border border-zinc-300 px-1.5 py-1 text-xs text-zinc-900"
+              className="w-full min-w-0 rounded border border-zinc-300 px-1.5 py-1 text-xs text-zinc-900"
             />
           </label>
         </div>
       ) : null}
 
       <div className="flex flex-wrap items-center gap-2">
-        {hasFigures && !editing ? (
+        {hasFigures && !editing && !estimating ? (
           <button
             type="button"
             disabled={busy}
@@ -339,7 +384,7 @@ export function BallparkPanel({
           >
             Edit figures
           </button>
-        ) : (
+        ) : !estimating ? (
           <button
             type="button"
             disabled={busy}
@@ -348,7 +393,7 @@ export function BallparkPanel({
           >
             Save figures
           </button>
-        )}
+        ) : null}
         {editing && hasFigures ? (
           <button
             type="button"

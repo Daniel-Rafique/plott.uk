@@ -10,6 +10,11 @@ import {
   formatBallparkWeeks,
 } from "@/lib/pipeline-shared";
 import { cn } from "@/lib/utils";
+import {
+  PulseIndicator,
+  ShimmerBar,
+  WaveformLoader,
+} from "@/components/ui/loading-indicators";
 
 export type PipelineLeadRow = {
   id: string;
@@ -31,6 +36,7 @@ export function PipelineBoard({ initialLeads }: { initialLeads: PipelineLeadRow[
   const [leads, setLeads] = useState(initialLeads);
   const [filter, setFilter] = useState<"all" | PipelineStage>("all");
   const [pendingId, setPendingId] = useState<string | null>(null);
+  const [estimatingId, setEstimatingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -110,6 +116,7 @@ export function PipelineBoard({ initialLeads }: { initialLeads: PipelineLeadRow[
         <ul className="divide-y divide-zinc-200 rounded-lg border border-zinc-200 bg-white">
           {visible.map((lead) => {
             const busy = isPending && pendingId === lead.id;
+            const estimating = estimatingId === lead.id;
             const ballpark =
               lead.estimateMinGbp != null && lead.estimateMaxGbp != null
                 ? formatBallparkRange(lead.estimateMinGbp, lead.estimateMaxGbp)
@@ -169,7 +176,7 @@ export function PipelineBoard({ initialLeads }: { initialLeads: PipelineLeadRow[
                     ) : null}
                   </div>
 
-                  <div className="flex shrink-0 flex-col gap-2 sm:items-end">
+                  <div className="flex w-full min-w-0 shrink-0 flex-col gap-2 sm:max-w-xs sm:items-end">
                     <label className="flex items-center gap-2 text-xs text-zinc-600">
                       Stage
                       <select
@@ -192,6 +199,7 @@ export function PipelineBoard({ initialLeads }: { initialLeads: PipelineLeadRow[
                       disabled={busy}
                       onClick={() => {
                         setPendingId(lead.id);
+                        setEstimatingId(lead.id);
                         setError(null);
                         startTransition(async () => {
                           try {
@@ -220,13 +228,34 @@ export function PipelineBoard({ initialLeads }: { initialLeads: PipelineLeadRow[
                             setError("Network error running estimate");
                           } finally {
                             setPendingId(null);
+                            setEstimatingId(null);
                           }
                         });
                       }}
-                      className="rounded-md border border-zinc-300 px-2 py-1.5 text-xs font-semibold text-zinc-800 hover:bg-zinc-50 disabled:opacity-60"
+                      className="inline-flex w-full items-center justify-center gap-2 rounded-md border border-zinc-300 px-2 py-1.5 text-xs font-semibold text-zinc-800 hover:bg-zinc-50 disabled:opacity-60 sm:w-auto"
                     >
-                      {busy ? "Working…" : ballpark ? "Regenerate estimate" : "Estimate"}
+                      {estimating ? (
+                        <PulseIndicator tone="ai" label="Estimating" />
+                      ) : null}
+                      {estimating
+                        ? "Estimating…"
+                        : ballpark
+                          ? "Regenerate estimate"
+                          : "Estimate"}
                     </button>
+                    {estimating ? (
+                      <div className="w-full space-y-2 rounded-md border border-indigo-100 bg-indigo-50/30 p-2.5 sm:max-w-xs">
+                        <p className="flex items-center gap-2 text-xs text-zinc-600">
+                          <WaveformLoader tone="ai" label="Summarising application" />
+                          Summarising the application…
+                        </p>
+                        <div className="space-y-1.5">
+                          <ShimmerBar height={10} width="100%" />
+                          <ShimmerBar height={10} width="82%" />
+                          <ShimmerBar height={10} width="64%" />
+                        </div>
+                      </div>
+                    ) : null}
                     {lead.stage === "lost" ? (
                       <input
                         type="text"
@@ -239,7 +268,7 @@ export function PipelineBoard({ initialLeads }: { initialLeads: PipelineLeadRow[
                             updateLead(lead.id, { lostReason: v || null });
                           }
                         }}
-                        className="w-full max-w-xs rounded-md border border-zinc-300 px-2 py-1.5 text-sm sm:w-56"
+                        className="w-full min-w-0 rounded-md border border-zinc-300 px-2 py-1.5 text-sm sm:w-56"
                       />
                     ) : null}
                     <textarea
@@ -253,7 +282,7 @@ export function PipelineBoard({ initialLeads }: { initialLeads: PipelineLeadRow[
                           updateLead(lead.id, { notes: v || null });
                         }
                       }}
-                      className="w-full max-w-xs rounded-md border border-zinc-300 px-2 py-1.5 text-sm sm:w-56"
+                      className="w-full min-w-0 rounded-md border border-zinc-300 px-2 py-1.5 text-sm sm:w-56"
                     />
                   </div>
                 </div>
