@@ -112,6 +112,21 @@ export async function runComplianceGuardrail(args: {
     });
   }
 
+  // Ballpark figures in outreach must carry the fixed indicative disclaimer.
+  const hasPoundFigure = /£\s?\d/.test(args.bodyHtml) || /£\s?\d/.test(args.subject);
+  const hasBallparkDisclaimer =
+    /indicative ballpark/i.test(plainBody) &&
+    /not a formal quotation/i.test(plainBody) &&
+    /site survey/i.test(plainBody);
+  if (hasPoundFigure && !hasBallparkDisclaimer) {
+    issues.push({
+      severity: "error",
+      code: "ballpark_missing_disclaimer",
+      message:
+        "Price figures require the indicative ballpark disclaimer (not a formal quotation; site survey required).",
+    });
+  }
+
   // Deterministic failure — don't bother paying the Haiku call.
   if (issues.some((i) => i.severity === "error")) {
     return { passed: false, riskScore: 1, issues };

@@ -393,6 +393,7 @@ export async function resolveApplicationWithAi(
     siteAddress: params.siteAddress,
     seedApplicant: params.seedApplicant,
     seedAgent: params.seedAgent,
+    forceRefresh: params.forceRefresh,
   }).catch((err) => {
     logger.warn(
       { err, reference: params.reference },
@@ -407,7 +408,7 @@ export async function resolveApplicationWithAi(
     return overlaySeeds(preResolved, params);
   }
 
-  if (isDeterministicResultSufficient(preResolved)) {
+  if (!params.forceRefresh && isDeterministicResultSufficient(preResolved)) {
     logger.debug(
       { reference: params.reference, confidence: preResolved!.confidence },
       "deterministic cascade sufficient — skipping LLM agent",

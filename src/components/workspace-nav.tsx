@@ -17,6 +17,7 @@ export type WorkspaceLink = {
 export const workspaceLinks: WorkspaceLink[] = [
   { href: "/app/dashboard", label: "Dashboard" },
   { href: "/app/letters", label: "Letters" },
+  { href: "/app/pipeline", label: "Pipeline" },
   {
     href: "/app/outreach",
     label: "Outreach",

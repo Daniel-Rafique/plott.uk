@@ -131,6 +131,92 @@ export async function resolveOutreachContactStep(
   });
 }
 
+export async function estimateOutreachJobStep(
+  payload: Pick<
+    OutreachLeadDiscoveredPayload,
+    | "companyId"
+    | "planningEntity"
+    | "reference"
+    | "siteAddress"
+    | "description"
+    | "runEstimate"
+  >,
+): Promise<{
+  minGbp: number;
+  maxGbp: number;
+  weeks: number;
+  confidence: number;
+  include: boolean;
+  leadId: string;
+} | null> {
+  "use step";
+
+  try {
+    if (!payload.runEstimate) return null;
+
+    const company = await prisma.company.findUnique({
+      where: { id: payload.companyId },
+      select: {
+        id: true,
+        aiEnabled: true,
+        subscriptionStatus: true,
+        subscriptionPriceId: true,
+        subscriptionCurrentPeriodEnd: true,
+        trialEndsAt: true,
+      },
+    });
+    if (!company?.aiEnabled) return null;
+    const tier = getCompanyTier(company);
+    if (!isAgentKindAllowed(tier, "job_estimator")) return null;
+
+    const hasRateCard = await prisma.companyRateCard.findUnique({
+      where: { companyId: payload.companyId },
+      select: { id: true },
+    });
+    if (!hasRateCard) return null;
+
+    const { ensureLeadAndEstimate, shouldIncludeBallparkInOutreach } =
+      await import("@/lib/ai/agents/job-estimator");
+    const lead = await ensureLeadAndEstimate({
+      companyId: payload.companyId,
+      planningEntity: payload.planningEntity,
+      applicationRef: payload.reference,
+      siteAddress: payload.siteAddress,
+      description: payload.description,
+    });
+    if (
+      lead.estimateMinGbp == null ||
+      lead.estimateMaxGbp == null ||
+      lead.estimateWeeks == null
+    ) {
+      return null;
+    }
+    const confidence =
+      typeof lead.estimateJson === "object" &&
+      lead.estimateJson &&
+      "confidence" in lead.estimateJson
+        ? Number((lead.estimateJson as { confidence?: number }).confidence) || 0
+        : 0;
+    return {
+      minGbp: lead.estimateMinGbp,
+      maxGbp: lead.estimateMaxGbp,
+      weeks: lead.estimateWeeks,
+      confidence,
+      include: shouldIncludeBallparkInOutreach({
+        includeFlag: lead.includeBallparkInOutreach,
+        confidence,
+      }),
+      leadId: lead.id,
+    };
+  } catch (err) {
+    logger.warn(
+      { err, companyId: payload.companyId, planningEntity: payload.planningEntity },
+      "outreach estimate step failed; continuing without ballpark",
+    );
+    return null;
+  }
+}
+
 export async function draftOutreachLetterStep(args: {
   payload: Pick<
     OutreachLeadDiscoveredPayload,
@@ -139,6 +225,12 @@ export async function draftOutreachLetterStep(args: {
   contact: OutreachContact;
   bundle: Pick<OutreachContactBundle, "enrichment">;
   icpReason: string;
+  ballpark?: {
+    minGbp: number;
+    maxGbp: number;
+    weeks: number;
+    include: boolean;
+  } | null;
 }): Promise<OutreachDraft> {
   "use step";
 
@@ -150,6 +242,7 @@ export async function draftOutreachLetterStep(args: {
     description: args.payload.description ?? null,
     reference: args.payload.reference ?? "",
     icpReason: args.icpReason,
+    ballpark: args.ballpark ?? null,
   });
 }
 

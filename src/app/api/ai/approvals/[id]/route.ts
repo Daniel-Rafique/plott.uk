@@ -25,6 +25,13 @@ import {
   type OutreachDraftDisplay,
 } from "@/lib/outreach-draft-display";
 import { validateLetterBodyShape } from "@/lib/letter-body-shape";
+import { markPipelineContactedFromApproval } from "@/lib/pipeline";
+import { logger } from "@/lib/logger";
+import {
+  assessEmailContact,
+  trackContactBlocked,
+} from "@/lib/contact-quality";
+import { resolveOutreachContact } from "@/lib/outreach-contact";
 
 export const runtime = "nodejs";
 
@@ -36,13 +43,19 @@ const bodySchema = z.discriminatedUnion("action", [
     action: z.literal("reject"),
     rejectionNote: z.string().max(500).optional(),
   }),
-  z.object({ action: z.literal("send_email") }),
+  z.object({
+    action: z.literal("send_email"),
+    force: z.boolean().optional(),
+  }),
   z.object({
     action: z.literal("update_draft"),
     letterBodyHtml: z.string().optional(),
     emailBodyHtml: z.string().optional(),
     emailSubject: z.string().max(140).optional(),
     subject: z.string().max(140).optional(),
+  }),
+  z.object({
+    action: z.literal("refresh_contact"),
   }),
 ]);
 
@@ -176,6 +189,91 @@ export async function PATCH(req: Request, context: Ctx) {
     });
   }
 
+  if (parsed.data.action === "refresh_contact") {
+    if (approval.status !== "pending") {
+      return NextResponse.json(
+        { error: `Cannot refresh — already ${approval.status}` },
+        { status: 409 },
+      );
+    }
+    const planningEntity = planningEntityToNumber(approval.planningEntity);
+    const reference = approval.subjectRef?.trim();
+    if (planningEntity == null || !reference) {
+      return NextResponse.json(
+        { error: "This approval is missing a planning reference to re-enrich." },
+        { status: 422 },
+      );
+    }
+
+    try {
+      const existing = approval.draftJson as OutreachDraftDisplay;
+      const bundle = await resolveOutreachContact({
+        ctx: { companyId: ctx.company.id, userId: ctx.user.id },
+        reference,
+        planningEntity,
+        siteAddress: existing.siteAddress ?? null,
+        forceRefresh: true,
+      });
+      const primary =
+        bundle.candidates.find((c) => c.kind !== "manual") ??
+        bundle.candidates[0] ??
+        null;
+      const nextDraft: OutreachDraftDisplay = {
+        ...existing,
+        enrichment: bundle.enrichment
+          ? {
+              applicantName: bundle.enrichment.applicantName,
+              applicantEmail: bundle.enrichment.applicantEmail,
+              applicantEmailSource: bundle.enrichment.applicantEmailSource,
+              applicantEmailConfidence:
+                bundle.enrichment.applicantEmailConfidence,
+              applicantEmailStatus: bundle.enrichment.applicantEmailStatus,
+              agentName: bundle.enrichment.agentName,
+              agentEmail: bundle.enrichment.agentEmail,
+            }
+          : existing.enrichment,
+        ...(primary
+          ? {
+              contact: {
+                kind: primary.kind,
+                email: primary.email ?? null,
+              },
+              recipient: {
+                name: primary.name,
+                addressLines:
+                  primary.addressLines ||
+                  existing.recipient?.addressLines ||
+                  "",
+              },
+            }
+          : {}),
+        ...(bundle.siteAddress ? { siteAddress: bundle.siteAddress } : {}),
+      };
+
+      const updated = await prisma.agentApproval.update({
+        where: { id },
+        data: { draftJson: nextDraft as object },
+      });
+
+      return NextResponse.json({
+        approval: serializeApproval(updated),
+        draft: nextDraft,
+        preferredEmail: recipientEmail(nextDraft),
+      });
+    } catch (err) {
+      logger.error({ err, approvalId: id }, "approval_refresh_contact_failed");
+      return NextResponse.json(
+        {
+          error:
+            err instanceof Error
+              ? err.message
+              : "Could not refresh contact details.",
+        },
+        { status: 502 },
+      );
+    }
+  }
+
   if (approval.status !== "pending") {
     return NextResponse.json(
       { error: `Already ${approval.status}` },
@@ -211,7 +309,34 @@ export async function PATCH(req: Request, context: Ctx) {
       );
     }
 
-    const to = recipientEmail(draft);
+    const toCheck = assessEmailContact({
+      contactEmail: draft.contact?.email,
+      contactKind: draft.contact?.kind,
+      agentEmail: draft.enrichment?.agentEmail,
+      applicantEmail: draft.enrichment?.applicantEmail,
+      applicantEmailStatus: draft.enrichment?.applicantEmailStatus ?? null,
+      applicantEmailConfidence: draft.enrichment?.applicantEmailConfidence ?? null,
+      force: parsed.data.force ?? false,
+    });
+    if (!toCheck.ok && toCheck.blocking) {
+      await trackContactBlocked({
+        distinctId: ctx.user.id,
+        companyId: ctx.company.id,
+        channel: "email",
+        code: toCheck.code,
+      });
+      return NextResponse.json(
+        {
+          error: toCheck.message,
+          code: toCheck.code,
+          preferredEmail: toCheck.preferredEmail,
+          contactGate: true,
+        },
+        { status: 422 },
+      );
+    }
+
+    const to = toCheck.preferredEmail ?? recipientEmail(draft);
     if (!to) {
       return NextResponse.json(
         { error: "No verified recipient email is available for this draft." },
@@ -287,6 +412,21 @@ export async function PATCH(req: Request, context: Ctx) {
         resendEmailId: sent.id,
       },
     });
+    try {
+      await markPipelineContactedFromApproval({
+        companyId: ctx.company.id,
+        agentApprovalId: updated.id,
+        planningEntity: updated.planningEntity,
+        applicationRef: updated.subjectRef,
+        siteAddress: draft.siteAddress ?? null,
+        distinctId: ctx.user.id,
+      });
+    } catch (err) {
+      logger.warn(
+        { err, approvalId: id },
+        "pipeline upsert after email send failed",
+      );
+    }
     return NextResponse.json({
       approval: serializeApproval(updated),
       sentTo: to,

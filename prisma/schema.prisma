@@ -80,6 +80,8 @@ model Company {
   emailSuppressions   OutreachEmailSuppression[]
   icpProfile         IcpProfile?
   applicantResearch  ApplicantResearch[]
+  pipelineLeads      PipelineLead[]
+  rateCard           CompanyRateCard?
 
   @@map("companies")
 }
@@ -182,9 +184,10 @@ model Letter {
   createdAt              DateTime  @default(now()) @map("created_at")
   updatedAt              DateTime  @updatedAt @map("updated_at")
 
-  company   Company    @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  reminders Reminder[]
+  company       Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reminders     Reminder[]
+  pipelineLeads PipelineLead[]
 
   @@index([companyId])
   @@index([userId])
@@ -350,9 +353,10 @@ model AgentApproval {
   createdAt      DateTime  @default(now()) @map("created_at")
   updatedAt      DateTime  @updatedAt @map("updated_at")
 
-  company    Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  agentRun   AgentRun @relation(fields: [agentRunId], references: [id], onDelete: Cascade)
-  approvedBy User?    @relation("AgentApprovalApprover", fields: [approvedById], references: [id])
+  company       Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  agentRun      AgentRun       @relation(fields: [agentRunId], references: [id], onDelete: Cascade)
+  approvedBy    User?          @relation("AgentApprovalApprover", fields: [approvedById], references: [id])
+  pipelineLeads PipelineLead[]
 
   @@index([companyId])
   @@index([status])
@@ -477,4 +481,66 @@ model ApplicationEnrichment {
   @@index([applicationRef])
   @@index([organisationEntity])
   @@map("application_enrichment")
+}
+
+/**
+ * Tenant sales pipeline for a planning application. Shared across digests,
+ * letters, and email outreach so outcomes are tracked in one place.
+ */
+model PipelineLead {
+  id                        String    @id @default(cuid())
+  companyId                 String    @map("company_id")
+  planningEntity            BigInt    @map("planning_entity")
+  applicationRef            String?   @map("application_ref")
+  siteAddress               String?   @map("site_address")
+  description               String?   @map("description")
+  /**
+   * new | contacted | replied | visit_booked | quoted | won | lost
+   */
+  stage                     String    @default("new") @map("stage")
+  stageUpdatedAt            DateTime  @default(now()) @map("stage_updated_at")
+  notes                     String?   @map("notes")
+  lostReason                String?   @map("lost_reason")
+  letterId                  String?   @map("letter_id")
+  agentApprovalId           String?   @map("agent_approval_id")
+  estimateMinGbp            Int?      @map("estimate_min_gbp")
+  estimateMaxGbp            Int?      @map("estimate_max_gbp")
+  estimateWeeks             Float?    @map("estimate_weeks")
+  estimateJson              Json?     @map("estimate_json")
+  estimatedAt               DateTime? @map("estimated_at")
+  includeBallparkInOutreach Boolean   @default(true) @map("include_ballpark_in_outreach")
+  createdAt                 DateTime  @default(now()) @map("created_at")
+  updatedAt                 DateTime  @updatedAt @map("updated_at")
+
+  company       Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  letter        Letter?        @relation(fields: [letterId], references: [id], onDelete: SetNull)
+  agentApproval AgentApproval? @relation(fields: [agentApprovalId], references: [id], onDelete: SetNull)
+
+  @@unique([companyId, planningEntity])
+  @@index([companyId, stage])
+  @@index([letterId])
+  @@index([agentApprovalId])
+  @@map("pipeline_leads")
+}
+
+/**
+ * Per-company rates that ground the AI job estimator.
+ * unitRatesJson / typicalWeeksJson are maps keyed by work type
+ * (e.g. "loft_conversion", "rear_extension", "re_roof").
+ */
+model CompanyRateCard {
+  id                 String   @id @default(cuid())
+  companyId          String   @unique @map("company_id")
+  dayRateGbp         Float?   @map("day_rate_gbp")
+  crewSizeDefault    Int?     @map("crew_size_default")
+  unitRatesJson      Json     @default("{}") @map("unit_rates_json")
+  typicalWeeksJson   Json     @default("{}") @map("typical_weeks_json")
+  contingencyPercent Float    @default(10) @map("contingency_percent")
+  vatInclusive       Boolean  @default(false) @map("vat_inclusive")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+  createdAt          DateTime @default(now()) @map("created_at")
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@map("company_rate_cards")
 }

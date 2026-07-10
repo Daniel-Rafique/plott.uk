@@ -6,6 +6,7 @@
 import { z } from "zod";
 import { runAgent } from "@/lib/ai/runtime";
 import { draftingToolSet } from "@/lib/ai/tools";
+import { captureServerEvent } from "@/lib/posthog-server";
 import type { EnrichedApplication } from "./enrichment-agent";
 import type { OutreachContact } from "@/lib/outreach-contact";
 
@@ -63,6 +64,12 @@ export async function draftOutreachLetter(args: {
   description: string | null;
   reference: string;
   icpReason: string;
+  ballpark?: {
+    minGbp: number;
+    maxGbp: number;
+    weeks: number;
+    include: boolean;
+  } | null;
 }): Promise<OutreachDraft> {
   const recipientName = args.contact.name || "Sir or Madam";
   const recipientAddress =
@@ -92,12 +99,18 @@ General:
 2. Do NOT invent services the company doesn't advertise.
 3. Reference the specific site and application number.
 4. Do NOT imply an existing relationship with the recipient.
-5. Return JSON only — keys: subject, letterBodyHtml, and when email is required also emailSubject and emailBodyHtml. Do NOT include recipient or legalBasis (added server-side).
-6. Escape double quotes inside HTML strings so the JSON is valid.`;
+5. Do NOT invent £ prices or timelines. If a ballpark is provided in the prompt, you may briefly reference that the firm can discuss typical ranges — but do NOT write £ figures or legal disclaimer text yourself (the server injects those).
+6. Return JSON only — keys: subject, letterBodyHtml, and when email is required also emailSubject and emailBodyHtml. Do NOT include recipient or legalBasis (added server-side).
+7. Escape double quotes inside HTML strings so the JSON is valid.`;
 
   const emailBlock = draftEmail
     ? `\nA recipient email is available — you MUST include emailSubject and emailBodyHtml.`
     : `\nNo recipient email — omit emailSubject and emailBodyHtml.`;
+
+  const ballparkBlock =
+    args.ballpark?.include
+      ? `\nAn approved indicative ballpark will be injected server-side (£${args.ballpark.minGbp}–£${args.ballpark.maxGbp}, ~${args.ballpark.weeks} weeks). Mention that you can share a rough sense of cost/time after they reply, without writing £ figures yourself.`
+      : `\nNo ballpark will be included in this message.`;
 
   const prompt = `Recipient: ${recipientName} (${args.contact.kind})
 Recipient address:
@@ -112,6 +125,7 @@ ${args.enrichment?.ward ? `- Ward: ${args.enrichment.ward}` : ""}
 
 ICP match rationale: ${args.icpReason}
 ${emailBlock}
+${ballparkBlock}
 
 Call the branding tool once, then draft. Output JSON only at the end.`;
 
@@ -125,8 +139,53 @@ Call the branding tool once, then draft. Output JSON only at the end.`;
     maxSteps: 4,
     traceName: `outreach-draft ref=${args.reference}`,
   });
+
+  let draft = finalizeOutreachDraft(res.data, recipientName, recipientAddress);
+
+  if (
+    args.ballpark?.include &&
+    args.ballpark.minGbp != null &&
+    args.ballpark.maxGbp != null &&
+    args.ballpark.weeks != null
+  ) {
+    const { injectBallparkIntoHtml } = await import(
+      "@/lib/ai/agents/job-estimator"
+    );
+    const bp = {
+      minGbp: args.ballpark.minGbp,
+      maxGbp: args.ballpark.maxGbp,
+      weeks: args.ballpark.weeks,
+    };
+    draft = {
+      ...draft,
+      letterBodyHtml: injectBallparkIntoHtml(draft.letterBodyHtml, bp),
+      emailBodyHtml: draft.emailBodyHtml
+        ? injectBallparkIntoHtml(draft.emailBodyHtml, bp)
+        : draft.emailBodyHtml,
+    };
+  }
+
+  if (
+    args.ballpark &&
+    args.ballpark.minGbp != null &&
+    args.ballpark.maxGbp != null
+  ) {
+    await captureServerEvent({
+      distinctId: args.ctx.userId ?? `company:${args.ctx.companyId}`,
+      event: args.ballpark.include
+        ? "ballpark_included_in_outreach"
+        : "ballpark_omitted_from_outreach",
+      properties: {
+        company_id: args.ctx.companyId,
+        min_gbp: args.ballpark.minGbp,
+        max_gbp: args.ballpark.maxGbp,
+        weeks: args.ballpark.weeks,
+      },
+    });
+  }
+
   return {
-    ...finalizeOutreachDraft(res.data, recipientName, recipientAddress),
+    ...draft,
     runId: res.runId,
   };
 }

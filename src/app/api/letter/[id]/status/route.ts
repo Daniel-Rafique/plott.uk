@@ -5,6 +5,11 @@ import { runComplianceGuardrail } from "@/lib/ai/agents/compliance";
 import { logger } from "@/lib/logger";
 import { planningEntityToNumber } from "@/lib/planning-entity-bigint";
 import { scheduleLetterPdfEmailDelivery } from "@/lib/letter-delivery";
+import { markPipelineContactedFromLetter } from "@/lib/pipeline";
+import {
+  assessPostalAddress,
+  trackContactBlocked,
+} from "@/lib/contact-quality";
 
 export const runtime = "nodejs";
 
@@ -14,6 +19,7 @@ const VALID = new Set(["draft", "printed", "sent", "failed"]);
 // By the time the user marks a letter as "sent", it's already been physically
 // mailed — blocking the status update serves no purpose.
 const SENDING_STATUSES = new Set(["printed"]);
+const ADDRESS_GATED_STATUSES = new Set(["printed", "sent"]);
 
 export async function PATCH(req: Request, context: Ctx) {
   const ctx = await getTenantContext({ requireVerified: true });
@@ -32,6 +38,38 @@ export async function PATCH(req: Request, context: Ctx) {
   const letter = await prisma.letter.findUnique({ where: { id } });
   if (!letter || letter.companyId !== ctx.company.id) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+
+  if (ADDRESS_GATED_STATUSES.has(body.status)) {
+    const postal = assessPostalAddress(letter.addressLines);
+    if (!postal.ok && postal.blocking && !body.force) {
+      await trackContactBlocked({
+        distinctId: ctx.user.id,
+        companyId: ctx.company.id,
+        channel: "print",
+        code: postal.code,
+      });
+      return NextResponse.json(
+        {
+          error: postal.message,
+          code: postal.code,
+          blocking: true,
+          contactGate: true,
+        },
+        { status: 422 },
+      );
+    }
+    if (!postal.ok && !postal.blocking && !body.force) {
+      return NextResponse.json(
+        {
+          warning: postal.message,
+          code: postal.code,
+          blocking: false,
+          contactGate: true,
+        },
+        { status: 409 },
+      );
+    }
   }
 
   // Guardrail: block terminal transitions on compliance errors, warn on warnings.
@@ -93,6 +131,21 @@ export async function PATCH(req: Request, context: Ctx) {
       autoPrint:
         body.status === "printed" && letter.status !== "printed",
     });
+  }
+
+  if (body.status === "sent" && letter.status !== "sent") {
+    try {
+      await markPipelineContactedFromLetter({
+        companyId: ctx.company.id,
+        letterId: updated.id,
+        planningEntity: updated.planningEntity,
+        applicationRef: updated.applicationRef,
+        siteAddress: updated.siteAddress,
+        distinctId: ctx.user.id,
+      });
+    } catch (err) {
+      logger.warn({ err, letterId: id }, "pipeline upsert after letter sent failed");
+    }
   }
 
   return NextResponse.json({

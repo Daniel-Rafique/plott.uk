@@ -58,6 +58,105 @@ function fromCsv(raw: string): string[] {
     .filter((s) => s.length > 0);
 }
 
+const PLAYBOOK_OPTIONS = [
+  {
+    id: "loft_extension_builder",
+    name: "Loft & extension builder",
+    summary: "Lofts, dormers and residential extensions.",
+  },
+  {
+    id: "general_builder",
+    name: "General builder",
+    summary: "Mixed residential renovations and extensions.",
+  },
+  {
+    id: "roofing",
+    name: "Roofing contractor",
+    summary: "Re-roofs and roof-related householder works.",
+  },
+  {
+    id: "planning_consultant",
+    name: "Planning consultant (appeals)",
+    summary: "Refusal and appeal support.",
+  },
+] as const;
+
+function TradePlaybookPicker({
+  onApplied,
+}: {
+  onApplied: (icp: {
+    description: string;
+    keywords: string[];
+    excludedKeywords: string[];
+    preferredStatuses: string[];
+    minProjectValueGbp: number | null;
+    targetRefusals: boolean;
+    appealServiceType: string | null;
+  }) => void;
+}) {
+  const [busyId, setBusyId] = useState<string | null>(null);
+
+  async function apply(playbookId: string) {
+    setBusyId(playbookId);
+    try {
+      const res = await fetch("/api/settings/playbooks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ playbookId }),
+      });
+      const data = (await res.json().catch(() => ({}))) as {
+        error?: string;
+        playbookId?: string;
+        icp?: {
+          description: string;
+          keywords: string[];
+          excludedKeywords: string[];
+          preferredStatuses: string[];
+          minProjectValueGbp: number | null;
+          targetRefusals: boolean;
+          appealServiceType: string | null;
+        };
+      };
+      if (!res.ok) {
+        toast.error(data.error ?? "Could not apply playbook");
+        return;
+      }
+      if (data.icp) onApplied(data.icp);
+      toast.success(
+        "Playbook applied — ICP, letter template and rate card updated.",
+      );
+    } catch {
+      toast.error("Network error applying playbook");
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  return (
+    <ul className="mt-4 grid gap-3 sm:grid-cols-2">
+      {PLAYBOOK_OPTIONS.map((p) => (
+        <li
+          key={p.id}
+          className="flex flex-col justify-between rounded-lg border border-zinc-200 p-4"
+        >
+          <div>
+            <p className="text-sm font-semibold text-zinc-950">{p.name}</p>
+            <p className="mt-1 text-xs text-zinc-500">{p.summary}</p>
+          </div>
+          <button
+            type="button"
+            disabled={busyId != null}
+            onClick={() => apply(p.id)}
+            className="mt-3 rounded-md border border-zinc-300 px-3 py-1.5 text-xs font-semibold text-zinc-800 hover:bg-zinc-50 disabled:opacity-60"
+          >
+            {busyId === p.id ? "Applying…" : "Apply playbook"}
+          </button>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 export function AiSettingsClient({ initial }: { initial: Initial }) {
   const [aiEnabled, setAiEnabled] = useState(initial.aiEnabled);
   const [budget, setBudget] = useState(String(initial.aiDailyBudgetGbp));
@@ -312,6 +411,32 @@ export function AiSettingsClient({ initial }: { initial: Initial }) {
             className="mt-2 w-40 rounded-md border border-zinc-300 px-3 py-2 text-sm"
           />
         </div>
+      </section>
+
+      <section className="rounded-xl border border-zinc-200 bg-white p-6">
+        <div className="flex items-center gap-2">
+          <Target className="h-4 w-4 text-emerald-600" aria-hidden />
+          <h2 className="text-lg font-semibold">Trade playbooks</h2>
+        </div>
+        <p className="mt-1 text-xs text-zinc-500">
+          One click sets your ideal-project profile, a starter letter template
+          (with ballpark tokens), and rate-card defaults for AI estimates.
+        </p>
+        <TradePlaybookPicker
+          onApplied={(icp) => {
+            setDescription(icp.description);
+            setKeywords(toCsv(icp.keywords));
+            setExcluded(toCsv(icp.excludedKeywords));
+            setPreferredStatuses(toCsv(icp.preferredStatuses));
+            setMinValue(
+              icp.minProjectValueGbp != null
+                ? String(icp.minProjectValueGbp)
+                : "",
+            );
+            setTargetRefusals(icp.targetRefusals);
+            setAppealServiceType(icp.appealServiceType ?? "");
+          }}
+        />
       </section>
 
       <section className="rounded-xl border border-zinc-200 bg-white p-6">

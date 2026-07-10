@@ -144,6 +144,7 @@ const PRO_KINDS = new Set<AgentKind>([
   "enrichment_agent",
   "applicant_research",
   "icp_classifier",
+  "job_estimator",
 ]);
 
 const AGENCY_KINDS = new Set<AgentKind>([

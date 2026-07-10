@@ -33,7 +33,8 @@ export type AgentKind =
   | "outreach_drafter"
   | "appeal_classifier"
   | "appeal_pitch_drafter"
-  | "planning_qa";
+  | "planning_qa"
+  | "job_estimator";
 
 export type ModelPreset = {
   kind: AgentKind;
@@ -158,6 +159,15 @@ const PRESETS: Record<AgentKind, ModelPreset> = {
     usdPerMOutput: 15.0,
     maxSteps: 8,
     timeoutMs: 60_000,
+  },
+  job_estimator: {
+    kind: "job_estimator",
+    provider: "anthropic",
+    modelId: "anthropic/claude-sonnet-4-5",
+    usdPerMInput: 3.0,
+    usdPerMOutput: 15.0,
+    maxSteps: 1,
+    timeoutMs: 45_000,
   },
 };
 

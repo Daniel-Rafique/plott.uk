@@ -5,6 +5,8 @@
 
 Saved Searches let you monitor specific areas for new planning applications. Instead of manually checking the map every day, the system watches for you and sends email digests when new applications appear.
 
+Digests now send your **5 best leads** (ranked by ICP fit, enrichment confidence and contact quality), upsert them into **Pipeline**, and may include an **indicative ballpark** when a rate card is configured.
+
 Pinned Applications monitor one specific planning application and send an email when that application changes.
 
 ---

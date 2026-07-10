@@ -2,6 +2,7 @@ import Link from "next/link";
 import {
   Bell,
   Building2,
+  Calculator,
   CreditCard,
   Mail,
   PenLine,
@@ -15,6 +16,7 @@ const nav = [
   { href: "/app/settings/branding", label: "Branding", icon: Building2 },
   { href: "/app/settings/signature", label: "Signature", icon: PenLine },
   { href: "/app/settings/templates", label: "Templates", icon: Mail },
+  { href: "/app/settings/rate-card", label: "Rate card", icon: Calculator },
   { href: "/app/settings/notifications", label: "Notifications", icon: Bell },
   { href: "/app/settings/team", label: "Team", icon: UsersRound },
   { href: "/app/settings/ai", label: "AI", icon: Sparkles },

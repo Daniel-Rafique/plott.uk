@@ -85,29 +85,49 @@ export function rankCandidates(
   siteAddress: string | null,
 ): OutreachContact[] {
   const out: OutreachContact[] = [];
-  if (enrichment?.agentName) {
-    out.push({
-      kind: "agent",
-      name: enrichment.agentName,
-      addressLines:
-        (enrichment.agentAddress ?? "").trim() || (siteAddress ?? "").trim(),
-      email: enrichment.agentEmail ?? null,
-      phone: enrichment.agentPhone ?? null,
-      source: (enrichment.sources ?? []).join("+") || "enrichment",
-      confidence: enrichment.confidence,
-    });
-  }
-  if (enrichment?.applicantName) {
-    out.push({
-      kind: "applicant",
-      name: enrichment.applicantName,
-      addressLines:
-        (enrichment.applicantAddress ?? "").trim() || (siteAddress ?? "").trim(),
-      email: enrichment.applicantEmail ?? null,
-      phone: null,
-      source: (enrichment.sources ?? []).join("+") || "enrichment",
-      confidence: enrichment.confidence,
-    });
+  const applicantWeak =
+    !enrichment?.applicantEmail ||
+    (enrichment.applicantEmailStatus != null &&
+      ["invalid", "undeliverable", "do_not_mail", "risky"].includes(
+        enrichment.applicantEmailStatus.toLowerCase(),
+      )) ||
+    (enrichment.applicantEmailConfidence != null &&
+      enrichment.applicantEmailConfidence < 50);
+
+  const agentContact: OutreachContact | null = enrichment?.agentName
+    ? {
+        kind: "agent",
+        name: enrichment.agentName,
+        addressLines:
+          (enrichment.agentAddress ?? "").trim() || (siteAddress ?? "").trim(),
+        email: enrichment.agentEmail ?? null,
+        phone: enrichment.agentPhone ?? null,
+        source: (enrichment.sources ?? []).join("+") || "enrichment",
+        confidence: enrichment.confidence,
+      }
+    : null;
+  const applicantContact: OutreachContact | null = enrichment?.applicantName
+    ? {
+        kind: "applicant",
+        name: enrichment.applicantName,
+        addressLines:
+          (enrichment.applicantAddress ?? "").trim() ||
+          (siteAddress ?? "").trim(),
+        email: enrichment.applicantEmail ?? null,
+        phone: null,
+        source: (enrichment.sources ?? []).join("+") || "enrichment",
+        confidence: enrichment.confidence,
+      }
+    : null;
+
+  // Prefer agent when applicant email is weak; otherwise keep agent-first
+  // (agents are usually the practical B2B contact for planning work).
+  if (applicantWeak) {
+    if (agentContact) out.push(agentContact);
+    if (applicantContact) out.push(applicantContact);
+  } else {
+    if (agentContact) out.push(agentContact);
+    if (applicantContact) out.push(applicantContact);
   }
   return out;
 }
@@ -127,6 +147,7 @@ export async function resolveOutreachContact(args: {
   organisationEntity?: string | number | null;
   lpaWebsite?: string | null;
   siteAddress?: string | null;
+  forceRefresh?: boolean;
   seed?: {
     applicant?: string | null;
     agent?: string | null;
@@ -144,6 +165,7 @@ export async function resolveOutreachContact(args: {
     seedApplicant: args.seed?.applicant ?? null,
     seedAgent: args.seed?.agent ?? null,
     seedAgentAddress: args.seed?.agentAddress ?? null,
+    forceRefresh: args.forceRefresh,
   });
 
   const enrichment = resolved ? resolvedToEnriched(resolved) : null;

@@ -11,6 +11,7 @@ import {
   createOutreachApprovalStep,
   draftAppealPitchLetterStep,
   draftOutreachLetterStep,
+  estimateOutreachJobStep,
   logWorkflowEventStep,
   materializeAutoApprovedLetterStep,
   resolveOutreachContactStep,
@@ -72,11 +73,21 @@ export async function outreachLeadWorkflow(
   const primaryContact = primaryContactFrom(bundle);
   const siteAddress = resolvedSiteAddress(payload.siteAddress, bundle.siteAddress);
 
+  const ballpark = await estimateOutreachJobStep(payload);
+
   const draft = await draftOutreachLetterStep({
     payload,
     contact: primaryContact,
     bundle,
     icpReason: icp.reason,
+    ballpark: ballpark
+      ? {
+          minGbp: ballpark.minGbp,
+          maxGbp: ballpark.maxGbp,
+          weeks: ballpark.weeks,
+          include: ballpark.include,
+        }
+      : null,
   });
 
   const compliance = await checkOutreachComplianceStep({

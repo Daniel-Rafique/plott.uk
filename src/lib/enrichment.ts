@@ -64,6 +64,8 @@ export type ResolveParams = {
   siteAddress?: string;
   seedApplicant?: string | null;
   seedAgent?: string | null;
+  /** Skip Postgres enrichment cache and re-fetch upstream sources. */
+  forceRefresh?: boolean;
 };
 
 function hasNamedPerson(name: string | null | undefined): boolean {
@@ -394,7 +396,9 @@ export async function resolveApplication(
   const applicationRef = params.reference.trim();
   if (!applicationRef) return null;
 
-  const cached = await readFromCache(params.planningEntity, applicationRef);
+  const cached = params.forceRefresh
+    ? null
+    : await readFromCache(params.planningEntity, applicationRef);
   const hunterConfigured = Boolean(process.env.HUNTER_API_KEY?.trim());
   if (cached?.applicantName) {
     const emailSatisfied =

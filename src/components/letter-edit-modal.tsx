@@ -11,6 +11,11 @@ import {
 import { Pencil, Printer, Sparkles, Eye } from "lucide-react";
 import { LetterAssistDrawer } from "./letter-assist-drawer";
 import { RichTextEditor } from "./rich-text-editor";
+import { BallparkPanel } from "./ballpark-panel";
+import {
+  replaceBallparkInHtml,
+  stripBallparkFromHtml,
+} from "@/lib/ballpark-html";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { PulseIndicator } from "./ui/loading-indicators";
@@ -24,6 +29,7 @@ type LetterData = {
   bodyHtml: string;
   applicationRef: string | null;
   siteAddress: string | null;
+  planningEntity?: number | null;
   status: string;
 };
 
@@ -58,9 +64,6 @@ export function LetterEditModal({ letter, isOpen, onClose, onSaved }: Props) {
     return `${s.length}-${h}`;
   }, [previewSrcDoc, previewLoading]);
 
-  // Fetch the composed full-document preview whenever the body or letter
-  // changes. We render via the server-side renderer so the letterhead,
-  // signature, and footer always match the saved Company/User records.
   useEffect(() => {
     if (!letter || !isOpen || viewMode !== "preview") return;
     let cancelled = false;
@@ -123,11 +126,25 @@ export function LetterEditModal({ letter, isOpen, onClose, onSaved }: Props) {
       toast.message("Save your changes to print the latest version");
       return;
     }
-    // Open the server-rendered PDF in a new tab. The browser's built-in PDF
-    // viewer provides a clean Print dialog with no URL / page-number footer
-    // and no <title> header — solving the "{{companyName}}" and
-    // "localhost/dashboard 1/1" issues in one shot.
     window.open(`/api/letter/pdf?id=${letter.id}`, "_blank", "noopener");
+  }
+
+  function applyBallpark(args: {
+    minGbp: number;
+    maxGbp: number;
+    weeks: number;
+    include: boolean;
+  }) {
+    const next = args.include
+      ? replaceBallparkInHtml(currentBody, args)
+      : stripBallparkFromHtml(currentBody);
+    setLetterHtml(next);
+    setViewMode("edit");
+    toast.success(
+      args.include
+        ? "Ballpark inserted — save when ready"
+        : "Ballpark removed — save when ready",
+    );
   }
 
   if (!letter) {
@@ -156,7 +173,6 @@ export function LetterEditModal({ letter, isOpen, onClose, onSaved }: Props) {
         </DialogHeader>
 
         <div className="mt-4 space-y-4">
-          {/* Recipient info */}
           <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4">
             <p className="text-xs font-medium uppercase tracking-wider text-zinc-500">
               Recipient
@@ -167,13 +183,18 @@ export function LetterEditModal({ letter, isOpen, onClose, onSaved }: Props) {
             </p>
           </div>
 
-          {/* Letter controls */}
+          <BallparkPanel
+            planningEntity={letter.planningEntity}
+            applicationRef={letter.applicationRef}
+            siteAddress={letter.siteAddress}
+            onApplyBallpark={applyBallpark}
+          />
+
           <div>
             <p className="editorial-chapter-label mb-2 text-zinc-500">
               Letter content
             </p>
             <div className="flex flex-wrap items-center gap-2">
-              {/* View mode toggle */}
               <div className="flex rounded-md border border-zinc-200 bg-zinc-50 p-0.5">
                 <button
                   type="button"
@@ -233,7 +254,6 @@ export function LetterEditModal({ letter, isOpen, onClose, onSaved }: Props) {
             </div>
           </div>
 
-          {/* Letter content - Preview or Edit mode */}
           {viewMode === "preview" ? (
             <div className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm">
               {previewLoading && !previewSrcDoc ? (
@@ -264,7 +284,6 @@ export function LetterEditModal({ letter, isOpen, onClose, onSaved }: Props) {
           )}
         </div>
 
-        {/* AI Assist Drawer - inside DialogContent for correct stacking */}
         <LetterAssistDrawer
           open={assistOpen}
           onOpenChange={setAssistOpen}

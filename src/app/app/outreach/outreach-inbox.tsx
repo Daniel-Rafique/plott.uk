@@ -35,12 +35,19 @@ import {
 } from "@/components/approval-draft-editor";
 import {
   defaultPreviewChannel,
+  emailBodyHtml,
   emailSourceLabel,
   emailSubject,
+  letterBodyHtml,
   recipientEmail,
   type OutreachDraftDisplay,
   type PreviewChannel,
 } from "@/lib/outreach-draft-display";
+import { BallparkPanel } from "@/components/ballpark-panel";
+import {
+  replaceBallparkInHtml,
+  stripBallparkFromHtml,
+} from "@/lib/ballpark-html";
 import {
   Dialog,
   DialogContent,
@@ -72,6 +79,12 @@ type Approval = {
   sentAt?: string | null;
   sentChannel?: string | null;
 };
+
+type ContactGateState = {
+  approvalId: string;
+  message: string;
+  preferredEmail: string | null;
+} | null;
 
 const STATUS_FILTERS = [
   { id: "pending", label: "Pending" },
@@ -108,6 +121,8 @@ export function OutreachInbox({
   const [dismissedBanners, setDismissedBanners] = useState<Set<string>>(
     () => new Set(),
   );
+  const [contactGate, setContactGate] = useState<ContactGateState>(null);
+  const [refreshingContact, setRefreshingContact] = useState(false);
 
   useEffect(() => {
     try {
@@ -179,21 +194,42 @@ export function OutreachInbox({
   }, [selectedId]);
 
   const rejectInFlight = busy && rejectDialogOpen;
+  const contactGateInFlight = busy && contactGate != null;
 
   async function act(
     id: string,
     action: "approve" | "reject" | "send_email",
-    note?: string,
+    options?: { note?: string; force?: boolean },
   ): Promise<boolean> {
     setBusy(true);
     try {
       const res = await fetch(`/api/ai/approvals/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action, rejectionNote: note }),
+        body: JSON.stringify({
+          action,
+          rejectionNote: options?.note,
+          force: options?.force,
+        }),
       });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error ?? "Failed");
+      const json = (await res.json()) as {
+        error?: string;
+        contactGate?: boolean;
+        preferredEmail?: string | null;
+        sentTo?: string | null;
+      };
+      if (!res.ok) {
+        if (res.status === 422 && json.contactGate && action === "send_email") {
+          setContactGate({
+            approvalId: id,
+            message: json.error ?? "Contact quality check failed.",
+            preferredEmail: json.preferredEmail ?? null,
+          });
+          return false;
+        }
+        throw new Error(json.error ?? "Failed");
+      }
+      if (action === "send_email") setContactGate(null);
       toast.success(
         action === "approve"
           ? "Approved — letter added to your drafts"
@@ -240,7 +276,7 @@ export function OutreachInbox({
   async function confirmRejectDraft() {
     if (!rejectTargetId) return;
     const trimmed = rejectionNote.trim();
-    const ok = await act(rejectTargetId, "reject", trimmed || undefined);
+    const ok = await act(rejectTargetId, "reject", { note: trimmed || undefined });
     if (ok) {
       setRejectDialogOpen(false);
       setRejectTargetId(null);
@@ -256,6 +292,93 @@ export function OutreachInbox({
           : a,
       ),
     );
+  }
+
+  async function refreshContact(id: string) {
+    setRefreshingContact(true);
+    try {
+      const res = await fetch(`/api/ai/approvals/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "refresh_contact" }),
+      });
+      const json = (await res.json()) as {
+        error?: string;
+        draft?: OutreachDraftDisplay;
+        preferredEmail?: string | null;
+      };
+      if (!res.ok) throw new Error(json.error ?? "Refresh failed");
+      if (json.draft) {
+        setApprovals((prev) =>
+          prev.map((a) => (a.id === id ? { ...a, draft: json.draft! } : a)),
+        );
+        setPreviewChannel(defaultPreviewChannel(json.draft));
+      }
+      toast.success(
+        json.preferredEmail
+          ? `Contact refreshed · ${json.preferredEmail}`
+          : "Contact details refreshed",
+      );
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setRefreshingContact(false);
+    }
+  }
+
+  async function applyBallparkToDraft(args: {
+    minGbp: number;
+    maxGbp: number;
+    weeks: number;
+    include: boolean;
+  }) {
+    if (!selected || selected.status !== "pending") {
+      toast.error("Only pending drafts can be updated");
+      return;
+    }
+    const draft = (selected.draft as OutreachDraftDisplay) ?? {};
+    const letter = letterBodyHtml(draft);
+    const email = emailBodyHtml(draft);
+    const nextLetter = args.include
+      ? replaceBallparkInHtml(letter, args)
+      : stripBallparkFromHtml(letter);
+    const nextEmail = args.include
+      ? replaceBallparkInHtml(email, args)
+      : stripBallparkFromHtml(email);
+
+    setBusy(true);
+    try {
+      const res = await fetch(`/api/ai/approvals/${selected.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "update_draft",
+          letterBodyHtml: nextLetter,
+          ...(draft.emailBodyHtml != null || draft.emailSubject
+            ? { emailBodyHtml: nextEmail }
+            : {}),
+        }),
+      });
+      const json = (await res.json()) as {
+        error?: string;
+        draft?: OutreachDraftDisplay;
+      };
+      if (!res.ok) throw new Error(json.error ?? "Could not update draft");
+      if (json.draft) {
+        setApprovals((prev) =>
+          prev.map((a) =>
+            a.id === selected.id ? { ...a, draft: json.draft! } : a,
+          ),
+        );
+      }
+      toast.success(
+        args.include ? "Ballpark applied to message" : "Ballpark removed from message",
+      );
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
   }
 
   function trySetPreviewChannel(next: PreviewChannel) {
@@ -330,6 +453,83 @@ export function OutreachInbox({
                 </>
               ) : (
                 "Reject draft"
+              )}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={contactGate != null}
+        onOpenChange={(open) => {
+          if (contactGateInFlight && !open) return;
+          if (!open) setContactGate(null);
+        }}
+      >
+        <DialogContent
+          className="sm:max-w-md [&>button.absolute]:hidden"
+          onPointerDownOutside={(e) => {
+            if (contactGateInFlight) e.preventDefault();
+          }}
+          onEscapeKeyDown={(e) => {
+            if (contactGateInFlight) e.preventDefault();
+          }}
+        >
+          <DialogHeader>
+            <DialogTitle>Email contact needs review</DialogTitle>
+            <DialogDescription>
+              {contactGate?.message}
+              {contactGate?.preferredEmail ? (
+                <>
+                  {" "}
+                  Suggested recipient:{" "}
+                  <span className="font-medium text-zinc-900">
+                    {contactGate.preferredEmail}
+                  </span>
+                  .
+                </>
+              ) : null}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <button
+              type="button"
+              onClick={() => setContactGate(null)}
+              disabled={contactGateInFlight}
+              className="rounded-md border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50 disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            {contactGate ? (
+              <button
+                type="button"
+                onClick={() => {
+                  const id = contactGate.approvalId;
+                  setContactGate(null);
+                  void refreshContact(id);
+                }}
+                disabled={contactGateInFlight || refreshingContact}
+                className="rounded-md border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50 disabled:opacity-50"
+              >
+                Re-enrich first
+              </button>
+            ) : null}
+            <button
+              type="button"
+              onClick={() => {
+                if (!contactGate) return;
+                void act(contactGate.approvalId, "send_email", { force: true });
+              }}
+              disabled={contactGateInFlight}
+              className="inline-flex items-center justify-center gap-2 rounded-md bg-amber-600 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-700 disabled:opacity-50"
+            >
+              {contactGateInFlight ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                  Sending…
+                </>
+              ) : (
+                "Send anyway"
               )}
             </button>
           </DialogFooter>
@@ -575,8 +775,33 @@ export function OutreachInbox({
                           {selectedEmailSource}
                         </p>
                       ) : null}
+                      {selected.status === "pending" ? (
+                        <button
+                          type="button"
+                          disabled={busy || refreshingContact}
+                          onClick={() => void refreshContact(selected.id)}
+                          className="mt-2 inline-flex items-center gap-1 text-[11px] font-medium text-indigo-700 hover:text-indigo-900 disabled:opacity-50"
+                        >
+                          {refreshingContact ? (
+                            <Loader2 className="h-3 w-3 animate-spin" aria-hidden />
+                          ) : null}
+                          Re-enrich contact
+                        </button>
+                      ) : null}
                     </div>
                   )}
+                  {!selectedRecipientEmail && selected.status === "pending" ? (
+                    <button
+                      type="button"
+                      disabled={busy || refreshingContact}
+                      onClick={() => void refreshContact(selected.id)}
+                      className="w-full rounded-md border border-dashed border-zinc-300 bg-white px-3 py-2 text-left text-[11px] font-medium text-zinc-700 hover:bg-zinc-50 disabled:opacity-50"
+                    >
+                      {refreshingContact
+                        ? "Refreshing contact…"
+                        : "Re-enrich contact before send"}
+                    </button>
+                  ) : null}
                   {selected?.sentChannel === "email" && selected.sentTo ? (
                     <div className="rounded-md border border-emerald-200 bg-emerald-50 p-3">
                       <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-emerald-800">
@@ -606,6 +831,16 @@ export function OutreachInbox({
                       }
                     />
                   )}
+                  <BallparkPanel
+                    planningEntity={selected.planningEntity}
+                    applicationRef={selected.subjectRef}
+                    siteAddress={selectedDraft?.siteAddress}
+                    onApplyBallpark={
+                      selected.status === "pending"
+                        ? applyBallparkToDraft
+                        : undefined
+                    }
+                  />
                   <p className="flex items-center gap-1 text-[10px] uppercase tracking-wider text-zinc-400">
                     <Clock className="h-3 w-3" />
                     Generated {new Date(selected.createdAt).toLocaleString("en-GB")}

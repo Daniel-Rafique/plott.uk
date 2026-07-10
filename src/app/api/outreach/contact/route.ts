@@ -49,6 +49,10 @@ export async function GET(req: Request) {
   const seedApplicant = searchParams.get("seed_applicant") ?? null;
   const seedAgent = searchParams.get("seed_agent") ?? null;
   const seedAgentAddress = searchParams.get("seed_agent_address") ?? null;
+  const forceRefresh =
+    searchParams.get("force") === "1" ||
+    searchParams.get("force") === "true" ||
+    searchParams.get("refresh") === "1";
 
   try {
     const bundle = await resolveOutreachContact({
@@ -58,6 +62,7 @@ export async function GET(req: Request) {
       organisationEntity,
       lpaWebsite,
       siteAddress,
+      forceRefresh,
       seed: {
         applicant: seedApplicant,
         agent: seedAgent,

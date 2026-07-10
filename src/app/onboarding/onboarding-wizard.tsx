@@ -18,9 +18,18 @@ const STEPS = [
   { id: "company", label: "Company" },
   { id: "address", label: "Address" },
   { id: "logo", label: "Branding" },
+  { id: "playbook", label: "Trade" },
 ] as const;
 
 type StepId = (typeof STEPS)[number]["id"];
+
+const PLAYBOOK_CHOICES = [
+  { id: "loft_extension_builder", name: "Loft & extension builder" },
+  { id: "general_builder", name: "General builder" },
+  { id: "roofing", name: "Roofing contractor" },
+  { id: "planning_consultant", name: "Planning consultant" },
+  { id: "", name: "Skip for now" },
+] as const;
 
 export function OnboardingWizard({ initial }: { initial: WizardInitial }) {
   const router = useRouter();
@@ -38,6 +47,7 @@ export function OnboardingWizard({ initial }: { initial: WizardInitial }) {
   const [uploading, setUploading] = useState(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [playbookId, setPlaybookId] = useState<string>("");
 
   const stepIndex = STEPS.findIndex((s) => s.id === step);
 
@@ -115,18 +125,26 @@ export function OnboardingWizard({ initial }: { initial: WizardInitial }) {
           phone: phone.trim(),
         }),
       });
-      if (!res.ok) {
-        const body = (await res.json().catch(() => ({}))) as { error?: string };
-        throw new Error(body.error ?? `Request failed (${res.status})`);
-      }
       const body = (await res.json().catch(() => ({}))) as {
+        error?: string;
         nextPath?: string;
       };
+      if (!res.ok) {
+        throw new Error(body.error ?? `Request failed (${res.status})`);
+      }
+      if (playbookId) {
+        await fetch("/api/settings/playbooks", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ playbookId }),
+        }).catch(() => null);
+      }
       posthog.capture("onboarding_completed", {
         has_logo: Boolean(logoBlobUrl),
         has_address: Boolean(addressLines.trim()),
         has_phone: Boolean(phone.trim()),
         has_website: Boolean(websiteUrl.trim()),
+        playbook_id: playbookId || null,
       });
 
       router.push(
@@ -274,6 +292,40 @@ export function OnboardingWizard({ initial }: { initial: WizardInitial }) {
                     disabled={uploading}
                   />
                 </label>
+              </div>
+            </div>
+          ) : null}
+
+          {step === "playbook" ? (
+            <div className="flex flex-col gap-3">
+              <div>
+                <p className="text-sm font-medium">What kind of work do you do?</p>
+                <p className="mt-1 text-xs text-zinc-500">
+                  We&apos;ll set starter ICP filters, a letter template and rate-card
+                  defaults so ballpark outreach works sooner. You can change this
+                  later in Settings → AI.
+                </p>
+              </div>
+              <div className="grid gap-2">
+                {PLAYBOOK_CHOICES.map((choice) => (
+                  <label
+                    key={choice.id || "skip"}
+                    className={`flex cursor-pointer items-center gap-3 rounded-lg border px-3 py-2.5 text-sm ${
+                      playbookId === choice.id
+                        ? "border-zinc-900 bg-zinc-50"
+                        : "border-zinc-200 hover:border-zinc-300"
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="playbook"
+                      checked={playbookId === choice.id}
+                      onChange={() => setPlaybookId(choice.id)}
+                      className="accent-zinc-900"
+                    />
+                    <span className="font-medium text-zinc-900">{choice.name}</span>
+                  </label>
+                ))}
               </div>
             </div>
           ) : null}

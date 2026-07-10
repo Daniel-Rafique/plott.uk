@@ -19,6 +19,12 @@ import {
 } from "lucide-react";
 import type { PlanningApplicationEntity } from "@/lib/planning-data";
 import { LetterAssistDrawer } from "./letter-assist-drawer";
+import { BallparkPanel } from "./ballpark-panel";
+import {
+  replaceBallparkInHtml,
+  stripBallparkFromHtml,
+} from "@/lib/ballpark-html";
+import { toast } from "sonner";
 import posthog from "posthog-js";
 import {
   contactKey,
@@ -456,6 +462,42 @@ export function ProprietorLetterModal({
               <p className="editorial-chapter-label text-zinc-500">
                 Letter preview
               </p>
+              <BallparkPanel
+                planningEntity={planningEntity}
+                applicationRef={reference}
+                siteAddress={address}
+                onApplyBallpark={async (args) => {
+                  const next = args.include
+                    ? replaceBallparkInHtml(currentLetterBody, args)
+                    : stripBallparkFromHtml(currentLetterBody);
+                  setLetterBody(next);
+                  if (letterId) {
+                    try {
+                      const res = await fetch(`/api/letter/${letterId}`, {
+                        method: "PATCH",
+                        headers: { "content-type": "application/json" },
+                        body: JSON.stringify({ bodyHtml: next }),
+                      });
+                      if (!res.ok) throw new Error("Failed to save");
+                      toast.success(
+                        args.include
+                          ? "Ballpark applied to letter"
+                          : "Ballpark removed from letter",
+                      );
+                    } catch {
+                      setError(
+                        "Ballpark updated in preview but could not save — try again before printing.",
+                      );
+                    }
+                  } else {
+                    toast.success(
+                      args.include
+                        ? "Ballpark inserted into preview"
+                        : "Ballpark removed from preview",
+                    );
+                  }
+                }}
+              />
               <div className="flex flex-wrap gap-2">
                 <button
                   type="button"

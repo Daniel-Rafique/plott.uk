@@ -14,6 +14,7 @@ export type OutreachDraftDisplay = {
     applicantEmail?: string | null;
     applicantEmailSource?: string | null;
     applicantEmailConfidence?: number | null;
+    applicantEmailStatus?: string | null;
     agentName?: string | null;
     agentEmail?: string | null;
   };

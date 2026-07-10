@@ -57,6 +57,7 @@ type LetterDetail = {
   bodyHtml: string;
   applicationRef: string | null;
   siteAddress: string | null;
+  planningEntity?: number | null;
   status: string;
 };
 

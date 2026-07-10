@@ -12,7 +12,7 @@ import { lastSeenIdsToNumbers } from "@/lib/planning-entity-bigint";
 import { logger } from "@/lib/logger";
 import { isRefusalDecision } from "@/lib/refusal-detection";
 import { getCompanyTier, type Tier } from "@/lib/ai/tiers";
-import { DIGEST_EMAIL_MAX_LEADS } from "@/lib/digest-config";
+import { DIGEST_EMAIL_MAX_LEADS, DIGEST_ICP_SCORE_CAP, OUTREACH_ESTIMATE_CAP } from "@/lib/digest-config";
 import { getCompanyPlanFeatures } from "@/lib/plan-features";
 import { start } from "workflow/api";
 import {
@@ -20,6 +20,15 @@ import {
   refusalAppealWorkflow,
 } from "@/workflows/outreach/workflows";
 import type { OutreachLeadDiscoveredPayload } from "@/workflows/outreach/types";
+import { classifyIcpFit } from "@/lib/ai/agents/icp-classifier";
+import { isAgentKindAllowed } from "@/lib/ai/tiers";
+import {
+  contactQualityFromEnrichment,
+  rankDigestCandidates,
+  type RankedDigestLead,
+} from "@/lib/digest-ranking";
+import { upsertPipelineLead } from "@/lib/pipeline";
+import { ensureLeadAndEstimate, shouldIncludeBallparkInOutreach } from "@/lib/ai/agents/job-estimator";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -156,13 +165,140 @@ export async function GET(req: Request) {
       const seen = new Set(lastSeenIdsToNumbers(s.lastSeenIds));
       const newOnes = entities.filter((e) => !seen.has(e.entity));
 
-      const enriched = await enrichSearchResults(
-        newOnes.slice(0, DIGEST_EMAIL_MAX_LEADS),
-        { budgetMs: 8000 },
+      // Enrich a capped pool for ranking (ICP score cap ≥ digest max).
+      const enrichPool = newOnes.slice(
+        0,
+        Math.max(DIGEST_EMAIL_MAX_LEADS, DIGEST_ICP_SCORE_CAP),
       );
+      const enrichedPool = await enrichSearchResults(enrichPool, {
+        budgetMs: 10_000,
+      });
+
+      let ranked: RankedDigestLead[] = enrichedPool.map((app) => ({
+        ...app,
+        contactQuality: contactQualityFromEnrichment(app),
+      }));
+
+      // Score with ICP when available (capped).
+      if (
+        canUseAi &&
+        isAgentKindAllowed(tier, "icp_classifier") &&
+        ranked.length > 0
+      ) {
+        const toScore = ranked.slice(0, DIGEST_ICP_SCORE_CAP);
+        const scored = await Promise.all(
+          toScore.map(async (app) => {
+            try {
+              const icp = await classifyIcpFit({
+                ctx: { companyId: s.companyId },
+                candidate: {
+                  planningEntity: app.entity,
+                  reference: app.reference ?? "",
+                  siteAddress: app["address-text"] ?? null,
+                  description: app.description ?? null,
+                  status: app["planning-application-status"] ?? null,
+                  applicationType: app["planning-application-type"] ?? null,
+                },
+              });
+              return {
+                ...app,
+                icpScore: icp.fit ? icp.score : icp.score * 0.25,
+                icpFit: icp.fit,
+              };
+            } catch {
+              return app;
+            }
+          }),
+        );
+        const scoredIds = new Set(scored.map((a) => a.entity));
+        ranked = [
+          ...scored,
+          ...ranked.filter((a) => !scoredIds.has(a.entity)),
+        ];
+      }
+
+      ranked = rankDigestCandidates(ranked);
+      const topLeads = ranked.slice(0, DIGEST_EMAIL_MAX_LEADS);
+
+      // Upsert pipeline leads for top digest picks; optionally estimate.
+      for (const app of topLeads) {
+        try {
+          await upsertPipelineLead({
+            companyId: s.companyId,
+            planningEntity: app.entity,
+            applicationRef: app.reference,
+            siteAddress: app["address-text"],
+            description: app.description,
+            stage: "new",
+          });
+        } catch (err) {
+          logger.warn(
+            { err, entity: app.entity, savedSearchId: s.id },
+            "cron_pipeline_upsert_failed",
+          );
+        }
+      }
+
+      if (
+        canUseAi &&
+        isAgentKindAllowed(tier, "job_estimator") &&
+        topLeads.length > 0
+      ) {
+        const hasRateCard = await prisma.companyRateCard.findUnique({
+          where: { companyId: s.companyId },
+          select: { id: true },
+        });
+        if (hasRateCard) {
+          for (const app of topLeads.slice(0, DIGEST_EMAIL_MAX_LEADS)) {
+            try {
+              const lead = await ensureLeadAndEstimate({
+                companyId: s.companyId,
+                planningEntity: app.entity,
+                applicationRef: app.reference,
+                siteAddress: app["address-text"],
+                description: app.description,
+                status: app["planning-application-status"],
+              });
+              if (
+                lead.estimateMinGbp != null &&
+                lead.estimateMaxGbp != null &&
+                lead.estimateWeeks != null
+              ) {
+                const confidence =
+                  typeof lead.estimateJson === "object" &&
+                  lead.estimateJson &&
+                  "confidence" in lead.estimateJson
+                    ? Number(
+                        (lead.estimateJson as { confidence?: number }).confidence,
+                      ) || 0
+                    : 0;
+                if (
+                  shouldIncludeBallparkInOutreach({
+                    includeFlag: lead.includeBallparkInOutreach,
+                    confidence,
+                  })
+                ) {
+                  app.ballpark = {
+                    minGbp: lead.estimateMinGbp,
+                    maxGbp: lead.estimateMaxGbp,
+                    weeks: lead.estimateWeeks,
+                  };
+                }
+              }
+            } catch (err) {
+              logger.warn(
+                { err, entity: app.entity },
+                "cron_digest_estimate_failed",
+              );
+            }
+          }
+        }
+      }
+
+      const enriched = topLeads;
 
       logger.info(
-        { savedSearchId: s.id, totalFound: entities.length, newCount: newOnes.length },
+        { savedSearchId: s.id, totalFound: entities.length, newCount: newOnes.length, digestCount: enriched.length },
         "cron_saved_search_results",
       );
 
@@ -171,7 +307,15 @@ export async function GET(req: Request) {
 
       // Dispatch outreach events only if on Agency tier with AI enabled
       if (newOnes.length && s.autoOutreach && canAutoOutreach && s.company.aiEnabled) {
-        const workflowPayloads: OutreachLeadDiscoveredPayload[] = newOnes.slice(0, 50).map((e) => {
+        const estimateEntities = new Set(
+          ranked
+            .filter((e) => newOnes.some((n) => n.entity === e.entity))
+            .slice(0, OUTREACH_ESTIMATE_CAP)
+            .map((e) => e.entity),
+        );
+        const workflowPayloads: OutreachLeadDiscoveredPayload[] = newOnes
+          .slice(0, 50)
+          .map((e) => {
           const status = e["planning-application-status"] ?? undefined;
           const decision = e["planning-decision-type"] ?? undefined;
           const isRefusal = isRefusalDecision({ status, decision });
@@ -185,6 +329,7 @@ export async function GET(req: Request) {
             status,
             decision,
             isRefusal,
+            runEstimate: estimateEntities.has(e.entity),
           };
         });
         if (workflowPayloads.length > 0) {

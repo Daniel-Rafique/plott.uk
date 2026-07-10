@@ -7,6 +7,7 @@
  */
 
 import { sanitizeHtmlFragment } from "@/lib/sanitize-html";
+import { BALLPARK_DISCLAIMER } from "@/lib/pipeline";
 
 type EmailAttachment = {
   filename: string;
@@ -141,7 +142,15 @@ type DigestApp = {
   enrichment?: {
     applicantName?: string | null;
     agentName?: string | null;
+    confidence?: string | null;
   };
+  ballpark?: {
+    minGbp: number;
+    maxGbp: number;
+    weeks: number;
+  } | null;
+  contactQuality?: "high" | "medium" | "low" | "unknown";
+  icpFit?: boolean;
 };
 
 function digestRow(
@@ -157,16 +166,27 @@ function digestRow(
   const applicant = app.enrichment?.applicantName
     ? `<div style="margin-top:6px;color:${BRAND.dark};font-size:12px;font-weight:500;">Applicant: ${escapeHtml(app.enrichment.applicantName)}</div>`
     : "";
+  const quality =
+    app.contactQuality && app.contactQuality !== "unknown"
+      ? `<span style="margin-left:8px;font-size:10px;text-transform:uppercase;letter-spacing:0.06em;color:#71717a;">Contact ${escapeHtml(app.contactQuality)}</span>`
+      : "";
+  const ballpark =
+    app.ballpark != null
+      ? `<div style="margin-top:8px;font-size:12px;color:#18181b;font-weight:500;">Ballpark £${Math.round(app.ballpark.minGbp).toLocaleString("en-GB")}–£${Math.round(app.ballpark.maxGbp).toLocaleString("en-GB")} · ~${app.ballpark.weeks} weeks</div><div style="margin-top:4px;font-size:11px;color:#71717a;line-height:1.45;">${escapeHtml(BALLPARK_DISCLAIMER)}</div>`
+      : "";
   const sp = new URLSearchParams();
   sp.set("savedSearch", savedSearchId);
   sp.set("entity", String(app.entity));
   const link = `${baseUrl}/app/dashboard?${sp.toString()}`;
+  const pipelineLink = `${baseUrl}/app/pipeline`;
   return `<a href="${escapeAttr(link)}" style="display:block;margin:0 0 12px 0;padding:16px 18px;border:1px solid #e4e4e7;border-left:3px solid ${BRAND.main};border-radius:10px;text-decoration:none;color:#18181b;transition:border-color 0.2s;">
-    <div style="font-weight:600;font-size:14px;font-family:'Georgia',serif;">${escapeHtml(ref)} ${status ? `<span style="font-weight:500;color:${BRAND.dark};margin-left:8px;font-size:10px;text-transform:uppercase;letter-spacing:0.06em;">${escapeHtml(status)}</span>` : ""}</div>
+    <div style="font-weight:600;font-size:14px;font-family:'Georgia',serif;">${escapeHtml(ref)} ${status ? `<span style="font-weight:500;color:${BRAND.dark};margin-left:8px;font-size:10px;text-transform:uppercase;letter-spacing:0.06em;">${escapeHtml(status)}</span>` : ""}${quality}</div>
     ${addr ? `<div style="color:#52525b;font-size:13px;margin-top:6px;">${escapeHtml(addr)}</div>` : ""}
     ${desc ? `<div style="color:#71717a;font-size:12px;margin-top:6px;line-height:1.5;">${escapeHtml(desc.slice(0, 180))}${desc.length > 180 ? "…" : ""}</div>` : ""}
     ${applicant}
-  </a>`;
+    ${ballpark}
+  </a>
+  <div style="margin:-4px 0 14px 18px;font-size:11px;"><a href="${escapeAttr(pipelineLink)}" style="color:${BRAND.dark};">Track in pipeline →</a></div>`;
 }
 
 export async function sendDigestEmail(args: {
@@ -214,12 +234,12 @@ export async function sendDigestEmail(args: {
     <p style="margin:0;font-size:12px;color:#71717a;line-height:1.6;text-align:center;">
       You're receiving this because you saved this search. <a href="${escapeAttr(`${baseUrl}/app/searches`)}" style="color:${BRAND.dark};text-decoration:underline;">Manage searches</a>
     </p>`;
-  const html = brandedShell({ heading: `${count} new lead${count === 1 ? "" : "s"} this week`, body });
+  const html = brandedShell({ heading: `Your ${Math.min(count, args.newApplications.length)} best lead${count === 1 ? "" : "s"} this week`, body });
   const recipients = Array.isArray(args.to) ? args.to : [args.to];
   for (const to of recipients) {
     await resendSend({
       to,
-      subject: `${count} new lead${count === 1 ? "" : "s"} — ${args.searchName}`,
+      subject: `Your best leads — ${args.searchName}`,
       html,
     });
   }

@@ -14,6 +14,8 @@ export type OutreachLeadDiscoveredPayload = {
    * the standard outreach drafter.
    */
   isRefusal?: boolean;
+  /** When true, run job_estimator before drafting (capped per digest run). */
+  runEstimate?: boolean;
 };
 
 export type WorkflowOutcome =
