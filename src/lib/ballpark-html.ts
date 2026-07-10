@@ -3,7 +3,7 @@
  * Safe for client and server — no Prisma / AI imports.
  */
 
-import { BALLPARK_DISCLAIMER } from "@/lib/pipeline";
+import { BALLPARK_DISCLAIMER } from "@/lib/pipeline-shared";
 
 export function ballparkParagraphHtml(args: {
   minGbp: number;

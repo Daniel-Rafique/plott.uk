@@ -10,7 +10,7 @@ import { runObject } from "@/lib/ai/runtime";
 import {
   BALLPARK_CONFIDENCE_THRESHOLD,
   BALLPARK_DISCLAIMER,
-} from "@/lib/pipeline";
+} from "@/lib/pipeline-shared";
 import {
   applyBallparkTokens,
   ballparkParagraphHtml,

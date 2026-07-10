@@ -8,7 +8,7 @@ import {
   type PipelineStage,
   formatBallparkRange,
   formatBallparkWeeks,
-} from "@/lib/pipeline";
+} from "@/lib/pipeline-shared";
 import { cn } from "@/lib/utils";
 
 export type PipelineLeadRow = {

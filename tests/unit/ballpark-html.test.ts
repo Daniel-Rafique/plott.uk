@@ -1,10 +1,10 @@
+import { BALLPARK_DISCLAIMER } from "@/lib/pipeline-shared";
 import { describe, expect, it } from "vitest";
 import {
   injectBallparkIntoHtml,
   replaceBallparkInHtml,
   stripBallparkFromHtml,
 } from "@/lib/ballpark-html";
-import { BALLPARK_DISCLAIMER } from "@/lib/pipeline";
 
 describe("ballpark html helpers", () => {
   it("injects a disclaimer paragraph before the last paragraph", () => {

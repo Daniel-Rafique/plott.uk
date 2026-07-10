@@ -1,38 +1,29 @@
 /**
  * Thin sales pipeline for planning leads. Stages are plain strings
  * (matching the rest of the schema); validated in application code.
+ *
+ * Server-only — client code must import from `@/lib/pipeline-shared`.
  */
 
 import type { PipelineLead, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { captureServerEvent } from "@/lib/posthog-server";
 import { planningEntityToNumber } from "@/lib/planning-entity-bigint";
+import {
+  isPipelineStage,
+  type PipelineStage,
+} from "@/lib/pipeline-shared";
 
-export const PIPELINE_STAGES = [
-  "new",
-  "contacted",
-  "replied",
-  "visit_booked",
-  "quoted",
-  "won",
-  "lost",
-] as const;
-
-export type PipelineStage = (typeof PIPELINE_STAGES)[number];
-
-export const PIPELINE_STAGE_LABELS: Record<PipelineStage, string> = {
-  new: "New",
-  contacted: "Contacted",
-  replied: "Replied",
-  visit_booked: "Visit booked",
-  quoted: "Quoted",
-  won: "Won",
-  lost: "Lost",
-};
-
-export function isPipelineStage(value: string): value is PipelineStage {
-  return (PIPELINE_STAGES as readonly string[]).includes(value);
-}
+export {
+  BALLPARK_CONFIDENCE_THRESHOLD,
+  BALLPARK_DISCLAIMER,
+  PIPELINE_STAGES,
+  PIPELINE_STAGE_LABELS,
+  formatBallparkRange,
+  formatBallparkWeeks,
+  isPipelineStage,
+  type PipelineStage,
+} from "@/lib/pipeline-shared";
 
 export type UpsertPipelineLeadInput = {
   companyId: string;
@@ -201,22 +192,4 @@ export function serializePipelineLead(lead: PipelineLead) {
     createdAt: lead.createdAt.toISOString(),
     updatedAt: lead.updatedAt.toISOString(),
   };
-}
-
-export const BALLPARK_DISCLAIMER =
-  "This is an indicative ballpark based on similar projects and is not a formal quotation. A site survey is required before any price is confirmed.";
-
-export const BALLPARK_CONFIDENCE_THRESHOLD = 0.55;
-
-export function formatBallparkRange(minGbp: number, maxGbp: number): string {
-  const fmt = (n: number) =>
-    `£${Math.round(n).toLocaleString("en-GB")}`;
-  if (minGbp === maxGbp) return fmt(minGbp);
-  return `${fmt(minGbp)}–${fmt(maxGbp)}`;
-}
-
-export function formatBallparkWeeks(weeks: number): string {
-  const rounded = Math.round(weeks * 10) / 10;
-  if (rounded === 1) return "about 1 week";
-  return `about ${rounded} weeks`;
 }

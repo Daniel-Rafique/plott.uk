@@ -7,7 +7,7 @@
  */
 
 import { sanitizeHtmlFragment } from "@/lib/sanitize-html";
-import { BALLPARK_DISCLAIMER } from "@/lib/pipeline";
+import { BALLPARK_DISCLAIMER } from "@/lib/pipeline-shared";
 
 type EmailAttachment = {
   filename: string;
