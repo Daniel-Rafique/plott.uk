@@ -9,6 +9,7 @@ import {
   type OutreachDraftDisplay,
 } from "@/lib/outreach-draft-display";
 import { validateLetterBodyShape } from "@/lib/letter-body-shape";
+import { formatUkPostalAddressLines } from "@/lib/contact-quality";
 
 type OutreachDraft = {
   subject?: string;
@@ -99,7 +100,7 @@ export async function materializeApprovalLetter({
   }
   const subject = draft.subject;
   const bodyHtml = body;
-  const addressLines = draft.recipient.addressLines;
+  const addressLines = formatUkPostalAddressLines(draft.recipient.addressLines);
   const recipientName = draft.recipient.name ?? "Sir or Madam";
 
   if (!isBodyOnlyHtml(bodyHtml)) {

@@ -5,6 +5,10 @@
  */
 
 import type { Company } from "@prisma/client";
+import {
+  formatUkPostalAddressLines,
+  postalAddressesEquivalent,
+} from "@/lib/contact-quality";
 import { sanitizeHtmlFragment, sanitizeInlineSvg } from "@/lib/sanitize-html";
 
 export type LetterInput = {
@@ -126,7 +130,10 @@ function formatDate(d = new Date()): string {
 }
 
 function addressLinesHtml(s: string): string {
-  return s.split(/\n+/).map(esc).join("<br />");
+  return formatUkPostalAddressLines(s)
+    .split(/\n+/)
+    .map(esc)
+    .join("<br />");
 }
 
 function resolveLogoSrc(
@@ -249,8 +256,16 @@ export function renderLetterHtml(i: LetterInput): {
     ? sanitizeHtmlFragment(applyMerge(i.templateBodyHtml, mergeVars))
     : defaultBody(i);
 
-  const reLine = i.reference ? `<p class="re"><strong>Re: ${esc(i.reference)}</strong>
-  ${i.siteAddress ? `<br /><span class="site">${esc(i.siteAddress)}</span>` : ""}</p>`
+  const formattedAddress = formatUkPostalAddressLines(i.addressLines);
+  const showSiteInRe =
+    i.siteAddress?.trim() &&
+    !postalAddressesEquivalent(i.siteAddress, formattedAddress);
+  const reLine = i.reference
+    ? `<p class="re"><strong>Re: ${esc(i.reference)}</strong>${
+        showSiteInRe
+          ? `<br /><span class="site">${esc(i.siteAddress!.trim())}</span>`
+          : ""
+      }</p>`
     : "";
 
   const html = `<!DOCTYPE html>
@@ -318,7 +333,11 @@ export function renderLetterHtml(i: LetterInput): {
   <main class="main">
     <div class="body-content">
       <p class="date">${esc(formatDate())}</p>
-      <p class="addr">${esc(i.addresseeName)}<br />${addressLinesHtml(i.addressLines)}</p>
+      <p class="addr">${esc(i.addresseeName)}${
+        formattedAddress
+          ? `<br />${addressLinesHtml(formattedAddress)}`
+          : ""
+      }</p>
       ${reLine}
       ${body}
     </div>

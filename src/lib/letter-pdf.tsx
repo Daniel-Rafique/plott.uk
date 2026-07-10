@@ -11,6 +11,10 @@ import {
 } from "@react-pdf/renderer";
 import type { Company } from "@prisma/client";
 import { fetchBlobAsDataUri } from "@/lib/blob";
+import {
+  formatUkPostalAddressLines,
+  postalAddressesEquivalent,
+} from "@/lib/contact-quality";
 
 // Register Geist (brand font) for PDF rendering. Files are vendored into
 // public/fonts at build time so they're present in any Vercel/Node deployment
@@ -140,6 +144,10 @@ function renderHeader(company: Company, logoDataUri: string | null) {
 function LetterDocument({ i }: { i: ResolvedInput }) {
   const date = formatDate(i.date);
   const paragraphs = splitParagraphs(i.bodyText);
+  const formattedAddress = formatUkPostalAddressLines(i.addressLines);
+  const showSiteInRe =
+    i.siteAddress?.trim() &&
+    !postalAddressesEquivalent(i.siteAddress, formattedAddress);
   return (
     <Document>
       <Page size="A4" style={styles.page}>
@@ -147,15 +155,15 @@ function LetterDocument({ i }: { i: ResolvedInput }) {
         <View style={styles.body}>
           <Text style={styles.paragraph}>{date}</Text>
           <Text style={styles.paragraph}>
-            {i.addresseeName}
-            {"\n"}
-            {i.addressLines}
+            {formattedAddress
+              ? `${i.addresseeName}\n${formattedAddress}`
+              : i.addresseeName}
           </Text>
           {i.reference ? (
             <View style={styles.reBlock}>
               <Text style={styles.reLine}>Re: {i.reference}</Text>
-              {i.siteAddress ? (
-                <Text style={styles.siteAddress}>{i.siteAddress}</Text>
+              {showSiteInRe ? (
+                <Text style={styles.siteAddress}>{i.siteAddress!.trim()}</Text>
               ) : null}
             </View>
           ) : null}

@@ -7,6 +7,53 @@ import { captureServerEvent } from "@/lib/posthog-server";
 const UK_POSTCODE =
   /\b([A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2})\b/i;
 
+const UK_POSTCODE_TRAILING =
+  /^(.+?)\s+([A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2})$/i;
+
+export function splitPostalLines(raw: string): string[] {
+  return raw
+    .split(/\n|,/)
+    .map((l) => l.trim())
+    .filter(Boolean);
+}
+
+function normalizePostalKey(raw: string): string {
+  return raw.replace(/\s+/g, " ").trim().toUpperCase();
+}
+
+/** True when two address strings refer to the same location (ignoring line breaks). */
+export function postalAddressesEquivalent(
+  a: string | null | undefined,
+  b: string | null | undefined,
+): boolean {
+  const left = normalizePostalKey(a ?? "");
+  const right = normalizePostalKey(b ?? "");
+  return left.length > 0 && left === right;
+}
+
+/**
+ * Split single-line UK addresses before the postcode so validation and
+ * rendering can treat street and postcode as separate lines.
+ */
+export function formatUkPostalAddressLines(
+  addressLines: string | null | undefined,
+): string {
+  const raw = (addressLines ?? "").trim();
+  if (!raw) return "";
+
+  const lines = splitPostalLines(raw);
+  if (lines.length >= 2) return lines.join("\n");
+
+  const match = raw.match(UK_POSTCODE_TRAILING);
+  if (match) {
+    const street = match[1].trim();
+    const postcode = match[2].replace(/\s+/g, " ").toUpperCase();
+    if (street.length >= 3) return `${street}\n${postcode}`;
+  }
+
+  return raw;
+}
+
 const WEAK_EMAIL_STATUSES = new Set([
   "invalid",
   "undeliverable",
@@ -32,7 +79,7 @@ export type EmailContactCheck = {
 };
 
 export function assessPostalAddress(addressLines: string | null | undefined): PostalContactCheck {
-  const raw = (addressLines ?? "").trim();
+  const raw = formatUkPostalAddressLines(addressLines);
   if (!raw || raw.length < 8) {
     return {
       ok: false,
@@ -41,10 +88,7 @@ export function assessPostalAddress(addressLines: string | null | undefined): Po
       message: "Add a usable postal address (street and postcode) before printing or marking sent.",
     };
   }
-  const lines = raw
-    .split(/\n|,/)
-    .map((l) => l.trim())
-    .filter(Boolean);
+  const lines = splitPostalLines(raw);
   if (lines.length < 2) {
     return {
       ok: false,

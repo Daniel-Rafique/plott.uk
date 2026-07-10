@@ -19,7 +19,7 @@ const VALID = new Set(["draft", "printed", "sent", "failed"]);
 // By the time the user marks a letter as "sent", it's already been physically
 // mailed — blocking the status update serves no purpose.
 const SENDING_STATUSES = new Set(["printed"]);
-const ADDRESS_GATED_STATUSES = new Set(["printed", "sent"]);
+const ADDRESS_GATED_STATUSES = new Set(["printed"]);
 
 export async function PATCH(req: Request, context: Ctx) {
   const ctx = await getTenantContext({ requireVerified: true });
