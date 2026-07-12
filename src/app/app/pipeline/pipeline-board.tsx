@@ -22,7 +22,6 @@ import {
 export type { PipelineTeamMember };
 
 type StageFilter = "all" | PipelineStage;
-type AssignmentFilter = "all" | "assigned_to_me" | "unassigned" | "by_member";
 
 export function PipelineBoard({
   currentUserId,
@@ -39,39 +38,22 @@ export function PipelineBoard({
 
   const [leads, setLeads] = useState(initialLeads);
   const [stageFilter, setStageFilter] = useState<StageFilter>("all");
-  const [assignmentFilter, setAssignmentFilter] =
-    useState<AssignmentFilter>("all");
-  const [memberFilterId, setMemberFilterId] = useState<string>("");
+  /** me | all | unassigned | <userId> */
+  const [assigneeScope, setAssigneeScope] = useState<string>("me");
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [estimatingId, setEstimatingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const didDefaultAssign = useRef(false);
 
   useEffect(() => {
     if (!highlightLeadId || !highlightRef.current) return;
     highlightRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
   }, [highlightLeadId, leads.length]);
 
-  const visible = useMemo(() => {
-    let list = leads;
-    if (stageFilter !== "all") {
-      list = list.filter((lead) => lead.stage === stageFilter);
-    }
-    if (assignmentFilter === "assigned_to_me") {
-      list = list.filter((lead) => lead.assignedUserId === currentUserId);
-    } else if (assignmentFilter === "unassigned") {
-      list = list.filter((lead) => !lead.assignedUserId);
-    } else if (assignmentFilter === "by_member" && memberFilterId) {
-      list = list.filter((lead) => lead.assignedUserId === memberFilterId);
-    }
-    return list;
-  }, [
-    leads,
-    stageFilter,
-    assignmentFilter,
-    memberFilterId,
-    currentUserId,
-  ]);
+  function assigneeLabel(member: PipelineTeamMember): string {
+    return member.name?.trim() || member.email || "Team member";
+  }
 
   function applyLeadUpdate(id: string, next: PipelineLeadRow) {
     setLeads((prev) => prev.map((lead) => (lead.id === id ? next : lead)));
@@ -111,93 +93,121 @@ export function PipelineBoard({
     });
   }
 
-  function assigneeLabel(member: PipelineTeamMember): string {
-    return member.name?.trim() || member.email || "Team member";
-  }
+  // New leads default to the current user, not Unassigned.
+  useEffect(() => {
+    if (didDefaultAssign.current) return;
+    const unassigned = initialLeads.filter((lead) => !lead.assignedUserId);
+    if (unassigned.length === 0) {
+      didDefaultAssign.current = true;
+      return;
+    }
+    didDefaultAssign.current = true;
 
-  const assignedToMeCount = leads.filter(
-    (lead) => lead.assignedUserId === currentUserId,
-  ).length;
-  const unassignedCount = leads.filter((lead) => !lead.assignedUserId).length;
+    void (async () => {
+      await Promise.all(
+        unassigned.map(async (lead) => {
+          try {
+            const res = await fetch(`/api/pipeline/${lead.id}`, {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ assignedUserId: currentUserId }),
+            });
+            const data = (await res.json().catch(() => ({}))) as {
+              lead?: PipelineLeadRow;
+            };
+            if (res.ok && data.lead) {
+              applyLeadUpdate(lead.id, data.lead);
+            }
+          } catch {
+            // Non-blocking — user can still assign manually.
+          }
+        }),
+      );
+    })();
+  }, [currentUserId, initialLeads, teamMembers]);
+
+  const visible = useMemo(() => {
+    let list = leads;
+    if (stageFilter !== "all") {
+      list = list.filter((lead) => lead.stage === stageFilter);
+    }
+    if (assigneeScope === "me") {
+      list = list.filter((lead) => lead.assignedUserId === currentUserId);
+    } else if (assigneeScope === "unassigned") {
+      list = list.filter((lead) => !lead.assignedUserId);
+    } else if (assigneeScope !== "all") {
+      list = list.filter((lead) => lead.assignedUserId === assigneeScope);
+    }
+    return list;
+  }, [leads, stageFilter, assigneeScope, currentUserId]);
+
+  const sortedTeamMembers = useMemo(() => {
+    const me = teamMembers.find((member) => member.id === currentUserId);
+    const others = teamMembers.filter((member) => member.id !== currentUserId);
+    return me ? [me, ...others] : others;
+  }, [teamMembers, currentUserId]);
+
+  const stageCounts = useMemo(() => {
+    const counts: Record<string, number> = { all: leads.length };
+    for (const stage of PIPELINE_STAGES) {
+      counts[stage] = leads.filter((lead) => lead.stage === stage).length;
+    }
+    return counts;
+  }, [leads]);
+
+  const selectClassName =
+    "rounded-md border border-zinc-300 bg-white px-2.5 py-1.5 text-sm text-zinc-900 shadow-sm focus:border-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-200";
 
   return (
     <div className="space-y-6">
-      <div className="space-y-3">
-        <div className="flex flex-wrap gap-2">
-          <FilterChip
-            active={stageFilter === "all"}
-            onClick={() => setStageFilter("all")}
-            label={`All (${leads.length})`}
-          />
-          {PIPELINE_STAGES.map((stage) => {
-            const count = leads.filter((lead) => lead.stage === stage).length;
-            return (
-              <FilterChip
-                key={stage}
-                active={stageFilter === stage}
-                onClick={() => setStageFilter(stage)}
-                label={`${PIPELINE_STAGE_LABELS[stage]} (${count})`}
-              />
-            );
-          })}
-        </div>
+      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between">
+        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
+          <label className="grid gap-1">
+            <span className="text-[11px] font-medium uppercase tracking-wide text-zinc-500">
+              Stage
+            </span>
+            <select
+              value={stageFilter}
+              onChange={(e) => setStageFilter(e.target.value as StageFilter)}
+              className={cn(selectClassName, "min-w-[11rem]")}
+            >
+              <option value="all">All stages ({stageCounts.all})</option>
+              {PIPELINE_STAGES.map((stage) => (
+                <option key={stage} value={stage}>
+                  {PIPELINE_STAGE_LABELS[stage]} ({stageCounts[stage] ?? 0})
+                </option>
+              ))}
+            </select>
+          </label>
 
-        <div className="flex flex-wrap items-center gap-2">
-          <FilterChip
-            active={assignmentFilter === "all"}
-            onClick={() => {
-              setAssignmentFilter("all");
-              setMemberFilterId("");
-            }}
-            label="Everyone"
-          />
-          <FilterChip
-            active={assignmentFilter === "assigned_to_me"}
-            onClick={() => {
-              setAssignmentFilter("assigned_to_me");
-              setMemberFilterId("");
-            }}
-            label={`Assigned to me (${assignedToMeCount})`}
-          />
-          <FilterChip
-            active={assignmentFilter === "unassigned"}
-            onClick={() => {
-              setAssignmentFilter("unassigned");
-              setMemberFilterId("");
-            }}
-            label={`Unassigned (${unassignedCount})`}
-          />
-          {teamMembers.length > 1 ? (
-            <label className="inline-flex items-center gap-2 text-xs text-zinc-600">
-              <span className="font-medium uppercase tracking-wide">
-                Teammate
-              </span>
-              <select
-                value={
-                  assignmentFilter === "by_member" ? memberFilterId : ""
-                }
-                onChange={(e) => {
-                  const value = e.target.value;
-                  if (!value) {
-                    setAssignmentFilter("all");
-                    setMemberFilterId("");
-                    return;
-                  }
-                  setAssignmentFilter("by_member");
-                  setMemberFilterId(value);
-                }}
-                className="rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm text-zinc-900"
-              >
-                <option value="">Any teammate</option>
-                {teamMembers.map((member) => (
+          <label className="grid gap-1">
+            <span className="text-[11px] font-medium uppercase tracking-wide text-zinc-500">
+              Assigned to
+            </span>
+            <select
+              value={assigneeScope}
+              onChange={(e) => setAssigneeScope(e.target.value)}
+              className={cn(selectClassName, "min-w-[12rem]")}
+            >
+              <option value="me">Me</option>
+              <option value="all">Everyone</option>
+              <option value="unassigned">Unassigned</option>
+              {sortedTeamMembers
+                .filter((member) => member.id !== currentUserId)
+                .map((member) => (
                   <option key={member.id} value={member.id}>
                     {assigneeLabel(member)}
                   </option>
                 ))}
-              </select>
-            </label>
-          ) : null}
+            </select>
+          </label>
         </div>
+
+        <p className="text-sm text-zinc-500">
+          {visible.length === leads.length
+            ? `${leads.length} lead${leads.length === 1 ? "" : "s"}`
+            : `${visible.length} of ${leads.length} leads`}
+        </p>
       </div>
 
       {error ? (
@@ -372,7 +382,7 @@ export function PipelineBoard({
                       Assigned to
                       <select
                         disabled={busy}
-                        value={lead.assignedUserId ?? ""}
+                        value={lead.assignedUserId ?? currentUserId}
                         onChange={(e) => {
                           const value = e.target.value;
                           const nextId = value || null;
@@ -389,12 +399,14 @@ export function PipelineBoard({
                         }}
                         className="min-w-0 flex-1 rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm text-zinc-900 sm:max-w-[12rem]"
                       >
-                        <option value="">Unassigned</option>
-                        {teamMembers.map((member) => (
+                        {sortedTeamMembers.map((member) => (
                           <option key={member.id} value={member.id}>
-                            {assigneeLabel(member)}
+                            {member.id === currentUserId
+                              ? `${assigneeLabel(member)} (you)`
+                              : assigneeLabel(member)}
                           </option>
                         ))}
+                        <option value="">Unassigned</option>
                       </select>
                     </label>
                     <label className="flex items-center gap-2 text-xs text-zinc-600">
@@ -510,30 +522,5 @@ export function PipelineBoard({
         </ul>
       )}
     </div>
-  );
-}
-
-function FilterChip({
-  active,
-  onClick,
-  label,
-}: {
-  active: boolean;
-  onClick: () => void;
-  label: string;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn(
-        "rounded-full px-3 py-1.5 text-xs font-semibold uppercase tracking-wide transition-colors",
-        active
-          ? "bg-zinc-950 text-white"
-          : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200 hover:text-zinc-950",
-      )}
-    >
-      {label}
-    </button>
   );
 }
