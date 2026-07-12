@@ -53,6 +53,74 @@ export function formatWorkTypeLabel(workType: string | null | undefined): string
     .replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
+const GENERIC_WORK_TYPES = new Set(["general_works", "general_work"]);
+
+const GENERIC_SCOPE_SUMMARIES = [
+  /^indicative scope from planning description\.?$/i,
+  /^general works?\.?$/i,
+  /^planning[- ]led works?\.?$/i,
+];
+
+export function isGenericWorkType(workType: string | null | undefined): boolean {
+  const key = workType?.trim().toLowerCase();
+  if (!key) return true;
+  return GENERIC_WORK_TYPES.has(key);
+}
+
+export function isGenericScopeSummary(
+  scopeSummary: string | null | undefined,
+): boolean {
+  const text = scopeSummary?.trim();
+  if (!text) return true;
+  return GENERIC_SCOPE_SUMMARIES.some((pattern) => pattern.test(text));
+}
+
+function truncatePipelineLabel(text: string, max = 120): string {
+  const trimmed = text.trim();
+  if (trimmed.length <= max) return trimmed;
+  return `${trimmed.slice(0, max - 1)}…`;
+}
+
+function htmlToPlainText(html: string): string {
+  return html
+    .replace(/<br\s*\/?>/gi, " ")
+    .replace(/<\/p>/gi, ". ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/** Pull a concrete job phrase from outreach letter HTML when available. */
+export function extractWorkSnippetFromOutreachHtml(
+  html: string | null | undefined,
+): string | null {
+  if (!html?.trim()) return null;
+  const text = htmlToPlainText(html);
+  if (!text) return null;
+
+  const forAtMatch = text.match(
+    /\bfor\s+(.+?)\s+at\s+(?:the\s+)?(?:property|site|address|[\dA-Z])/i,
+  );
+  if (forAtMatch?.[1]) {
+    const snippet = forAtMatch[1].trim();
+    if (snippet.length >= 8 && !/^your\b/i.test(snippet)) {
+      return snippet;
+    }
+  }
+
+  const applicationForMatch = text.match(
+    /application[^.]{0,80}?\bfor\s+([^.]{8,160})/i,
+  );
+  if (applicationForMatch?.[1]) {
+    const snippet = applicationForMatch[1].trim();
+    if (!/^your\b/i.test(snippet)) return snippet;
+  }
+
+  const firstSentence = text.split(/[.!?]/).find((part) => part.trim().length >= 16);
+  return firstSentence?.trim() ?? null;
+}
+
 export function extractEstimateFields(
   estimateJson: unknown,
 ): { workType: string | null; scopeSummary: string | null } {
@@ -125,14 +193,35 @@ export function pipelineWorkTypeLabel(args: {
   workType: string | null;
   scopeSummary: string | null;
   description: string | null;
+  outreachSnippet?: string | null;
 }): string | null {
-  const fromWorkType = formatWorkTypeLabel(args.workType);
-  if (fromWorkType) return fromWorkType;
-  if (args.scopeSummary) return args.scopeSummary;
+  if (!isGenericWorkType(args.workType)) {
+    return formatWorkTypeLabel(args.workType);
+  }
+
+  if (!isGenericScopeSummary(args.scopeSummary) && args.scopeSummary) {
+    return truncatePipelineLabel(args.scopeSummary);
+  }
+
+  const outreachSnippet = args.outreachSnippet?.trim();
+  if (outreachSnippet) {
+    return truncatePipelineLabel(outreachSnippet);
+  }
+
   const description = args.description?.trim();
-  if (!description) return null;
-  if (description.length <= 120) return description;
-  return `${description.slice(0, 117)}…`;
+  if (description) {
+    return truncatePipelineLabel(description);
+  }
+
+  if (args.scopeSummary?.trim()) {
+    return truncatePipelineLabel(args.scopeSummary);
+  }
+
+  if (args.workType) {
+    return formatWorkTypeLabel(args.workType);
+  }
+
+  return null;
 }
 
 export type PipelineAssigneeUser = {

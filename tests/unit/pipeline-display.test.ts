@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   buildPipelineContactSummary,
+  extractWorkSnippetFromOutreachHtml,
   formatWorkTypeLabel,
   pipelineWorkTypeLabel,
 } from "@/lib/pipeline-display";
@@ -38,7 +39,42 @@ describe("pipeline-display", () => {
         scopeSummary: null,
         description: long,
       }),
-    ).toBe(`${"x".repeat(117)}…`);
+    ).toBe(`${"x".repeat(119)}…`);
+  });
+
+  it("does not show General Works when a specific scope or description exists", () => {
+    expect(
+      pipelineWorkTypeLabel({
+        workType: "general_works",
+        scopeSummary: "Two-storey side and rear extensions",
+        description: "Extensions to provide additional living accommodation",
+      }),
+    ).toBe("Two-storey side and rear extensions");
+
+    expect(
+      pipelineWorkTypeLabel({
+        workType: "general_works",
+        scopeSummary: "Indicative scope from planning description.",
+        description: "Extensions to provide additional living accommodation",
+      }),
+    ).toBe("Extensions to provide additional living accommodation");
+  });
+
+  it("extracts a concrete work phrase from outreach letter HTML", () => {
+    const html =
+      "<p>We noticed your recently submitted application (S/175/02271/23) for extensions to provide additional living accommodation at 4 Granary Row, and wanted to reach out.</p>";
+    expect(extractWorkSnippetFromOutreachHtml(html)).toBe(
+      "extensions to provide additional living accommodation",
+    );
+
+    expect(
+      pipelineWorkTypeLabel({
+        workType: "general_works",
+        scopeSummary: "Indicative scope from planning description.",
+        description: null,
+        outreachSnippet: extractWorkSnippetFromOutreachHtml(html),
+      }),
+    ).toBe("extensions to provide additional living accommodation");
   });
 
   it("prefers agent email as primary contact", () => {

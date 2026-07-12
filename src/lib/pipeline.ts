@@ -12,10 +12,15 @@ import { planningEntityToNumber } from "@/lib/planning-entity-bigint";
 import {
   buildPipelineContactSummary,
   extractEstimateFields,
+  extractWorkSnippetFromOutreachHtml,
   pipelineWorkTypeLabel,
   type PipelineAssigneeUser,
   type PipelineLeadRow,
 } from "@/lib/pipeline-display";
+import {
+  letterBodyHtml,
+  type OutreachDraftDisplay,
+} from "@/lib/outreach-draft-display";
 import {
   isPipelineStage,
   type PipelineStage,
@@ -222,25 +227,60 @@ export async function fetchEnrichmentMapForLeads(
   return map;
 }
 
+export async function fetchOutreachSnippetsForLeads(
+  leads: Pick<PipelineLead, "agentApprovalId">[],
+): Promise<Map<string, string>> {
+  const approvalIds = [
+    ...new Set(
+      leads
+        .map((lead) => lead.agentApprovalId)
+        .filter((id): id is string => Boolean(id)),
+    ),
+  ];
+  if (approvalIds.length === 0) return new Map();
+
+  const approvals = await prisma.agentApproval.findMany({
+    where: { id: { in: approvalIds } },
+    select: { id: true, draftJson: true },
+  });
+
+  const map = new Map<string, string>();
+  for (const approval of approvals) {
+    const snippet = extractWorkSnippetFromOutreachHtml(
+      letterBodyHtml(approval.draftJson as OutreachDraftDisplay),
+    );
+    if (snippet) map.set(approval.id, snippet);
+  }
+  return map;
+}
+
 export function serializePipelineLeadFromRecord(
   lead: PipelineLeadWithAssignee,
   enrichment?: SerializePipelineLeadArgs["enrichment"] | null,
+  outreachSnippet?: string | null,
 ): SerializedPipelineLead {
   return serializePipelineLead({
     lead,
     assignedUser: lead.assignedUser ?? null,
     enrichment,
+    outreachSnippet,
   });
 }
 
 export async function serializePipelineLeadsWithEnrichment(
   leads: PipelineLeadWithAssignee[],
 ): Promise<SerializedPipelineLead[]> {
-  const enrichmentMap = await fetchEnrichmentMapForLeads(leads);
+  const [enrichmentMap, outreachSnippets] = await Promise.all([
+    fetchEnrichmentMapForLeads(leads),
+    fetchOutreachSnippetsForLeads(leads),
+  ]);
   return leads.map((lead) =>
     serializePipelineLeadFromRecord(
       lead,
       enrichmentMap.get(lead.planningEntity.toString()) ?? null,
+      lead.agentApprovalId
+        ? outreachSnippets.get(lead.agentApprovalId) ?? null
+        : null,
     ),
   );
 }
@@ -248,10 +288,16 @@ export async function serializePipelineLeadsWithEnrichment(
 export async function serializePipelineLeadWithEnrichment(
   lead: PipelineLeadWithAssignee,
 ): Promise<SerializedPipelineLead> {
-  const enrichmentMap = await fetchEnrichmentMapForLeads([lead]);
+  const [enrichmentMap, outreachSnippets] = await Promise.all([
+    fetchEnrichmentMapForLeads([lead]),
+    fetchOutreachSnippetsForLeads([lead]),
+  ]);
   return serializePipelineLeadFromRecord(
     lead,
     enrichmentMap.get(lead.planningEntity.toString()) ?? null,
+    lead.agentApprovalId
+      ? outreachSnippets.get(lead.agentApprovalId) ?? null
+      : null,
   );
 }
 
@@ -280,12 +326,14 @@ type SerializePipelineLeadArgs = {
     agentName?: string | null;
     agentEmail?: string | null;
   } | null;
+  outreachSnippet?: string | null;
 };
 
 export function serializePipelineLead({
   lead,
   assignedUser = null,
   enrichment = null,
+  outreachSnippet = null,
 }: SerializePipelineLeadArgs): SerializedPipelineLead {
   const { workType, scopeSummary } = extractEstimateFields(lead.estimateJson);
   const contact = buildPipelineContactSummary(enrichment);
@@ -317,6 +365,7 @@ export function serializePipelineLead({
       workType,
       scopeSummary,
       description: lead.description,
+      outreachSnippet,
     }),
     contact,
     createdAt: lead.createdAt.toISOString(),
