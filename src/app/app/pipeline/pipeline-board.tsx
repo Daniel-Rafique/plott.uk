@@ -1,7 +1,9 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
+import { toast } from "sonner";
 import {
   PIPELINE_STAGES,
   PIPELINE_STAGE_LABELS,
@@ -9,6 +11,7 @@ import {
   formatBallparkRange,
   formatBallparkWeeks,
 } from "@/lib/pipeline-shared";
+import type { PipelineLeadRow, PipelineTeamMember } from "@/lib/pipeline-display";
 import { cn } from "@/lib/utils";
 import {
   PulseIndicator,
@@ -16,36 +19,69 @@ import {
   WaveformLoader,
 } from "@/components/ui/loading-indicators";
 
-export type PipelineLeadRow = {
-  id: string;
-  planningEntity: number | null;
-  applicationRef: string | null;
-  siteAddress: string | null;
-  description: string | null;
-  stage: string;
-  stageUpdatedAt: string;
-  notes: string | null;
-  lostReason: string | null;
-  estimateMinGbp: number | null;
-  estimateMaxGbp: number | null;
-  estimateWeeks: number | null;
-  includeBallparkInOutreach: boolean;
-};
+export type { PipelineTeamMember };
 
-export function PipelineBoard({ initialLeads }: { initialLeads: PipelineLeadRow[] }) {
+type StageFilter = "all" | PipelineStage;
+type AssignmentFilter = "all" | "assigned_to_me" | "unassigned" | "by_member";
+
+export function PipelineBoard({
+  currentUserId,
+  initialLeads,
+  teamMembers,
+}: {
+  currentUserId: string;
+  initialLeads: PipelineLeadRow[];
+  teamMembers: PipelineTeamMember[];
+}) {
+  const searchParams = useSearchParams();
+  const highlightLeadId = searchParams.get("lead");
+  const highlightRef = useRef<HTMLLIElement | null>(null);
+
   const [leads, setLeads] = useState(initialLeads);
-  const [filter, setFilter] = useState<"all" | PipelineStage>("all");
+  const [stageFilter, setStageFilter] = useState<StageFilter>("all");
+  const [assignmentFilter, setAssignmentFilter] =
+    useState<AssignmentFilter>("all");
+  const [memberFilterId, setMemberFilterId] = useState<string>("");
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [estimatingId, setEstimatingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
-  const visible = useMemo(
-    () => (filter === "all" ? leads : leads.filter((l) => l.stage === filter)),
-    [leads, filter],
-  );
+  useEffect(() => {
+    if (!highlightLeadId || !highlightRef.current) return;
+    highlightRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [highlightLeadId, leads.length]);
 
-  function updateLead(id: string, patch: Partial<PipelineLeadRow> & { stage?: string }) {
+  const visible = useMemo(() => {
+    let list = leads;
+    if (stageFilter !== "all") {
+      list = list.filter((lead) => lead.stage === stageFilter);
+    }
+    if (assignmentFilter === "assigned_to_me") {
+      list = list.filter((lead) => lead.assignedUserId === currentUserId);
+    } else if (assignmentFilter === "unassigned") {
+      list = list.filter((lead) => !lead.assignedUserId);
+    } else if (assignmentFilter === "by_member" && memberFilterId) {
+      list = list.filter((lead) => lead.assignedUserId === memberFilterId);
+    }
+    return list;
+  }, [
+    leads,
+    stageFilter,
+    assignmentFilter,
+    memberFilterId,
+    currentUserId,
+  ]);
+
+  function applyLeadUpdate(id: string, next: PipelineLeadRow) {
+    setLeads((prev) => prev.map((lead) => (lead.id === id ? next : lead)));
+  }
+
+  function patchLead(
+    id: string,
+    patch: Record<string, unknown>,
+    successMessage?: string,
+  ) {
     setPendingId(id);
     setError(null);
     startTransition(async () => {
@@ -61,38 +97,107 @@ export function PipelineBoard({ initialLeads }: { initialLeads: PipelineLeadRow[
         };
         if (!res.ok || !data.lead) {
           setError(data.error ?? "Could not update lead");
+          toast.error(data.error ?? "Could not update lead");
           return;
         }
-        setLeads((prev) =>
-          prev.map((l) => (l.id === id ? { ...l, ...data.lead! } : l)),
-        );
+        applyLeadUpdate(id, data.lead);
+        if (successMessage) toast.success(successMessage);
       } catch {
         setError("Network error updating lead");
+        toast.error("Network error updating lead");
       } finally {
         setPendingId(null);
       }
     });
   }
 
+  function assigneeLabel(member: PipelineTeamMember): string {
+    return member.name?.trim() || member.email || "Team member";
+  }
+
+  const assignedToMeCount = leads.filter(
+    (lead) => lead.assignedUserId === currentUserId,
+  ).length;
+  const unassignedCount = leads.filter((lead) => !lead.assignedUserId).length;
+
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap gap-2">
-        <FilterChip
-          active={filter === "all"}
-          onClick={() => setFilter("all")}
-          label={`All (${leads.length})`}
-        />
-        {PIPELINE_STAGES.map((stage) => {
-          const count = leads.filter((l) => l.stage === stage).length;
-          return (
-            <FilterChip
-              key={stage}
-              active={filter === stage}
-              onClick={() => setFilter(stage)}
-              label={`${PIPELINE_STAGE_LABELS[stage]} (${count})`}
-            />
-          );
-        })}
+      <div className="space-y-3">
+        <div className="flex flex-wrap gap-2">
+          <FilterChip
+            active={stageFilter === "all"}
+            onClick={() => setStageFilter("all")}
+            label={`All (${leads.length})`}
+          />
+          {PIPELINE_STAGES.map((stage) => {
+            const count = leads.filter((lead) => lead.stage === stage).length;
+            return (
+              <FilterChip
+                key={stage}
+                active={stageFilter === stage}
+                onClick={() => setStageFilter(stage)}
+                label={`${PIPELINE_STAGE_LABELS[stage]} (${count})`}
+              />
+            );
+          })}
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <FilterChip
+            active={assignmentFilter === "all"}
+            onClick={() => {
+              setAssignmentFilter("all");
+              setMemberFilterId("");
+            }}
+            label="Everyone"
+          />
+          <FilterChip
+            active={assignmentFilter === "assigned_to_me"}
+            onClick={() => {
+              setAssignmentFilter("assigned_to_me");
+              setMemberFilterId("");
+            }}
+            label={`Assigned to me (${assignedToMeCount})`}
+          />
+          <FilterChip
+            active={assignmentFilter === "unassigned"}
+            onClick={() => {
+              setAssignmentFilter("unassigned");
+              setMemberFilterId("");
+            }}
+            label={`Unassigned (${unassignedCount})`}
+          />
+          {teamMembers.length > 1 ? (
+            <label className="inline-flex items-center gap-2 text-xs text-zinc-600">
+              <span className="font-medium uppercase tracking-wide">
+                Teammate
+              </span>
+              <select
+                value={
+                  assignmentFilter === "by_member" ? memberFilterId : ""
+                }
+                onChange={(e) => {
+                  const value = e.target.value;
+                  if (!value) {
+                    setAssignmentFilter("all");
+                    setMemberFilterId("");
+                    return;
+                  }
+                  setAssignmentFilter("by_member");
+                  setMemberFilterId(value);
+                }}
+                className="rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm text-zinc-900"
+              >
+                <option value="">Any teammate</option>
+                {teamMembers.map((member) => (
+                  <option key={member.id} value={member.id}>
+                    {assigneeLabel(member)}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : null}
+        </div>
       </div>
 
       {error ? (
@@ -103,13 +208,13 @@ export function PipelineBoard({ initialLeads }: { initialLeads: PipelineLeadRow[
 
       {visible.length === 0 ? (
         <div className="rounded-lg border border-dashed border-zinc-300 px-6 py-12 text-center">
-          <p className="text-sm font-medium text-zinc-900">No leads in this stage</p>
+          <p className="text-sm font-medium text-zinc-900">No leads match</p>
           <p className="mt-1 text-sm text-zinc-600">
-            Leads appear when you send outreach or when weekly digests rank new
-            applications.{" "}
+            Try a different stage or assignment filter, or{" "}
             <Link href="/app/dashboard" className="underline underline-offset-2">
-              Open the map
-            </Link>
+              open the map
+            </Link>{" "}
+            to find new applications.
           </p>
         </div>
       ) : (
@@ -121,10 +226,19 @@ export function PipelineBoard({ initialLeads }: { initialLeads: PipelineLeadRow[
               lead.estimateMinGbp != null && lead.estimateMaxGbp != null
                 ? formatBallparkRange(lead.estimateMinGbp, lead.estimateMaxGbp)
                 : null;
+            const highlighted = highlightLeadId === lead.id;
+
             return (
-              <li key={lead.id} className="px-4 py-4 sm:px-5">
+              <li
+                key={lead.id}
+                ref={highlighted ? highlightRef : undefined}
+                className={cn(
+                  "px-4 py-4 sm:px-5",
+                  highlighted && "bg-amber-50/80 ring-1 ring-inset ring-amber-200",
+                )}
+              >
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                  <div className="min-w-0 space-y-1">
+                  <div className="min-w-0 space-y-2">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="text-sm font-semibold text-zinc-950">
                         {lead.applicationRef ?? "Planning application"}
@@ -133,15 +247,92 @@ export function PipelineBoard({ initialLeads }: { initialLeads: PipelineLeadRow[
                         {PIPELINE_STAGE_LABELS[lead.stage as PipelineStage] ??
                           lead.stage}
                       </span>
+                      {lead.assignedUser ? (
+                        <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-[11px] font-medium text-indigo-800">
+                          {assigneeLabel(lead.assignedUser)}
+                        </span>
+                      ) : null}
                     </div>
+
                     <p className="truncate text-sm text-zinc-700">
                       {lead.siteAddress ?? "Address unknown"}
                     </p>
-                    {lead.description ? (
-                      <p className="line-clamp-2 text-sm text-zinc-500">
-                        {lead.description}
-                      </p>
-                    ) : null}
+
+                    <dl className="grid gap-1 text-sm text-zinc-600">
+                      <div className="flex flex-wrap gap-x-2 gap-y-0.5">
+                        <dt className="font-medium text-zinc-700">Applicant</dt>
+                        <dd>
+                          {lead.contact.applicantName ?? "Unknown applicant"}
+                        </dd>
+                      </div>
+                      {lead.contact.applicantAddress ? (
+                        <div className="flex flex-wrap gap-x-2 gap-y-0.5">
+                          <dt className="font-medium text-zinc-700">Address</dt>
+                          <dd>{lead.contact.applicantAddress}</dd>
+                        </div>
+                      ) : null}
+                      <div className="flex flex-wrap gap-x-2 gap-y-0.5">
+                        <dt className="font-medium text-zinc-700">Email</dt>
+                        <dd>
+                          {lead.contact.primaryEmail ? (
+                            <span className="inline-flex flex-wrap items-center gap-2">
+                              <a
+                                href={`mailto:${lead.contact.primaryEmail}`}
+                                className="font-medium text-zinc-900 underline underline-offset-2 hover:text-zinc-600"
+                              >
+                                {lead.contact.primaryEmail}
+                              </a>
+                              {lead.contact.primaryEmailLabel ? (
+                                <span className="text-xs text-zinc-500">
+                                  {lead.contact.primaryEmailLabel}
+                                </span>
+                              ) : null}
+                            </span>
+                          ) : (
+                            <span className="text-zinc-500">
+                              No email on file
+                            </span>
+                          )}
+                        </dd>
+                      </div>
+                      {lead.contact.agentName ? (
+                        <div className="flex flex-wrap gap-x-2 gap-y-0.5">
+                          <dt className="font-medium text-zinc-700">Agent</dt>
+                          <dd>
+                            {lead.contact.agentName}
+                            {lead.contact.agentEmail ? (
+                              <>
+                                {" · "}
+                                <a
+                                  href={`mailto:${lead.contact.agentEmail}`}
+                                  className="underline underline-offset-2 hover:text-zinc-900"
+                                >
+                                  {lead.contact.agentEmail}
+                                </a>
+                              </>
+                            ) : null}
+                          </dd>
+                        </div>
+                      ) : null}
+                      {lead.workTypeLabel ? (
+                        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                          <dt className="font-medium text-zinc-700">Work type</dt>
+                          <dd>
+                            <span className="inline-flex rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium text-zinc-800">
+                              {lead.workTypeLabel}
+                            </span>
+                          </dd>
+                        </div>
+                      ) : lead.description ? (
+                        <div className="flex flex-wrap gap-x-2 gap-y-0.5">
+                          <dt className="font-medium text-zinc-700">Proposal</dt>
+                          <dd className="line-clamp-2 text-zinc-500">
+                            {lead.description}
+                          </dd>
+                        </div>
+                      ) : null}
+                    </dl>
+
                     {ballpark ? (
                       <p className="text-sm text-zinc-800">
                         Ballpark {ballpark}
@@ -157,7 +348,7 @@ export function PipelineBoard({ initialLeads }: { initialLeads: PipelineLeadRow[
                           disabled={busy}
                           checked={lead.includeBallparkInOutreach}
                           onChange={(e) =>
-                            updateLead(lead.id, {
+                            patchLead(lead.id, {
                               includeBallparkInOutreach: e.target.checked,
                             })
                           }
@@ -177,19 +368,48 @@ export function PipelineBoard({ initialLeads }: { initialLeads: PipelineLeadRow[
                   </div>
 
                   <div className="flex w-full min-w-0 shrink-0 flex-col gap-2 sm:max-w-xs sm:items-end">
+                    <label className="flex w-full items-center gap-2 text-xs text-zinc-600 sm:justify-end">
+                      Assigned to
+                      <select
+                        disabled={busy}
+                        value={lead.assignedUserId ?? ""}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          const nextId = value || null;
+                          const member = teamMembers.find((m) => m.id === value);
+                          patchLead(
+                            lead.id,
+                            { assignedUserId: nextId },
+                            nextId
+                              ? member
+                                ? `Assigned to ${assigneeLabel(member)}`
+                                : "Lead assigned"
+                              : "Assignment cleared",
+                          );
+                        }}
+                        className="min-w-0 flex-1 rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm text-zinc-900 sm:max-w-[12rem]"
+                      >
+                        <option value="">Unassigned</option>
+                        {teamMembers.map((member) => (
+                          <option key={member.id} value={member.id}>
+                            {assigneeLabel(member)}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
                     <label className="flex items-center gap-2 text-xs text-zinc-600">
                       Stage
                       <select
                         disabled={busy}
                         value={lead.stage}
                         onChange={(e) =>
-                          updateLead(lead.id, { stage: e.target.value })
+                          patchLead(lead.id, { stage: e.target.value })
                         }
                         className="rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm text-zinc-900"
                       >
-                        {PIPELINE_STAGES.map((s) => (
-                          <option key={s} value={s}>
-                            {PIPELINE_STAGE_LABELS[s]}
+                        {PIPELINE_STAGES.map((stage) => (
+                          <option key={stage} value={stage}>
+                            {PIPELINE_STAGE_LABELS[stage]}
                           </option>
                         ))}
                       </select>
@@ -217,15 +437,13 @@ export function PipelineBoard({ initialLeads }: { initialLeads: PipelineLeadRow[
                             };
                             if (!res.ok || !data.lead) {
                               setError(data.error ?? "Estimate failed");
+                              toast.error(data.error ?? "Estimate failed");
                               return;
                             }
-                            setLeads((prev) =>
-                              prev.map((l) =>
-                                l.id === lead.id ? { ...l, ...data.lead! } : l,
-                              ),
-                            );
+                            applyLeadUpdate(lead.id, data.lead);
                           } catch {
                             setError("Network error running estimate");
+                            toast.error("Network error running estimate");
                           } finally {
                             setPendingId(null);
                             setEstimatingId(null);
@@ -263,9 +481,9 @@ export function PipelineBoard({ initialLeads }: { initialLeads: PipelineLeadRow[
                         placeholder="Lost reason"
                         defaultValue={lead.lostReason ?? ""}
                         onBlur={(e) => {
-                          const v = e.target.value.trim();
-                          if (v !== (lead.lostReason ?? "")) {
-                            updateLead(lead.id, { lostReason: v || null });
+                          const value = e.target.value.trim();
+                          if (value !== (lead.lostReason ?? "")) {
+                            patchLead(lead.id, { lostReason: value || null });
                           }
                         }}
                         className="w-full min-w-0 rounded-md border border-zinc-300 px-2 py-1.5 text-sm sm:w-56"
@@ -277,9 +495,9 @@ export function PipelineBoard({ initialLeads }: { initialLeads: PipelineLeadRow[
                       defaultValue={lead.notes ?? ""}
                       rows={2}
                       onBlur={(e) => {
-                        const v = e.target.value.trim();
-                        if (v !== (lead.notes ?? "")) {
-                          updateLead(lead.id, { notes: v || null });
+                        const value = e.target.value.trim();
+                        if (value !== (lead.notes ?? "")) {
+                          patchLead(lead.id, { notes: value || null });
                         }
                       }}
                       className="w-full min-w-0 rounded-md border border-zinc-300 px-2 py-1.5 text-sm sm:w-56"

@@ -5,10 +5,17 @@
  * Server-only — client code must import from `@/lib/pipeline-shared`.
  */
 
-import type { PipelineLead, Prisma } from "@prisma/client";
+import type { ApplicationEnrichment, PipelineLead, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { captureServerEvent } from "@/lib/posthog-server";
 import { planningEntityToNumber } from "@/lib/planning-entity-bigint";
+import {
+  buildPipelineContactSummary,
+  extractEstimateFields,
+  pipelineWorkTypeLabel,
+  type PipelineAssigneeUser,
+  type PipelineLeadRow,
+} from "@/lib/pipeline-display";
 import {
   isPipelineStage,
   type PipelineStage,
@@ -169,7 +176,119 @@ export async function markPipelineContactedFromApproval(args: {
   return lead;
 }
 
-export function serializePipelineLead(lead: PipelineLead) {
+export const PIPELINE_ASSIGNEE_SELECT = {
+  id: true,
+  name: true,
+  email: true,
+} as const;
+
+export type PipelineLeadWithAssignee = PipelineLead & {
+  assignedUser?: PipelineAssigneeUser | null;
+};
+
+export function enrichmentFromApplicationEnrichment(
+  row: ApplicationEnrichment | null | undefined,
+): SerializePipelineLeadArgs["enrichment"] | null {
+  if (!row) return null;
+  return {
+    applicantName: row.applicantName,
+    applicantAddress: row.applicantAddress,
+    applicantEmail: row.applicantEmail,
+    applicantEmailSource: row.applicantEmailSource,
+    applicantEmailConfidence: row.applicantEmailConfidence,
+    applicantEmailStatus: row.applicantEmailStatus,
+    agentName: row.agentName,
+    agentEmail: row.agentEmail,
+  };
+}
+
+export async function fetchEnrichmentMapForLeads(
+  leads: Pick<PipelineLead, "planningEntity">[],
+): Promise<Map<string, NonNullable<SerializePipelineLeadArgs["enrichment"]>>> {
+  const entities = [...new Set(leads.map((lead) => lead.planningEntity))];
+  if (entities.length === 0) return new Map();
+
+  const rows = await prisma.applicationEnrichment.findMany({
+    where: { planningEntity: { in: entities } },
+  });
+
+  const map = new Map<string, NonNullable<SerializePipelineLeadArgs["enrichment"]>>();
+  for (const row of rows) {
+    const enrichment = enrichmentFromApplicationEnrichment(row);
+    if (enrichment) {
+      map.set(row.planningEntity.toString(), enrichment);
+    }
+  }
+  return map;
+}
+
+export function serializePipelineLeadFromRecord(
+  lead: PipelineLeadWithAssignee,
+  enrichment?: SerializePipelineLeadArgs["enrichment"] | null,
+): SerializedPipelineLead {
+  return serializePipelineLead({
+    lead,
+    assignedUser: lead.assignedUser ?? null,
+    enrichment,
+  });
+}
+
+export async function serializePipelineLeadsWithEnrichment(
+  leads: PipelineLeadWithAssignee[],
+): Promise<SerializedPipelineLead[]> {
+  const enrichmentMap = await fetchEnrichmentMapForLeads(leads);
+  return leads.map((lead) =>
+    serializePipelineLeadFromRecord(
+      lead,
+      enrichmentMap.get(lead.planningEntity.toString()) ?? null,
+    ),
+  );
+}
+
+export async function serializePipelineLeadWithEnrichment(
+  lead: PipelineLeadWithAssignee,
+): Promise<SerializedPipelineLead> {
+  const enrichmentMap = await fetchEnrichmentMapForLeads([lead]);
+  return serializePipelineLeadFromRecord(
+    lead,
+    enrichmentMap.get(lead.planningEntity.toString()) ?? null,
+  );
+}
+
+export type { PipelineLeadRow, PipelineAssigneeUser } from "@/lib/pipeline-display";
+
+export type SerializedPipelineLead = PipelineLeadRow & {
+  companyId: string;
+  letterId: string | null;
+  agentApprovalId: string | null;
+  estimateJson: unknown;
+  estimatedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+type SerializePipelineLeadArgs = {
+  lead: PipelineLead;
+  assignedUser?: PipelineAssigneeUser | null;
+  enrichment?: {
+    applicantName?: string | null;
+    applicantAddress?: string | null;
+    applicantEmail?: string | null;
+    applicantEmailSource?: string | null;
+    applicantEmailConfidence?: number | null;
+    applicantEmailStatus?: string | null;
+    agentName?: string | null;
+    agentEmail?: string | null;
+  } | null;
+};
+
+export function serializePipelineLead({
+  lead,
+  assignedUser = null,
+  enrichment = null,
+}: SerializePipelineLeadArgs): SerializedPipelineLead {
+  const { workType, scopeSummary } = extractEstimateFields(lead.estimateJson);
+  const contact = buildPipelineContactSummary(enrichment);
   return {
     id: lead.id,
     companyId: lead.companyId,
@@ -189,6 +308,17 @@ export function serializePipelineLead(lead: PipelineLead) {
     estimateJson: lead.estimateJson,
     estimatedAt: lead.estimatedAt?.toISOString() ?? null,
     includeBallparkInOutreach: lead.includeBallparkInOutreach,
+    assignedUserId: lead.assignedUserId,
+    assignedAt: lead.assignedAt?.toISOString() ?? null,
+    assignedUser,
+    workType,
+    scopeSummary,
+    workTypeLabel: pipelineWorkTypeLabel({
+      workType,
+      scopeSummary,
+      description: lead.description,
+    }),
+    contact,
     createdAt: lead.createdAt.toISOString(),
     updatedAt: lead.updatedAt.toISOString(),
   };

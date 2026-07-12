@@ -4,8 +4,10 @@ import { getTenantContext } from "@/lib/tenant";
 import { prisma } from "@/lib/prisma";
 import {
   isPipelineStage,
-  serializePipelineLead,
+  PIPELINE_ASSIGNEE_SELECT,
+  serializePipelineLeadWithEnrichment,
 } from "@/lib/pipeline";
+import { sendPipelineAssignmentEmail } from "@/lib/email";
 import { captureServerEvent } from "@/lib/posthog-server";
 
 export const runtime = "nodejs";
@@ -20,6 +22,7 @@ const patchSchema = z.object({
   estimateMinGbp: z.number().int().min(0).nullable().optional(),
   estimateMaxGbp: z.number().int().min(0).nullable().optional(),
   estimateWeeks: z.number().min(0).max(520).nullable().optional(),
+  assignedUserId: z.string().min(1).nullable().optional(),
 });
 
 export async function GET(_req: Request, context: Ctx) {
@@ -27,11 +30,14 @@ export async function GET(_req: Request, context: Ctx) {
   if (!ctx) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id } = await context.params;
-  const lead = await prisma.pipelineLead.findUnique({ where: { id } });
+  const lead = await prisma.pipelineLead.findUnique({
+    where: { id },
+    include: { assignedUser: { select: PIPELINE_ASSIGNEE_SELECT } },
+  });
   if (!lead || lead.companyId !== ctx.company.id) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
-  return NextResponse.json({ lead: serializePipelineLead(lead) });
+  return NextResponse.json({ lead: await serializePipelineLeadWithEnrichment(lead) });
 }
 
 export async function PATCH(req: Request, context: Ctx) {
@@ -39,7 +45,10 @@ export async function PATCH(req: Request, context: Ctx) {
   if (!ctx) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id } = await context.params;
-  const lead = await prisma.pipelineLead.findUnique({ where: { id } });
+  const lead = await prisma.pipelineLead.findUnique({
+    where: { id },
+    include: { assignedUser: { select: PIPELINE_ASSIGNEE_SELECT } },
+  });
   if (!lead || lead.companyId !== ctx.company.id) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
@@ -62,6 +71,9 @@ export async function PATCH(req: Request, context: Ctx) {
     estimateMinGbp?: number | null;
     estimateMaxGbp?: number | null;
     estimateWeeks?: number | null;
+    assignedUserId?: string | null;
+    assignedAt?: Date | null;
+    assignedById?: string | null;
   } = {};
 
   if (parsed.data.stage !== undefined) {
@@ -88,6 +100,47 @@ export async function PATCH(req: Request, context: Ctx) {
     data.estimateWeeks = parsed.data.estimateWeeks;
   }
 
+  let assigneeToNotify: {
+    id: string;
+    name: string | null;
+    email: string | null;
+  } | null = null;
+
+  if (parsed.data.assignedUserId !== undefined) {
+    const nextAssigneeId = parsed.data.assignedUserId;
+    if (nextAssigneeId === lead.assignedUserId) {
+      // no-op
+    } else if (nextAssigneeId == null) {
+      data.assignedUserId = null;
+      data.assignedAt = null;
+      data.assignedById = null;
+    } else {
+      const membership = await prisma.membership.findUnique({
+        where: {
+          userId_companyId: {
+            userId: nextAssigneeId,
+            companyId: ctx.company.id,
+          },
+        },
+        include: {
+          user: { select: PIPELINE_ASSIGNEE_SELECT },
+        },
+      });
+      if (!membership) {
+        return NextResponse.json(
+          { error: "Assignee must be a member of this workspace." },
+          { status: 400 },
+        );
+      }
+      data.assignedUserId = nextAssigneeId;
+      data.assignedAt = new Date();
+      data.assignedById = ctx.user.id;
+      if (nextAssigneeId !== ctx.user.id) {
+        assigneeToNotify = membership.user;
+      }
+    }
+  }
+
   if (
     data.estimateMinGbp != null &&
     data.estimateMaxGbp != null &&
@@ -102,7 +155,30 @@ export async function PATCH(req: Request, context: Ctx) {
   const updated = await prisma.pipelineLead.update({
     where: { id },
     data,
+    include: { assignedUser: { select: PIPELINE_ASSIGNEE_SELECT } },
   });
+
+  if (assigneeToNotify?.email) {
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://plott.uk";
+    await sendPipelineAssignmentEmail({
+      to: assigneeToNotify.email,
+      assigneeName: assigneeToNotify.name ?? "there",
+      assignerName: ctx.user.name ?? ctx.user.email ?? "A teammate",
+      companyName: ctx.company.name,
+      applicationRef: updated.applicationRef,
+      siteAddress: updated.siteAddress,
+      pipelineUrl: `${baseUrl}/app/pipeline?lead=${updated.id}`,
+    });
+    await captureServerEvent({
+      distinctId: ctx.user.id,
+      event: "pipeline_lead_assigned",
+      properties: {
+        company_id: ctx.company.id,
+        lead_id: updated.id,
+        assigned_user_id: assigneeToNotify.id,
+      },
+    });
+  }
 
   if (data.stage && data.stage !== lead.stage) {
     await captureServerEvent({
@@ -138,5 +214,7 @@ export async function PATCH(req: Request, context: Ctx) {
     }
   }
 
-  return NextResponse.json({ lead: serializePipelineLead(updated) });
+  return NextResponse.json({
+    lead: await serializePipelineLeadWithEnrichment(updated),
+  });
 }

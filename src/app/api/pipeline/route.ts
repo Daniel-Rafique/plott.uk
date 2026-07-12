@@ -4,9 +4,13 @@ import { getTenantContext } from "@/lib/tenant";
 import { prisma } from "@/lib/prisma";
 import {
   isPipelineStage,
-  serializePipelineLead,
   PIPELINE_STAGES,
+  PIPELINE_ASSIGNEE_SELECT,
+  serializePipelineLeadFromRecord,
+  serializePipelineLeadsWithEnrichment,
+  serializePipelineLeadWithEnrichment,
   upsertPipelineLead,
+  fetchEnrichmentMapForLeads,
 } from "@/lib/pipeline";
 import { planningEntityToDb } from "@/lib/planning-entity-bigint";
 
@@ -32,9 +36,10 @@ export async function GET(req: Request) {
     }
     const lead = await prisma.pipelineLead.findFirst({
       where: { companyId: ctx.company.id, planningEntity },
+      include: { assignedUser: { select: PIPELINE_ASSIGNEE_SELECT } },
     });
     return NextResponse.json({
-      lead: lead ? serializePipelineLead(lead) : null,
+      lead: lead ? await serializePipelineLeadWithEnrichment(lead) : null,
     });
   }
 
@@ -53,11 +58,12 @@ export async function GET(req: Request) {
     where,
     orderBy: [{ stageUpdatedAt: "desc" }, { createdAt: "desc" }],
     take: 200,
+    include: { assignedUser: { select: PIPELINE_ASSIGNEE_SELECT } },
   });
 
   return NextResponse.json({
     stages: PIPELINE_STAGES,
-    leads: leads.map(serializePipelineLead),
+    leads: await serializePipelineLeadsWithEnrichment(leads),
   });
 }
 
@@ -83,5 +89,11 @@ export async function POST(req: Request) {
     stage: "new",
   });
 
-  return NextResponse.json({ lead: serializePipelineLead(lead) });
+  const enrichmentMap = await fetchEnrichmentMapForLeads([lead]);
+  return NextResponse.json({
+    lead: serializePipelineLeadFromRecord(
+      lead,
+      enrichmentMap.get(lead.planningEntity.toString()) ?? null,
+    ),
+  });
 }

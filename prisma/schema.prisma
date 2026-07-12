@@ -33,6 +33,8 @@ model User {
   approvalsCreated   AgentApproval[]     @relation("AgentApprovalApprover")
   pinnedApplications PinnedApplication[]
   securityChallenges AccountSecurityChallenge[]
+  pipelineLeadsAssigned   PipelineLead[] @relation("PipelineLeadAssignee")
+  pipelineLeadsAssignedBy PipelineLead[] @relation("PipelineLeadAssignedBy")
 
   @@map("users")
 }
@@ -509,17 +511,23 @@ model PipelineLead {
   estimateJson              Json?     @map("estimate_json")
   estimatedAt               DateTime? @map("estimated_at")
   includeBallparkInOutreach Boolean   @default(true) @map("include_ballpark_in_outreach")
+  assignedUserId            String?   @map("assigned_user_id")
+  assignedAt                DateTime? @map("assigned_at")
+  assignedById              String?   @map("assigned_by_id")
   createdAt                 DateTime  @default(now()) @map("created_at")
   updatedAt                 DateTime  @updatedAt @map("updated_at")
 
   company       Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
   letter        Letter?        @relation(fields: [letterId], references: [id], onDelete: SetNull)
   agentApproval AgentApproval? @relation(fields: [agentApprovalId], references: [id], onDelete: SetNull)
+  assignedUser  User?          @relation("PipelineLeadAssignee", fields: [assignedUserId], references: [id], onDelete: SetNull)
+  assignedBy    User?          @relation("PipelineLeadAssignedBy", fields: [assignedById], references: [id], onDelete: SetNull)
 
   @@unique([companyId, planningEntity])
   @@index([companyId, stage])
   @@index([letterId])
   @@index([agentApprovalId])
+  @@index([assignedUserId])
   @@map("pipeline_leads")
 }
 

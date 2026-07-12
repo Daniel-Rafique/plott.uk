@@ -131,6 +131,54 @@ export async function sendInviteEmail(args: {
   });
 }
 
+export async function sendPipelineAssignmentEmail(args: {
+  to: string;
+  assigneeName: string;
+  assignerName: string;
+  companyName: string;
+  applicationRef: string | null;
+  siteAddress: string | null;
+  pipelineUrl: string;
+}): Promise<void> {
+  const refLine = args.applicationRef
+    ? `<p style="margin:0 0 6px 0;font-size:14px;color:#18181b;font-weight:600;">${escapeHtml(args.applicationRef)}</p>`
+    : "";
+  const siteLine = args.siteAddress
+    ? `<p style="margin:0;font-size:14px;color:#52525b;line-height:1.5;">${escapeHtml(args.siteAddress)}</p>`
+    : "";
+
+  const body = `
+    <p style="margin:0 0 20px 0;font-size:15px;color:#3f3f46;line-height:1.65;">
+      Hi ${escapeHtml(args.assigneeName)},
+    </p>
+    <p style="margin:0 0 20px 0;font-size:15px;color:#3f3f46;line-height:1.65;">
+      <strong>${escapeHtml(args.assignerName)}</strong> assigned you a planning lead in <strong>${escapeHtml(args.companyName)}</strong>. You can review applicant details, update the stage, and add notes in Pipeline.
+    </p>
+    <div style="margin:0 0 24px 0;padding:18px 20px;border:1px solid #e4e4e7;border-left:3px solid ${BRAND.main};border-radius:10px;background:#fafafa;">
+      ${refLine}
+      ${siteLine}
+    </div>
+    <p style="margin:28px 0;text-align:center;">
+      ${ctaButton(args.pipelineUrl, "Open in Pipeline")}
+    </p>
+    <p style="margin:0;font-size:12px;color:#71717a;line-height:1.6;text-align:center;">
+      Sent from ${escapeHtml(args.companyName)} via Plott.
+    </p>`;
+
+  await resendSend({
+    to: args.to,
+    subject: `Pipeline lead assigned: ${args.applicationRef ?? "Planning application"}`,
+    html: brandedShell({
+      heading: "New pipeline assignment",
+      body,
+    }),
+    tags: [
+      { name: "plott_owner", value: "pipeline" },
+      { name: "plott_channel", value: "assignment" },
+    ],
+  });
+}
+
 type DigestApp = {
   entity: number;
   reference?: string;

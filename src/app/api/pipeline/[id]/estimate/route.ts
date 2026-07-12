@@ -7,7 +7,7 @@ import {
   estimateJob,
   persistEstimateOnLead,
 } from "@/lib/ai/agents/job-estimator";
-import { serializePipelineLead } from "@/lib/pipeline";
+import { serializePipelineLeadWithEnrichment, PIPELINE_ASSIGNEE_SELECT } from "@/lib/pipeline";
 import { planningEntityToNumber } from "@/lib/planning-entity-bigint";
 import { logger } from "@/lib/logger";
 
@@ -84,8 +84,13 @@ export async function POST(req: Request, context: Ctx) {
       regenerated: Boolean(lead.estimatedAt) || parsed.data.regenerate,
     });
 
+    const withAssignee = await prisma.pipelineLead.findUniqueOrThrow({
+      where: { id: lead.id },
+      include: { assignedUser: { select: PIPELINE_ASSIGNEE_SELECT } },
+    });
+
     return NextResponse.json({
-      lead: serializePipelineLead(lead),
+      lead: await serializePipelineLeadWithEnrichment(withAssignee),
       estimate: {
         ...estimate,
         disclaimer:
