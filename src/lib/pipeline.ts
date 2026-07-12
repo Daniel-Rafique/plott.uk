@@ -22,6 +22,7 @@ import {
   letterBodyHtml,
   type OutreachDraftDisplay,
 } from "@/lib/outreach-draft-display";
+import { decodeHtmlEntities } from "@/lib/utils";
 import {
   isPipelineStage,
   type PipelineStage,
@@ -89,8 +90,8 @@ export async function upsertPipelineLead(
         companyId: input.companyId,
         planningEntity,
         applicationRef: input.applicationRef ?? null,
-        siteAddress: input.siteAddress ?? null,
-        description: input.description ?? null,
+        siteAddress: decodeHtmlEntities(input.siteAddress) ?? null,
+        description: decodeHtmlEntities(input.description) ?? null,
         workLabel: input.workLabel ?? null,
         stage: input.stage ?? "new",
         stageUpdatedAt: new Date(),
@@ -103,8 +104,12 @@ export async function upsertPipelineLead(
 
   const data: Prisma.PipelineLeadUpdateInput = {};
   if (input.applicationRef != null) data.applicationRef = input.applicationRef;
-  if (input.siteAddress != null) data.siteAddress = input.siteAddress;
-  if (input.description != null) data.description = input.description;
+  if (input.siteAddress != null) {
+    data.siteAddress = decodeHtmlEntities(input.siteAddress);
+  }
+  if (input.description != null) {
+    data.description = decodeHtmlEntities(input.description);
+  }
   if (input.workLabel != null && !isUselessWorkLabel(input.workLabel)) {
     // Prefer a concrete letter/estimate label over empty or generic ones.
     if (!existing.workLabel || isUselessWorkLabel(existing.workLabel)) {
@@ -475,8 +480,8 @@ export function serializePipelineLead({
     companyId: lead.companyId,
     planningEntity: planningEntityToNumber(lead.planningEntity),
     applicationRef: lead.applicationRef,
-    siteAddress: lead.siteAddress,
-    description: lead.description,
+    siteAddress: decodeHtmlEntities(lead.siteAddress),
+    description: decodeHtmlEntities(lead.description),
     stage: lead.stage,
     stageUpdatedAt: lead.stageUpdatedAt.toISOString(),
     notes: lead.notes,
@@ -492,11 +497,16 @@ export function serializePipelineLead({
     assignedUserId: lead.assignedUserId,
     assignedAt: lead.assignedAt?.toISOString() ?? null,
     assignedUser,
-    workLabel: lead.workLabel,
+    workLabel: decodeHtmlEntities(lead.workLabel),
     workType,
-    scopeSummary,
-    workTypeLabel,
-    contact,
+    scopeSummary: decodeHtmlEntities(scopeSummary),
+    workTypeLabel: decodeHtmlEntities(workTypeLabel),
+    contact: {
+      ...contact,
+      applicantName: decodeHtmlEntities(contact.applicantName),
+      applicantAddress: decodeHtmlEntities(contact.applicantAddress),
+      agentName: decodeHtmlEntities(contact.agentName),
+    },
     createdAt: lead.createdAt.toISOString(),
     updatedAt: lead.updatedAt.toISOString(),
   };
