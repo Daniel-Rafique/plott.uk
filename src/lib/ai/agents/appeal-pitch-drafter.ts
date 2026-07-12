@@ -15,6 +15,7 @@ import type {
   AppealGround,
 } from "./appeal-classifier";
 import { APPEAL_GROUND_LABELS } from "./appeal-classifier";
+import { normalizeLetterBodyHtml } from "@/lib/letter-body-shape";
 
 const appealPitchAgentOutputSchema = z.object({
   subject: z.string().min(3).max(140),
@@ -139,7 +140,17 @@ Call the branding tool once, then draft. Output JSON only at the end.`;
     traceName: `appeal-pitch ref=${args.reference}`,
   });
   return {
-    ...finalizeAppealPitchDraft(res.data, recipientName, recipientAddress),
+    ...finalizeAppealPitchDraft(
+      {
+        ...res.data,
+        letterBodyHtml: normalizeLetterBodyHtml(res.data.letterBodyHtml, {
+          recipientAddressLines: recipientAddress,
+          siteAddress: args.siteAddress,
+        }),
+      },
+      recipientName,
+      recipientAddress,
+    ),
     runId: res.runId,
   };
 }

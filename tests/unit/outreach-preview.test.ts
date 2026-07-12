@@ -37,7 +37,7 @@ describe("outreach-preview", () => {
 
     expect(html).toContain("Acme Builders Ltd");
     expect(html).toContain("We noticed your recent application");
-    expect(html).not.toContain("Dear Mr A Smith");
+    expect(html).toContain("Dear Mr A Smith");
   });
 
   it("renders email preview with override subject and body", () => {

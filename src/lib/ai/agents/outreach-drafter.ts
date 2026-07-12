@@ -9,6 +9,7 @@ import { draftingToolSet } from "@/lib/ai/tools";
 import { captureServerEvent } from "@/lib/posthog-server";
 import type { EnrichedApplication } from "./enrichment-agent";
 import type { OutreachContact } from "@/lib/outreach-contact";
+import { normalizeLetterBodyHtml } from "@/lib/letter-body-shape";
 
 export const outreachDraftAgentOutputSchema = z.object({
   subject: z.string().min(3).max(140),
@@ -140,7 +141,17 @@ Call the branding tool once, then draft. Output JSON only at the end.`;
     traceName: `outreach-draft ref=${args.reference}`,
   });
 
-  let draft = finalizeOutreachDraft(res.data, recipientName, recipientAddress);
+  let draft = finalizeOutreachDraft(
+    {
+      ...res.data,
+      letterBodyHtml: normalizeLetterBodyHtml(res.data.letterBodyHtml, {
+        recipientAddressLines: recipientAddress,
+        siteAddress: args.siteAddress,
+      }),
+    },
+    recipientName,
+    recipientAddress,
+  );
 
   if (
     args.ballpark?.include &&

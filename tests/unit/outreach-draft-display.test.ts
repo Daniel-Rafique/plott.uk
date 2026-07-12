@@ -8,7 +8,11 @@ import {
   recipientEmail,
   toStoredDraftJson,
 } from "@/lib/outreach-draft-display";
-import { validateLetterBodyShape } from "@/lib/letter-body-shape";
+import {
+  normalizeLetterBodyHtml,
+  prepareLetterBodyHtml,
+  validateLetterBodyShape,
+} from "@/lib/letter-body-shape";
 
 describe("outreach-draft-display", () => {
   it("resolves recipient email in contact then agent then applicant order", () => {
@@ -100,6 +104,27 @@ describe("letter-body-shape", () => {
     );
     expect(signOff.ok).toBe(false);
     expect(signOff.issues.some((i) => i.code === "sign_off_in_body")).toBe(true);
+  });
+
+  it("strips model-added salutation, sign-off, and address-only paragraphs", () => {
+    const normalized = normalizeLetterBodyHtml(
+      `<p>Dear Sir or Madam,</p>
+<p>68 Oakhill Road SW15 2QP</p>
+<p>We noticed your planning application.</p>
+<p>Yours faithfully,</p>`,
+      { recipientAddressLines: "68 Oakhill Road\nSW15 2QP" },
+    );
+
+    expect(normalized).toBe("<p>We noticed your planning application.</p>");
+    expect(prepareLetterBodyHtml(normalized).ok).toBe(true);
+  });
+
+  it("allows site address mentions inside prose", () => {
+    const result = validateLetterBodyShape(
+      "<p>We are writing regarding the safety guardrail at 68 Oakhill Road, SW15 2QP (ref: 2026/1299).</p><p>Reply remove to opt out.</p>",
+      { recipientAddressLines: "68 Oakhill Road\nSW15 2QP" },
+    );
+    expect(result.ok).toBe(true);
   });
 
   it("accepts body-only paragraphs", () => {

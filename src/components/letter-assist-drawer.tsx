@@ -16,6 +16,7 @@ import { Sparkles, X, Check, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { sanitizeHtmlFragment } from "@/lib/sanitize-html";
+import { normalizeLetterBodyHtml } from "@/lib/letter-body-shape";
 import posthog from "posthog-js";
 import { WaveformLoader } from "./ui/loading-indicators";
 
@@ -119,7 +120,11 @@ export function LetterAssistDrawer({
       instruction: instruction.trim() || undefined,
       reference,
     });
-    onApply(stripFences(draftHtml));
+    onApply(
+      normalizeLetterBodyHtml(stripFences(draftHtml), {
+        siteAddress,
+      }),
+    );
     toast.success("Applied AI rewrite");
     onOpenChange(false);
   }

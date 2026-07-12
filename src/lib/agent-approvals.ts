@@ -8,7 +8,7 @@ import {
   letterBodyHtml,
   type OutreachDraftDisplay,
 } from "@/lib/outreach-draft-display";
-import { validateLetterBodyShape } from "@/lib/letter-body-shape";
+import { prepareLetterBodyHtml } from "@/lib/letter-body-shape";
 import { formatUkPostalAddressLines } from "@/lib/contact-quality";
 
 type OutreachDraft = {
@@ -92,14 +92,18 @@ export async function materializeApprovalLetter({
   }
 
   const draft = approval.draftJson as OutreachDraftDisplay;
-  const body = letterBodyHtml(draft);
-  if (!draft?.subject || !body || !draft?.recipient?.addressLines) {
+  const rawBody = letterBodyHtml(draft);
+  if (!draft?.subject || !rawBody || !draft?.recipient?.addressLines) {
     throw new ApprovalMaterializationError(
       "Draft is incomplete and cannot be approved",
     );
   }
   const subject = draft.subject;
-  const bodyHtml = body;
+  const prepared = prepareLetterBodyHtml(rawBody, {
+    recipientAddressLines: draft.recipient?.addressLines,
+    siteAddress: draft.siteAddress,
+  });
+  const bodyHtml = prepared.html;
   const addressLines = formatUkPostalAddressLines(draft.recipient.addressLines);
   const recipientName = draft.recipient.name ?? "Sir or Madam";
 
@@ -113,14 +117,11 @@ export async function materializeApprovalLetter({
     );
   }
 
-  const shape = validateLetterBodyShape(bodyHtml, {
-    recipientAddressLines: draft.recipient?.addressLines,
-  });
-  if (!shape.ok) {
+  if (!prepared.ok) {
     throw new ApprovalMaterializationError(
-      shape.issues.map((i) => i.message).join(" "),
+      prepared.issues.map((i) => i.message).join(" "),
       422,
-      shape.issues,
+      prepared.issues,
     );
   }
 

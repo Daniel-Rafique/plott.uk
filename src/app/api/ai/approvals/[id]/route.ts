@@ -24,7 +24,7 @@ import {
   recipientEmail,
   type OutreachDraftDisplay,
 } from "@/lib/outreach-draft-display";
-import { validateLetterBodyShape } from "@/lib/letter-body-shape";
+import { prepareLetterBodyHtml } from "@/lib/letter-body-shape";
 import { markPipelineContactedFromApproval } from "@/lib/pipeline";
 import { logger } from "@/lib/logger";
 import {
@@ -123,17 +123,21 @@ export async function PATCH(req: Request, context: Ctx) {
           { status: 422 },
         );
       }
-      const shape = validateLetterBodyShape(html, {
+      const prepared = prepareLetterBodyHtml(html, {
         recipientAddressLines: existing.recipient?.addressLines,
+        siteAddress: existing.siteAddress,
       });
-      if (!shape.ok) {
+      if (!prepared.ok) {
         return NextResponse.json(
-          { error: shape.issues[0]?.message ?? "Invalid letter body", issues: shape.issues },
+          {
+            error: prepared.issues[0]?.message ?? "Invalid letter body",
+            issues: prepared.issues,
+          },
           { status: 422 },
         );
       }
-      nextDraft.letterBodyHtml = html;
-      nextDraft.bodyHtml = html;
+      nextDraft.letterBodyHtml = prepared.html;
+      nextDraft.bodyHtml = prepared.html;
     }
     if (typeof parsed.data.emailBodyHtml === "string") {
       const html = sanitizeHtmlFragment(parsed.data.emailBodyHtml);

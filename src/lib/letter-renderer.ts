@@ -252,9 +252,12 @@ export function renderLetterHtml(i: LetterInput): {
       : `${i.company.name} — introduction`);
   const subject = applyMerge(rawSubject, mergeVars);
 
-  const body = i.templateBodyHtml
+  const mergedBody = i.templateBodyHtml
     ? sanitizeHtmlFragment(applyMerge(i.templateBodyHtml, mergeVars))
     : defaultBody(i);
+  const body = i.templateBodyHtml
+    ? `<p>Dear ${esc(i.addresseeName)},</p>\n${mergedBody}`
+    : mergedBody;
 
   const formattedAddress = formatUkPostalAddressLines(i.addressLines);
   const showSiteInRe =
