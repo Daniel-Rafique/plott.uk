@@ -1,4 +1,9 @@
-import { isBodyOnlyHtml } from "@/lib/letter-renderer";
+const BODY_ONLY_FORBIDDEN =
+  /<(?:!doctype|html|head|body|style|img|script|iframe|link|meta|title)\b/i;
+
+function isBodyOnlyHtml(html: string): boolean {
+  return !BODY_ONLY_FORBIDDEN.test(html);
+}
 
 export type LetterBodyShapeIssue = {
   code: string;
