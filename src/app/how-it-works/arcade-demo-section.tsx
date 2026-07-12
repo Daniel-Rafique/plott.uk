@@ -24,8 +24,9 @@ export function ArcadeDemoSection() {
               data-reveal
               className="mt-6 text-[15px] leading-relaxed text-zinc-300"
             >
-              Follow the flow from planning application to human-approved letter,
-              with each step shown in the product instead of a static screenshot.
+              Follow the flow from planning application to human-approved letter
+              and into Pipeline — with each step shown in the product instead of
+              a static screenshot.
             </p>
           </div>
 

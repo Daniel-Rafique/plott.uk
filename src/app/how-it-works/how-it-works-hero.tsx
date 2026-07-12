@@ -235,9 +235,9 @@ export function HowItWorksHero() {
           ref={ledeRef}
           className="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-zinc-200/90"
         >
-          Three steps to turn any UK planning application into a personalised
-          letter or reviewed email draft — plus an autonomous agent that
-          monitors your saved searches around the clock.
+          Three steps to a personalised letter or reviewed email draft — then
+          track every lead in Pipeline, assign teammates, and let an autonomous
+          agent keep monitoring your saved searches around the clock.
         </p>
         <p
           ref={creditRef}

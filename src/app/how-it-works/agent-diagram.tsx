@@ -15,8 +15,9 @@ export const AGENT_STEPS = [
   },
   {
     number: "03",
-    title: "Enrich contacts",
-    description: "Run the full enrichment cascade on each new application",
+    title: "Enrich & estimate",
+    description:
+      "Resolve contacts and, where your rate card allows, attach an indicative ballpark",
   },
   {
     number: "04",
@@ -26,6 +27,12 @@ export const AGENT_STEPS = [
   },
   {
     number: "05",
+    title: "Land in Pipeline",
+    description:
+      "Track each lead by stage, work type, and assignee — with teammate notifications",
+  },
+  {
+    number: "06",
     title: "Deliver digest",
     description:
       "Weekly summary with enriched leads and approved outreach options",
@@ -46,12 +53,16 @@ export const AGENT_FEATURES = [
     description: "contacts resolved before they reach you",
   },
   {
-    title: "Weekly digest emails",
-    description: "summary delivered straight to your inbox",
+    title: "Ballpark on the lead",
+    description: "indicative cost and programme when your rates are set",
   },
   {
-    title: "Approved prospect emails",
-    description: "opt-in Resend sending only after compliance and review",
+    title: "Pipeline handoff",
+    description: "assign teammates and track stage from first contact",
+  },
+  {
+    title: "Weekly digest emails",
+    description: "summary delivered straight to your inbox",
   },
 ] as const;
 

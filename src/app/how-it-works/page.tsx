@@ -9,11 +9,11 @@ import {
 export const metadata = publicPageMetadata({
   title: "How it works",
   description:
-    "From map to approved outreach in three steps. Draw your patch, resolve the people, then review branded letters or compliant email drafts before anything is sent.",
+    "From map to approved outreach and a live sales pipeline. Draw your patch, resolve the people, review branded letters or email drafts, then track and assign every lead.",
   path: "/how-it-works",
-  openGraphTitle: "How Plott works — Map to approved outreach in 30 seconds",
+  openGraphTitle: "How Plott works — Map to outreach, then Pipeline",
   openGraphDescription:
-    "Draw your patch, resolve the people, then approve branded letters or email drafts. Plus autonomous monitoring of your saved searches.",
+    "Draw your patch, enrich applicants, approve branded letters or email drafts with optional ballparks, track leads in Pipeline, and let saved searches run themselves.",
 });
 
 const howItWorksJsonLd = [
@@ -24,7 +24,7 @@ const howItWorksJsonLd = [
   howToJsonLd({
     name: "How to turn planning applications into outreach with Plott",
     description:
-      "Use Plott to draw a target patch, enrich planning applicants, and produce branded letters or human-approved email outreach drafts.",
+      "Use Plott to draw a target patch, enrich planning applicants, produce branded letters or human-approved email outreach drafts, and track every lead in Pipeline.",
     path: "/how-it-works",
     steps: [
       {
@@ -37,7 +37,11 @@ const howItWorksJsonLd = [
       },
       {
         name: "Review approved outreach",
-        text: "Generate an audit-friendly branded letter or email draft, then approve the message before any optional Resend email is sent.",
+        text: "Generate an audit-friendly branded letter or email draft with an optional ballpark estimate, then approve the message before any optional Resend email is sent.",
+      },
+      {
+        name: "Track the pipeline",
+        text: "Follow each lead from first contact to won or lost, with applicant details, work type, teammate assignment, and shared notes.",
       },
     ],
   }),

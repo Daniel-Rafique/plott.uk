@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import Link from "next/link";
-import { ArrowRight, Map, Users, MailCheck } from "lucide-react";
+import { ArrowRight, Map, Users, MailCheck, Kanban } from "lucide-react";
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { RevealGroup, RevealHeading } from "@/lib/animation/reveal";
@@ -32,6 +32,7 @@ const STEPS = [
     details: [
       "Photorealistic 3D maps powered by Google's aerial imagery",
       "Filter by application status, decision window, or use class",
+      "Ask the planning Q&A agent in natural language — refused householder extensions near NW1, and similar prompts",
       "Save any polygon as a standing search for continuous monitoring",
     ],
   },
@@ -49,11 +50,26 @@ const STEPS = [
     title: "Send approved outreach",
     subtitle: "Letters or email, always human-approved",
     description:
-      "Generate a personalised A4 letter or review an email draft for a publicly available business address. Email sending is opt-in at workspace level, checked for compliance, routed through a human approval queue, and synced through Resend with audit details recorded.",
+      "Generate a personalised A4 letter or review an email draft for a publicly available business address. Optional ballpark estimates give a rough sense of cost and programme when your rate card supports it. Email sending is opt-in at workspace level, checked for compliance, routed through a human approval queue, and synced through Resend with audit details recorded.",
     details: [
       "Customisable letterhead and email templates with merge fields",
+      "Indicative ballpark ranges from your rate card — include or omit per lead",
       "Single-click PDFs, bulk letter export, or approve-and-send email",
       "Compliance guardrails, suppression checks, and sent audit trail",
+    ],
+  },
+  {
+    number: "04",
+    icon: Kanban,
+    title: "Track the pipeline",
+    subtitle: "From first contact to won or lost",
+    description:
+      "Every outreach lead lands in Pipeline with applicant details, email when available, and a clear work label for the job. Assign teammates, update stage and notes together, and keep ballpark estimates next to the conversation so nothing falls through the cracks.",
+    details: [
+      "Stages from new through contacted, quoted, won, and lost",
+      "Applicant name, email, and work type on every lead card",
+      "Assign a teammate — they get notified and can update progress",
+      "Filter by stage or assignee so each person sees their patch",
     ],
   },
 ];
@@ -217,7 +233,7 @@ function ProcessDiagram() {
       <div data-heading className="editorial-hairline mb-16 max-w-2xl pt-8">
         <p className="editorial-chapter-label text-brand-dark">The workflow</p>
         <h2 className="mt-6 font-[family-name:var(--font-display)] text-[clamp(28px,4vw,44px)] font-normal leading-[1.15] tracking-tight text-zinc-950">
-          Three steps. Ten seconds. Done.
+          Map to draft in seconds. Pipeline after that.
         </h2>
       </div>
 
@@ -270,7 +286,8 @@ function ProcessDiagram() {
 
         <div data-summary className="mt-12 text-center">
           <p className="text-sm font-medium text-brand-dark">
-            Total time: ~10 seconds from search to human-approved outreach draft
+            Core loop: ~10 seconds from search to a human-approved outreach draft,
+            then track every lead in Pipeline
           </p>
         </div>
       </div>
