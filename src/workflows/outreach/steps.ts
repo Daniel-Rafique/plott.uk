@@ -364,6 +364,29 @@ export async function createOutreachApprovalStep(args: {
       approvedAt: canAutoApprove ? new Date() : null,
     },
   });
+
+  try {
+    const { setPipelineWorkLabelForEntity } = await import("@/lib/pipeline");
+    const { deriveShortWorkLabel } = await import("@/lib/pipeline-display");
+    const workLabel = deriveShortWorkLabel({
+      letterHtml: args.draft.letterBodyHtml,
+      description: null,
+    });
+    if (workLabel) {
+      await setPipelineWorkLabelForEntity({
+        companyId: args.payload.companyId,
+        planningEntity: args.payload.planningEntity,
+        workLabel,
+        force: true,
+      });
+    }
+  } catch (err) {
+    logger.warn(
+      { err, approvalId: row.id },
+      "pipeline_work_label_from_draft_failed",
+    );
+  }
+
   return { id: row.id, autoApproved: canAutoApprove };
 }
 

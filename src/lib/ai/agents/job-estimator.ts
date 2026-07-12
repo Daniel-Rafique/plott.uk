@@ -12,6 +12,10 @@ import {
   BALLPARK_DISCLAIMER,
 } from "@/lib/pipeline-shared";
 import {
+  deriveShortWorkLabel,
+  isUselessWorkLabel,
+} from "@/lib/pipeline-display";
+import {
   applyBallparkTokens,
   ballparkParagraphHtml,
   injectBallparkIntoHtml,
@@ -118,6 +122,14 @@ function roundGbp(n: number): number {
   return Math.round(n / 500) * 500;
 }
 
+function sanitizeScopeSummary(raw: string | null | undefined): string {
+  const trimmed = raw?.trim() ?? "";
+  if (!trimmed || isUselessWorkLabel(trimmed)) {
+    return "Planning works";
+  }
+  return trimmed.slice(0, 160);
+}
+
 function postProcess(
   raw: z.infer<typeof estimatorRawSchema>,
   rateCard: RateCardSnapshot | null,
@@ -139,7 +151,7 @@ function postProcess(
 
   return {
     workType: raw.workType.trim() || "general_works",
-    scopeSummary: raw.scopeSummary.trim() || "Indicative scope from planning description.",
+    scopeSummary: sanitizeScopeSummary(raw.scopeSummary),
     packages: (raw.packages ?? []).slice(0, 12).map((p) => ({
       label: p.label,
       assumption: p.assumption,
@@ -204,6 +216,7 @@ Rules:
 - Propose an INDICATIVE ballpark, never a fixed quote.
 - Prefer company rate-card unit rates and day rates over generic averages when a rate card is present.
 - Infer work type (e.g. loft_conversion, rear_extension, re_roof, new_build, general_works) from the planning description.
+- scopeSummary MUST be a short human phrase for the job (e.g. "Roof perimeter safety guardrail", "Two-storey rear extension"). Never write "no description provided", addresses, or application references in scopeSummary.
 - Infer likely floor area (m²) when not provided; state that in assumptions.
 - Widen the £ range when the description is thin or ambiguous.
 - estimateWeeksMin/Max are calendar weeks on site / programme, not labour-days alone.
@@ -272,7 +285,12 @@ export async function persistEstimateOnLead(args: {
 }) {
   const existing = await prisma.pipelineLead.findUnique({
     where: { id: args.leadId },
-    select: { estimatedAt: true, includeBallparkInOutreach: true },
+    select: {
+      estimatedAt: true,
+      includeBallparkInOutreach: true,
+      workLabel: true,
+      description: true,
+    },
   });
 
   const estimateJson = {
@@ -296,6 +314,13 @@ export async function persistEstimateOnLead(args: {
       ? existing.includeBallparkInOutreach
       : args.estimate.confidence >= BALLPARK_CONFIDENCE_THRESHOLD;
 
+  const workLabel = deriveShortWorkLabel({
+    workLabel: existing?.workLabel,
+    workType: args.estimate.workType,
+    scopeSummary: args.estimate.scopeSummary,
+    description: existing?.description,
+  });
+
   const updated = await prisma.pipelineLead.update({
     where: { id: args.leadId },
     data: {
@@ -305,6 +330,10 @@ export async function persistEstimateOnLead(args: {
       estimateJson,
       estimatedAt: new Date(),
       includeBallparkInOutreach: include,
+      ...(workLabel &&
+      (!existing?.workLabel || isUselessWorkLabel(existing.workLabel))
+        ? { workLabel }
+        : {}),
     },
   });
 

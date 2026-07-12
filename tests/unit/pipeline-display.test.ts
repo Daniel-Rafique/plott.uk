@@ -1,80 +1,73 @@
 import { describe, expect, it } from "vitest";
 import {
   buildPipelineContactSummary,
+  deriveShortWorkLabel,
   extractWorkSnippetFromOutreachHtml,
   formatWorkTypeLabel,
-  pipelineWorkTypeLabel,
+  isUselessWorkLabel,
 } from "@/lib/pipeline-display";
 
 describe("pipeline-display", () => {
   it("formats work type keys for display", () => {
     expect(formatWorkTypeLabel("loft_conversion")).toBe("Loft Conversion");
-    expect(formatWorkTypeLabel("general_works")).toBe("General Works");
+    expect(formatWorkTypeLabel("general_works")).toBeNull();
     expect(formatWorkTypeLabel(null)).toBeNull();
   });
 
-  it("prefers work type label over scope summary and description", () => {
+  it("rejects useless estimate placeholders", () => {
     expect(
-      pipelineWorkTypeLabel({
+      isUselessWorkLabel(
+        "68 Oakhill Road SW15 2QP - planning application 2026/1299. No description provided; work type, scope and scale are enti…",
+      ),
+    ).toBe(true);
+    expect(isUselessWorkLabel("Roof safety guardrail")).toBe(false);
+  });
+
+  it("prefers a concrete scope phrase over the rate-card work type key", () => {
+    expect(
+      deriveShortWorkLabel({
         workType: "rear_extension",
         scopeSummary: "Two-storey rear extension",
         description: "Extension to rear of dwelling",
       }),
-    ).toBe("Rear Extension");
+    ).toBe("Two-storey rear extension");
   });
 
-  it("falls back to scope summary then truncated description", () => {
-    expect(
-      pipelineWorkTypeLabel({
-        workType: null,
-        scopeSummary: "Roof guardrail installation",
-        description: "Safety guardrail system to roof perimeter",
-      }),
-    ).toBe("Roof guardrail installation");
-
-    const long = "x".repeat(140);
-    expect(
-      pipelineWorkTypeLabel({
-        workType: null,
-        scopeSummary: null,
-        description: long,
-      }),
-    ).toBe(`${"x".repeat(119)}…`);
-  });
-
-  it("does not show General Works when a specific scope or description exists", () => {
-    expect(
-      pipelineWorkTypeLabel({
-        workType: "general_works",
-        scopeSummary: "Two-storey side and rear extensions",
-        description: "Extensions to provide additional living accommodation",
-      }),
-    ).toBe("Two-storey side and rear extensions");
-
-    expect(
-      pipelineWorkTypeLabel({
-        workType: "general_works",
-        scopeSummary: "Indicative scope from planning description.",
-        description: "Extensions to provide additional living accommodation",
-      }),
-    ).toBe("Extensions to provide additional living accommodation");
-  });
-
-  it("extracts a concrete work phrase from outreach letter HTML", () => {
+  it("uses letter text over general_works estimate placeholders", () => {
     const html =
-      "<p>We noticed your recently submitted application (S/175/02271/23) for extensions to provide additional living accommodation at 4 Granary Row, and wanted to reach out.</p>";
+      "<p>We note that planning permission has been sought for the installation of a safety guardrail system to the roof perimeter at 68 Oakhill Road, SW15 2QP (ref: 2026/1299).</p>";
+
     expect(extractWorkSnippetFromOutreachHtml(html)).toBe(
-      "extensions to provide additional living accommodation",
+      "Safety guardrail system to the roof perimeter",
     );
 
     expect(
-      pipelineWorkTypeLabel({
+      deriveShortWorkLabel({
         workType: "general_works",
-        scopeSummary: "Indicative scope from planning description.",
+        scopeSummary:
+          "68 Oakhill Road SW15 2QP - planning application 2026/1299. No description provided; work type, scope and scale are enti…",
         description: null,
-        outreachSnippet: extractWorkSnippetFromOutreachHtml(html),
+        letterHtml: html,
       }),
-    ).toBe("extensions to provide additional living accommodation");
+    ).toBe("Safety guardrail system to the roof perimeter");
+  });
+
+  it("uses scope summary when it is a real job phrase", () => {
+    expect(
+      deriveShortWorkLabel({
+        workType: "general_works",
+        scopeSummary: "Roof perimeter safety guardrail",
+        description: null,
+      }),
+    ).toBe("Roof perimeter safety guardrail");
+  });
+
+  it("extracts extensions from outreach copy", () => {
+    const html =
+      "<p>We noticed your recently submitted application (S/175/02271/23) for extensions to provide additional living accommodation at 4 Granary Row, and wanted to reach out.</p>";
+    expect(extractWorkSnippetFromOutreachHtml(html)).toBe(
+      "Extensions to provide additional living accommodation",
+    );
   });
 
   it("prefers agent email as primary contact", () => {

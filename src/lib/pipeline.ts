@@ -11,9 +11,10 @@ import { captureServerEvent } from "@/lib/posthog-server";
 import { planningEntityToNumber } from "@/lib/planning-entity-bigint";
 import {
   buildPipelineContactSummary,
+  deriveShortWorkLabel,
   extractEstimateFields,
   extractWorkSnippetFromOutreachHtml,
-  pipelineWorkTypeLabel,
+  isUselessWorkLabel,
   type PipelineAssigneeUser,
   type PipelineLeadRow,
 } from "@/lib/pipeline-display";
@@ -43,6 +44,8 @@ export type UpsertPipelineLeadInput = {
   applicationRef?: string | null;
   siteAddress?: string | null;
   description?: string | null;
+  /** Short human job label (e.g. "Roof safety guardrail"). */
+  workLabel?: string | null;
   /** If set, advances stage when current is earlier (e.g. send → contacted). */
   stage?: PipelineStage;
   letterId?: string | null;
@@ -88,6 +91,7 @@ export async function upsertPipelineLead(
         applicationRef: input.applicationRef ?? null,
         siteAddress: input.siteAddress ?? null,
         description: input.description ?? null,
+        workLabel: input.workLabel ?? null,
         stage: input.stage ?? "new",
         stageUpdatedAt: new Date(),
         letterId: input.letterId ?? null,
@@ -101,6 +105,12 @@ export async function upsertPipelineLead(
   if (input.applicationRef != null) data.applicationRef = input.applicationRef;
   if (input.siteAddress != null) data.siteAddress = input.siteAddress;
   if (input.description != null) data.description = input.description;
+  if (input.workLabel != null && !isUselessWorkLabel(input.workLabel)) {
+    // Prefer a concrete letter/estimate label over empty or generic ones.
+    if (!existing.workLabel || isUselessWorkLabel(existing.workLabel)) {
+      data.workLabel = input.workLabel.trim();
+    }
+  }
   if (input.letterId != null) data.letter = { connect: { id: input.letterId } };
   if (input.agentApprovalId != null) {
     data.agentApproval = { connect: { id: input.agentApprovalId } };
@@ -117,6 +127,70 @@ export async function upsertPipelineLead(
   });
 }
 
+/**
+ * Persist a short work label on a lead. Letter-derived labels always win
+ * over estimate placeholders; otherwise only fill when empty/useless.
+ */
+export async function setPipelineWorkLabel(args: {
+  leadId: string;
+  workLabel: string | null | undefined;
+  force?: boolean;
+}): Promise<void> {
+  const label = args.workLabel?.trim();
+  if (!label || isUselessWorkLabel(label)) return;
+
+  const existing = await prisma.pipelineLead.findUnique({
+    where: { id: args.leadId },
+    select: { workLabel: true },
+  });
+  if (!existing) return;
+  if (
+    !args.force &&
+    existing.workLabel &&
+    !isUselessWorkLabel(existing.workLabel)
+  ) {
+    return;
+  }
+
+  await prisma.pipelineLead.update({
+    where: { id: args.leadId },
+    data: { workLabel: label },
+  });
+}
+
+export async function setPipelineWorkLabelForEntity(args: {
+  companyId: string;
+  planningEntity: number | bigint;
+  workLabel: string | null | undefined;
+  force?: boolean;
+}): Promise<void> {
+  const label = args.workLabel?.trim();
+  if (!label || isUselessWorkLabel(label)) return;
+
+  const lead = await prisma.pipelineLead.findUnique({
+    where: {
+      companyId_planningEntity: {
+        companyId: args.companyId,
+        planningEntity: BigInt(args.planningEntity),
+      },
+    },
+    select: { id: true, workLabel: true },
+  });
+  if (!lead) return;
+  if (
+    !args.force &&
+    lead.workLabel &&
+    !isUselessWorkLabel(lead.workLabel)
+  ) {
+    return;
+  }
+
+  await prisma.pipelineLead.update({
+    where: { id: lead.id },
+    data: { workLabel: label },
+  });
+}
+
 export async function markPipelineContactedFromLetter(args: {
   companyId: string;
   letterId: string;
@@ -126,6 +200,13 @@ export async function markPipelineContactedFromLetter(args: {
   distinctId?: string;
 }): Promise<PipelineLead | null> {
   if (args.planningEntity == null) return null;
+
+  const letter = await prisma.letter.findUnique({
+    where: { id: args.letterId },
+    select: { bodyHtml: true },
+  });
+  const workLabel = deriveShortWorkLabel({ letterHtml: letter?.bodyHtml });
+
   const lead = await upsertPipelineLead({
     companyId: args.companyId,
     planningEntity: args.planningEntity,
@@ -133,7 +214,11 @@ export async function markPipelineContactedFromLetter(args: {
     siteAddress: args.siteAddress,
     stage: "contacted",
     letterId: args.letterId,
+    workLabel,
   });
+  if (workLabel) {
+    await setPipelineWorkLabel({ leadId: lead.id, workLabel, force: true });
+  }
   if (args.distinctId) {
     await captureServerEvent({
       distinctId: args.distinctId,
@@ -158,6 +243,15 @@ export async function markPipelineContactedFromApproval(args: {
   distinctId?: string;
 }): Promise<PipelineLead | null> {
   if (args.planningEntity == null) return null;
+
+  const approval = await prisma.agentApproval.findUnique({
+    where: { id: args.agentApprovalId },
+    select: { draftJson: true },
+  });
+  const workLabel = deriveShortWorkLabel({
+    letterHtml: letterBodyHtml(approval?.draftJson as OutreachDraftDisplay),
+  });
+
   const lead = await upsertPipelineLead({
     companyId: args.companyId,
     planningEntity: args.planningEntity,
@@ -165,7 +259,11 @@ export async function markPipelineContactedFromApproval(args: {
     siteAddress: args.siteAddress,
     stage: "contacted",
     agentApprovalId: args.agentApprovalId,
+    workLabel,
   });
+  if (workLabel) {
+    await setPipelineWorkLabel({ leadId: lead.id, workLabel, force: true });
+  }
   if (args.distinctId) {
     await captureServerEvent({
       distinctId: args.distinctId,
@@ -274,6 +372,34 @@ export async function serializePipelineLeadsWithEnrichment(
     fetchEnrichmentMapForLeads(leads),
     fetchOutreachSnippetsForLeads(leads),
   ]);
+
+  // Backfill missing/useless work labels from letter drafts or estimate scope.
+  const backfills: Array<Promise<unknown>> = [];
+  for (const lead of leads) {
+    if (lead.workLabel && !isUselessWorkLabel(lead.workLabel)) continue;
+    const snippet = lead.agentApprovalId
+      ? outreachSnippets.get(lead.agentApprovalId) ?? null
+      : null;
+    const { workType, scopeSummary } = extractEstimateFields(lead.estimateJson);
+    const derived = deriveShortWorkLabel({
+      workType,
+      scopeSummary,
+      description: lead.description,
+      outreachSnippet: snippet,
+    });
+    if (!derived) continue;
+    lead.workLabel = derived;
+    backfills.push(
+      prisma.pipelineLead.update({
+        where: { id: lead.id },
+        data: { workLabel: derived },
+      }),
+    );
+  }
+  if (backfills.length > 0) {
+    await Promise.allSettled(backfills);
+  }
+
   return leads.map((lead) =>
     serializePipelineLeadFromRecord(
       lead,
@@ -337,6 +463,13 @@ export function serializePipelineLead({
 }: SerializePipelineLeadArgs): SerializedPipelineLead {
   const { workType, scopeSummary } = extractEstimateFields(lead.estimateJson);
   const contact = buildPipelineContactSummary(enrichment);
+  const workTypeLabel = deriveShortWorkLabel({
+    workLabel: lead.workLabel,
+    workType,
+    scopeSummary,
+    description: lead.description,
+    outreachSnippet,
+  });
   return {
     id: lead.id,
     companyId: lead.companyId,
@@ -359,14 +492,10 @@ export function serializePipelineLead({
     assignedUserId: lead.assignedUserId,
     assignedAt: lead.assignedAt?.toISOString() ?? null,
     assignedUser,
+    workLabel: lead.workLabel,
     workType,
     scopeSummary,
-    workTypeLabel: pipelineWorkTypeLabel({
-      workType,
-      scopeSummary,
-      description: lead.description,
-      outreachSnippet,
-    }),
+    workTypeLabel,
     contact,
     createdAt: lead.createdAt.toISOString(),
     updatedAt: lead.updatedAt.toISOString(),

@@ -138,6 +138,24 @@ export async function PATCH(req: Request, context: Ctx) {
       }
       nextDraft.letterBodyHtml = prepared.html;
       nextDraft.bodyHtml = prepared.html;
+
+      if (approval.planningEntity != null) {
+        try {
+          const { deriveShortWorkLabel } = await import("@/lib/pipeline-display");
+          const { setPipelineWorkLabelForEntity } = await import("@/lib/pipeline");
+          const workLabel = deriveShortWorkLabel({ letterHtml: prepared.html });
+          if (workLabel) {
+            await setPipelineWorkLabelForEntity({
+              companyId: approval.companyId,
+              planningEntity: approval.planningEntity,
+              workLabel,
+              force: true,
+            });
+          }
+        } catch {
+          // Non-blocking — letter save still succeeds.
+        }
+      }
     }
     if (typeof parsed.data.emailBodyHtml === "string") {
       const html = sanitizeHtmlFragment(parsed.data.emailBodyHtml);

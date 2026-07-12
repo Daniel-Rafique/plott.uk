@@ -510,6 +510,11 @@ model PipelineLead {
   estimateWeeks             Float?    @map("estimate_weeks")
   estimateJson              Json?     @map("estimate_json")
   estimatedAt               DateTime? @map("estimated_at")
+  /**
+   * Short human label for the job (e.g. "Roof safety guardrail"), set when
+   * the letter or estimate is created — not derived lazily at display time.
+   */
+  workLabel                 String?   @map("work_label")
   includeBallparkInOutreach Boolean   @default(true) @map("include_ballpark_in_outreach")
   assignedUserId            String?   @map("assigned_user_id")
   assignedAt                DateTime? @map("assigned_at")

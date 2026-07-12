@@ -10,6 +10,8 @@ import {
 } from "@/lib/outreach-draft-display";
 import { prepareLetterBodyHtml } from "@/lib/letter-body-shape";
 import { formatUkPostalAddressLines } from "@/lib/contact-quality";
+import { deriveShortWorkLabel } from "@/lib/pipeline-display";
+import { setPipelineWorkLabelForEntity } from "@/lib/pipeline";
 
 type OutreachDraft = {
   subject?: string;
@@ -165,7 +167,7 @@ export async function materializeApprovalLetter({
 
   const now = new Date();
 
-  return prisma.$transaction(async (tx) => {
+  const result = await prisma.$transaction(async (tx) => {
     const current = await tx.agentApproval.findUnique({
       where: { id: approval.id },
       select: { executedAt: true },
@@ -201,5 +203,36 @@ export async function materializeApprovalLetter({
     });
 
     return { approval: updated, letter };
+  });
+
+  try {
+    await syncPipelineWorkLabelFromApproval(approval, bodyHtml);
+  } catch (err) {
+    logger.warn(
+      { err, approvalId: approval.id },
+      "pipeline_work_label_from_approval_failed",
+    );
+  }
+
+  return result;
+}
+
+/**
+ * After materialising a letter, persist a short work label on the matching
+ * pipeline lead from the letter body (best available job description).
+ */
+export async function syncPipelineWorkLabelFromApproval(
+  approval: AgentApproval,
+  bodyHtml: string,
+): Promise<void> {
+  const planningEntity = approval.planningEntity;
+  if (planningEntity == null) return;
+  const workLabel = deriveShortWorkLabel({ letterHtml: bodyHtml });
+  if (!workLabel) return;
+  await setPipelineWorkLabelForEntity({
+    companyId: approval.companyId,
+    planningEntity,
+    workLabel,
+    force: true,
   });
 }
