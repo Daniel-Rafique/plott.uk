@@ -77,7 +77,7 @@ export const metadata: Metadata = {
         url: DEFAULT_OG_IMAGE,
         width: 1200,
         height: 630,
-        alt: "Plott — 3D map of UK planning applications",
+        alt: "Plott — See every site before your competitors do",
       },
     ],
   },

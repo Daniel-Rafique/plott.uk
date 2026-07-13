@@ -183,7 +183,7 @@ export function publicPageMetadata({
           url: DEFAULT_OG_IMAGE,
           width: 1200,
           height: 630,
-          alt: "Plott planning intelligence platform",
+          alt: "Plott — See every site before your competitors do",
         },
       ],
     },
