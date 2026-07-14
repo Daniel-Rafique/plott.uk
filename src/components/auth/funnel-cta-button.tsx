@@ -35,7 +35,7 @@ export function FunnelCtaButton({
   return (
     <button
       type="button"
-      className={cn(className)}
+      className={cn("cursor-pointer", className)}
       onClick={() => funnel.openFunnel(options)}
     >
       {children}

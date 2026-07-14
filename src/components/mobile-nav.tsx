@@ -253,7 +253,7 @@ export function MobileNav({ isSignedIn }: Props) {
                         playClose();
                         funnel.openFunnel({ step: "sign-up" });
                       }}
-                      className="flex w-full items-center justify-center gap-2 rounded-full bg-zinc-900 px-6 py-3.5 text-[12px] font-semibold uppercase tracking-[0.18em] text-white transition hover:bg-zinc-800"
+                      className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-full bg-zinc-900 px-6 py-3.5 text-[12px] font-semibold uppercase tracking-[0.18em] text-white transition hover:bg-zinc-800"
                     >
                       {startFreeTrialLabel()}
                       <ArrowRight className="h-4 w-4" strokeWidth={1.5} />
@@ -261,7 +261,7 @@ export function MobileNav({ isSignedIn }: Props) {
                   ) : (
                     <Link
                       href="/auth/sign-up"
-                      className="flex w-full items-center justify-center gap-2 rounded-full bg-zinc-900 px-6 py-3.5 text-[12px] font-semibold uppercase tracking-[0.18em] text-white transition hover:bg-zinc-800"
+                      className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-full bg-zinc-900 px-6 py-3.5 text-[12px] font-semibold uppercase tracking-[0.18em] text-white transition hover:bg-zinc-800"
                     >
                       {startFreeTrialLabel()}
                       <ArrowRight className="h-4 w-4" strokeWidth={1.5} />
@@ -274,14 +274,14 @@ export function MobileNav({ isSignedIn }: Props) {
                         playClose();
                         funnel.openFunnel({ step: "sign-in" });
                       }}
-                      className="flex w-full items-center justify-center rounded-full border border-zinc-300 px-6 py-3.5 text-[12px] font-semibold uppercase tracking-[0.18em] text-zinc-700 transition hover:border-zinc-900 hover:text-zinc-950"
+                      className="flex w-full cursor-pointer items-center justify-center rounded-full border border-zinc-300 px-6 py-3.5 text-[12px] font-semibold uppercase tracking-[0.18em] text-zinc-700 transition hover:border-zinc-900 hover:text-zinc-950"
                     >
                       Sign in
                     </button>
                   ) : (
                     <Link
                       href="/auth/sign-in"
-                      className="flex w-full items-center justify-center rounded-full border border-zinc-300 px-6 py-3.5 text-[12px] font-semibold uppercase tracking-[0.18em] text-zinc-700 transition hover:border-zinc-900 hover:text-zinc-950"
+                      className="flex w-full cursor-pointer items-center justify-center rounded-full border border-zinc-300 px-6 py-3.5 text-[12px] font-semibold uppercase tracking-[0.18em] text-zinc-700 transition hover:border-zinc-900 hover:text-zinc-950"
                     >
                       Sign in
                     </Link>
