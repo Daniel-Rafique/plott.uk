@@ -11,6 +11,9 @@ import { cn } from "@/lib/utils";
 import { useGsapReveal } from "@/lib/animation/use-gsap-reveal";
 import { BillingIntervalToggle } from "@/components/pricing/billing-interval-toggle";
 import { startFreeTrialLabel } from "@/lib/trial";
+import { useOptionalFunnelModal } from "@/components/auth/funnel-modal";
+import { buildSubscribeNext } from "@/lib/auth/sanitize-next";
+import { authClient } from "@/lib/auth/client";
 
 function displayPrice(plan: Plan, interval: BillingInterval): {
   label: string;
@@ -34,6 +37,9 @@ function displayPrice(plan: Plan, interval: BillingInterval): {
 
 export function PricingGrid({ plans }: { plans: Plan[] }) {
   const router = useRouter();
+  const funnel = useOptionalFunnelModal();
+  const { data: session } = authClient.useSession();
+  const isSignedIn = Boolean(session?.user);
   const [loadingId, setLoadingId] = useState<string | null>(null);
   const [interval, setInterval] = useState<BillingInterval>("month");
   const ref = useGsapReveal<HTMLDivElement>({ stagger: 0.08, y: 28 });
@@ -41,15 +47,34 @@ export function PricingGrid({ plans }: { plans: Plan[] }) {
   async function subscribe(plan: Plan) {
     const priceId =
       interval === "year" ? plan.annualPriceId : plan.monthlyPriceId ?? plan.priceId;
+    const subscribeNext = buildSubscribeNext(plan.id, interval);
+
     if (!priceId) {
+      if (!isSignedIn && funnel) {
+        funnel.openFunnel({ step: "sign-up", next: "/subscribe" });
+        return;
+      }
       router.push("/subscribe");
       return;
     }
+
     posthog.capture("checkout_initiated", {
       plan: plan.id,
       plan_name: plan.name,
       billing_interval: interval,
     });
+
+    if (!isSignedIn) {
+      if (funnel) {
+        funnel.openFunnel({ step: "sign-up", next: subscribeNext });
+        return;
+      }
+      router.push(
+        `/auth/sign-up?next=${encodeURIComponent(subscribeNext)}`,
+      );
+      return;
+    }
+
     setLoadingId(plan.id);
     try {
       const res = await fetch("/api/stripe/checkout", {
@@ -58,9 +83,13 @@ export function PricingGrid({ plans }: { plans: Plan[] }) {
         body: JSON.stringify({ plan: plan.id, interval }),
       });
       if (res.status === 401) {
-        const q = new URLSearchParams({ plan: plan.id });
-        if (interval === "year") q.set("interval", "year");
-        router.push(`/auth/sign-up?next=${encodeURIComponent(`/subscribe?${q}`)}`);
+        if (funnel) {
+          funnel.openFunnel({ step: "sign-up", next: subscribeNext });
+          return;
+        }
+        router.push(
+          `/auth/sign-up?next=${encodeURIComponent(subscribeNext)}`,
+        );
         return;
       }
       const data = (await res.json()) as {
@@ -159,6 +188,9 @@ export function PricingGrid({ plans }: { plans: Plan[] }) {
                       ? startFreeTrialLabel()
                       : "Contact sales"}
                 </button>
+                <p className="mt-3 text-center text-[12px] leading-relaxed text-zinc-500">
+                  Create your account to start — then choose billing.
+                </p>
 
                 <p className="editorial-chapter-label mt-12 text-zinc-500">Includes</p>
                 <ul className="mt-5 space-y-3 text-[13px] leading-relaxed text-zinc-700">

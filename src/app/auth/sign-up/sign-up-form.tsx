@@ -7,16 +7,34 @@ import { ArrowRight } from "lucide-react";
 import { authClient } from "@/lib/auth/client";
 import posthog from "posthog-js";
 import { trialChargeCopy } from "@/lib/trial";
+import { sanitizeNext } from "@/lib/auth/sanitize-next";
 
 type ErrorState = { message: string; showSignIn?: boolean } | null;
+
+export type SignUpFormProps = {
+  next?: string | null;
+  defaultEmail?: string | null;
+  /** When set, skip page navigation and report success to the funnel modal. */
+  embedded?: boolean;
+  onSuccess?: (payload: { email: string }) => void;
+  onSwitchMode?: (mode: "sign-in") => void;
+};
+
+function googleCallbackUrl(next: string | null | undefined): string {
+  const safe = sanitizeNext(next);
+  if (safe?.startsWith("/subscribe")) {
+    return `/onboarding?next=${encodeURIComponent(safe)}`;
+  }
+  return safe ?? "/onboarding";
+}
 
 export function SignUpForm({
   next,
   defaultEmail,
-}: {
-  next?: string | null;
-  defaultEmail?: string | null;
-}) {
+  embedded = false,
+  onSuccess,
+  onSwitchMode,
+}: SignUpFormProps) {
   const router = useRouter();
   const [error, setError] = useState<ErrorState>(null);
   const [pending, setPending] = useState(false);
@@ -35,7 +53,7 @@ export function SignUpForm({
     signInParams.size > 0
       ? `/auth/sign-in?${signInParams.toString()}`
       : "/auth/sign-in";
-  const postSignUpTarget = next && next.startsWith("/") ? next : "/app/dashboard";
+  const googleTarget = googleCallbackUrl(next);
 
   async function signUpWithGoogle() {
     setError(null);
@@ -44,7 +62,7 @@ export function SignUpForm({
     try {
       const res = await authClient.signIn.social({
         provider: "google",
-        callbackURL: postSignUpTarget,
+        callbackURL: googleTarget,
       });
       if (res.error) {
         setError({
@@ -96,6 +114,12 @@ export function SignUpForm({
 
       posthog.identify(trimmedEmail, { email: trimmedEmail, name: name.trim() || "User" });
       posthog.capture("sign_up", { email: trimmedEmail, name: name.trim() || "User" });
+
+      if (embedded && onSuccess) {
+        setPending(false);
+        onSuccess({ email: trimmedEmail });
+        return;
+      }
 
       // Neon Auth dispatches send.otp on signup when "Require email verification"
       // is enabled (Verification codes mode). Route to the verify page — do NOT
@@ -191,12 +215,22 @@ export function SignUpForm({
           <p>{error.message}</p>
           {error.showSignIn ? (
             <p className="mt-1">
-              <Link
-                href={signInHref}
-                className="font-medium underline underline-offset-2"
-              >
-                Sign in instead
-              </Link>
+              {onSwitchMode ? (
+                <button
+                  type="button"
+                  onClick={() => onSwitchMode("sign-in")}
+                  className="font-medium underline underline-offset-2"
+                >
+                  Sign in instead
+                </button>
+              ) : (
+                <Link
+                  href={signInHref}
+                  className="font-medium underline underline-offset-2"
+                >
+                  Sign in instead
+                </Link>
+              )}
             </p>
           ) : null}
         </div>

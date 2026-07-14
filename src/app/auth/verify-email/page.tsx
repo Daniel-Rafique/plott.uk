@@ -32,6 +32,14 @@ export default async function VerifyEmailPage({
     );
   }
   const isInvite = rawNext?.startsWith("/invites/") ?? false;
+  const startOverParams = new URLSearchParams();
+  if (rawNext && rawNext.startsWith("/") && !rawNext.startsWith("//") && !rawNext.startsWith("/auth/")) {
+    startOverParams.set("next", rawNext);
+  }
+  const startOverHref =
+    startOverParams.size > 0
+      ? `/auth/sign-up?${startOverParams.toString()}`
+      : "/auth/sign-up";
 
   return (
     <AuthMarketingShell
@@ -56,7 +64,7 @@ export default async function VerifyEmailPage({
         <p className="text-center text-sm text-zinc-500">
           Wrong email?{" "}
           <Link
-            href="/auth/sign-up"
+            href={startOverHref}
             className="font-medium text-zinc-900 underline underline-offset-2 hover:text-zinc-700"
           >
             Start over

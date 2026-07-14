@@ -7,6 +7,7 @@ import {
 } from "@/lib/auth/onboarding-gate";
 import { StaleAuthUserError } from "@/lib/tenant";
 import { privatePageMetadata } from "@/lib/seo";
+import { sanitizeNext } from "@/lib/auth/sanitize-next";
 import { OnboardingWizard } from "./onboarding-wizard";
 
 export const dynamic = "force-dynamic";
@@ -15,7 +16,16 @@ export const metadata = privatePageMetadata({
   title: "Set up your workspace",
 });
 
-export default async function OnboardingPage() {
+type Search = Promise<{ [k: string]: string | string[] | undefined }>;
+
+export default async function OnboardingPage({
+  searchParams,
+}: {
+  searchParams?: Search;
+}) {
+  const sp = (await searchParams) ?? {};
+  const preferredNext = sanitizeNext(sp.next);
+
   let resolved;
   try {
     resolved = await resolveStage();
@@ -41,6 +51,12 @@ export default async function OnboardingPage() {
     throw err;
   }
   if (resolved.stage !== "needs_company") {
+    if (
+      preferredNext &&
+      (resolved.stage === "needs_plan" || resolved.stage === "ready")
+    ) {
+      redirect(preferredNext);
+    }
     redirect(redirectForStage(resolved));
   }
 
@@ -60,6 +76,7 @@ export default async function OnboardingPage() {
       </header>
       <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col items-center justify-center px-4 pb-16">
         <OnboardingWizard
+          next={preferredNext}
           initial={{
             name: resolved.company.name.endsWith("'s Workspace")
               ? ""

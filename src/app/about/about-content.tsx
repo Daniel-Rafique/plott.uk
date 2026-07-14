@@ -5,6 +5,7 @@ import { ArrowRight } from "lucide-react";
 import { AboutHero } from "./about-hero";
 import { RevealGroup, RevealHeading } from "@/lib/animation/reveal";
 import { startFreeTrialLabel } from "@/lib/trial";
+import { FunnelCtaButton } from "@/components/auth/funnel-cta-button";
 
 export function AboutContent() {
   return (
@@ -171,13 +172,13 @@ export function AboutContent() {
               </ul>
 
               <div data-reveal className="mt-16 flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:gap-5">
-                <Link
-                  href="/auth/sign-up"
+                <FunnelCtaButton
+                  options={{ step: "sign-up" }}
                   className="inline-flex items-center gap-2 rounded-full border border-zinc-900 bg-zinc-900 px-7 py-3.5 text-[13px] font-medium text-white transition hover:border-zinc-700 hover:bg-zinc-700"
                 >
                   {startFreeTrialLabel()}
                   <ArrowRight className="h-4 w-4" strokeWidth={1.5} aria-hidden />
-                </Link>
+                </FunnelCtaButton>
                 <Link
                   href="/pricing"
                   className="inline-flex items-center gap-2 rounded-full border border-zinc-300 px-7 py-3.5 text-[13px] font-medium text-zinc-900 transition hover:border-zinc-900"

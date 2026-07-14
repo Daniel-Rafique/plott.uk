@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { ResourcePage } from "@/lib/resources";
 import { EmailCapture } from "@/components/marketing/email-capture";
 import { startFreeTrialLabel } from "@/lib/trial";
+import { FunnelCtaButton } from "@/components/auth/funnel-cta-button";
 
 export function AnswerResourcePage({ resource }: { resource: ResourcePage }) {
   return (
@@ -75,12 +76,12 @@ export function AnswerResourcePage({ resource }: { resource: ResourcePage }) {
                 {resource.cta.body}
               </p>
               <div className="mt-8 flex flex-wrap gap-3">
-                <Link
-                  href="/auth/sign-up"
+                <FunnelCtaButton
+                  options={{ step: "sign-up" }}
                   className="rounded-full bg-white px-6 py-3 text-[13px] font-semibold text-zinc-950 transition hover:bg-zinc-200"
                 >
                   {startFreeTrialLabel()}
-                </Link>
+                </FunnelCtaButton>
                 <Link
                   href="/contact"
                   className="rounded-full border border-white/30 px-6 py-3 text-[13px] font-semibold text-white transition hover:border-white"

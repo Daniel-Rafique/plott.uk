@@ -25,6 +25,7 @@ import {
   startTrialButtonLabel,
   trialChargeCopy,
 } from "@/lib/trial";
+import { FunnelCtaButton } from "@/components/auth/funnel-cta-button";
 
 const Map3DHero = dynamic(
   () => import("./map3d-hero").then((m) => m.Map3DHero),
@@ -109,13 +110,13 @@ export function HomePageContent({ heroFontClassName }: Props) {
             >
               {!isSignedIn ? (
                 <>
-                  <Link
-                    href="/auth/sign-up"
+                  <FunnelCtaButton
+                    options={{ step: "sign-up" }}
                     className="group inline-flex items-center gap-2 rounded-full bg-white/90 px-8 py-3.5 text-sm font-semibold text-zinc-900 shadow-lg shadow-brand/20  transition-all duration-300 ease-out hover:-translate-y-0.5 hover:bg-white/20 hover:text-white hover:shadow-xl"
                   >
                     {startTrialButtonLabel()}
                     <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-0.5" aria-hidden />
-                  </Link>
+                  </FunnelCtaButton>
                   <Link
                     href="/pricing"
                     className="inline-flex rounded-full border border-white/30 bg-white/10 px-8 py-3.5 text-sm font-semibold text-white backdrop-blur-md transition-all duration-300 ease-out hover:-translate-y-0.5 hover:border-white/50 hover:bg-white/20 hover:shadow-lg hover:shadow-white/10"
@@ -200,13 +201,23 @@ export function HomePageContent({ heroFontClassName }: Props) {
             data-reveal
             className="mt-12 flex flex-col items-center justify-center gap-3 sm:flex-row sm:gap-4"
           >
-            <Link
-              href={isSignedIn ? "/app/dashboard" : "/auth/sign-up"}
-              className="inline-flex items-center gap-2 rounded-full border border-zinc-900 bg-zinc-900 px-7 py-3.5 text-[13px] font-medium text-white transition hover:border-zinc-700 hover:bg-zinc-700"
-            >
-              {isSignedIn ? "Open dashboard" : startFreeTrialLabel()}
-              <ArrowRight className="h-4 w-4" strokeWidth={1.5} aria-hidden />
-            </Link>
+            {isSignedIn ? (
+              <Link
+                href="/app/dashboard"
+                className="inline-flex items-center gap-2 rounded-full border border-zinc-900 bg-zinc-900 px-7 py-3.5 text-[13px] font-medium text-white transition hover:border-zinc-700 hover:bg-zinc-700"
+              >
+                Open dashboard
+                <ArrowRight className="h-4 w-4" strokeWidth={1.5} aria-hidden />
+              </Link>
+            ) : (
+              <FunnelCtaButton
+                options={{ step: "sign-up" }}
+                className="inline-flex items-center gap-2 rounded-full border border-zinc-900 bg-zinc-900 px-7 py-3.5 text-[13px] font-medium text-white transition hover:border-zinc-700 hover:bg-zinc-700"
+              >
+                {startFreeTrialLabel()}
+                <ArrowRight className="h-4 w-4" strokeWidth={1.5} aria-hidden />
+              </FunnelCtaButton>
+            )}
             <Link
               href="/pricing"
               className="inline-flex items-center gap-2 rounded-full border border-zinc-300 bg-transparent px-7 py-3.5 text-[13px] font-medium text-zinc-900 transition hover:border-zinc-900"

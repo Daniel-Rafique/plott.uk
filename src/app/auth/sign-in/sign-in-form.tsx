@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { authClient } from "@/lib/auth/client";
 import posthog from "posthog-js";
+import { sanitizeNext } from "@/lib/auth/sanitize-next";
 
 /**
  * Neon Auth / better-auth vary the shape they return on unverified-email
@@ -48,15 +49,32 @@ function isEmailNotVerifiedError(err: unknown): boolean {
   return UNVERIFIED_MESSAGE_PATTERNS.some((re) => re.test(message));
 }
 
+export type SignInFormProps = {
+  next?: string | null;
+  defaultEmail?: string | null;
+  embedded?: boolean;
+  onSuccess?: (payload: { email: string }) => void;
+  onNeedsVerify?: (payload: { email: string }) => void;
+};
+
+function googleCallbackUrl(next: string | null | undefined): string {
+  const safe = sanitizeNext(next);
+  if (safe?.startsWith("/subscribe")) {
+    return `/onboarding?next=${encodeURIComponent(safe)}`;
+  }
+  return safe ?? "/app/dashboard";
+}
+
 export function SignInForm({
   next,
   defaultEmail,
-}: {
-  next?: string | null;
-  defaultEmail?: string | null;
-}) {
+  embedded = false,
+  onSuccess,
+  onNeedsVerify,
+}: SignInFormProps) {
   const router = useRouter();
-  const postSignInTarget = next && next.startsWith("/") ? next : "/app/dashboard";
+  const postSignInTarget = sanitizeNext(next) ?? "/app/dashboard";
+  const googleTarget = googleCallbackUrl(next);
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
@@ -68,6 +86,15 @@ export function SignInForm({
   const [savedPassword, setSavedPassword] = useState<string | null>(null);
   const [googlePending, setGooglePending] = useState(false);
 
+  function finishSignedIn(email: string) {
+    if (embedded && onSuccess) {
+      onSuccess({ email });
+      return;
+    }
+    router.push(postSignInTarget);
+    router.refresh();
+  }
+
   async function signInWithGoogle() {
     setError(null);
     setInfo(null);
@@ -75,7 +102,7 @@ export function SignInForm({
     try {
       const res = await authClient.signIn.social({
         provider: "google",
-        callbackURL: postSignInTarget,
+        callbackURL: googleTarget,
       });
       if (res.error) {
         setError(res.error.message ?? "Google sign-in failed. Try again.");
@@ -116,6 +143,10 @@ export function SignInForm({
           setUnverifiedEmail(trimmedEmail);
           setSavedPassword(password);
           setPending(false);
+          if (embedded && onNeedsVerify) {
+            onNeedsVerify({ email: trimmedEmail });
+            return;
+          }
           void sendVerificationCodeAuto(trimmedEmail);
         } else {
           setPending(false);
@@ -127,8 +158,7 @@ export function SignInForm({
       posthog.identify(trimmedEmail, { email: trimmedEmail });
       posthog.capture("sign_in", { email: trimmedEmail });
 
-      router.push(postSignInTarget);
-      router.refresh();
+      finishSignedIn(trimmedEmail);
       return;
     } catch (err) {
       const msg =
@@ -139,6 +169,10 @@ export function SignInForm({
         setUnverifiedEmail(trimmedEmail);
         setSavedPassword(password);
         setPending(false);
+        if (embedded && onNeedsVerify) {
+          onNeedsVerify({ email: trimmedEmail });
+          return;
+        }
         void sendVerificationCodeAuto(trimmedEmail);
       } else {
         setPending(false);
@@ -221,8 +255,7 @@ export function SignInForm({
       posthog.identify(unverifiedEmail, { email: unverifiedEmail });
       posthog.capture("sign_in", { email: unverifiedEmail, verified_inline: true });
 
-      router.push(postSignInTarget);
-      router.refresh();
+      finishSignedIn(unverifiedEmail);
       return;
     } catch (err) {
       setError(err instanceof Error ? err.message : "Verification failed.");

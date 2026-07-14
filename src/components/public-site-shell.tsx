@@ -1,6 +1,7 @@
 "use client";
 
 import { usePathname } from "next/navigation";
+import { FunnelModalProvider } from "@/components/auth/funnel-modal";
 import { KlaviyoWidget } from "@/components/klaviyo-widget";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
@@ -36,14 +37,16 @@ export function PublicSiteShell({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-zinc-50 text-zinc-900">
-      <SiteHeader />
-      <div className="flex min-w-0 w-full flex-1 flex-col overflow-x-clip">
-        {children}
-        <SiteFooter />
+    <FunnelModalProvider>
+      <div className="flex min-h-screen flex-col bg-zinc-50 text-zinc-900">
+        <SiteHeader />
+        <div className="flex min-w-0 w-full flex-1 flex-col overflow-x-clip">
+          {children}
+          <SiteFooter />
+        </div>
+        <TidioWidget />
+        <KlaviyoWidget />
       </div>
-      <TidioWidget />
-      <KlaviyoWidget />
-    </div>
+    </FunnelModalProvider>
   );
 }

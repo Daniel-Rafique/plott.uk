@@ -57,6 +57,9 @@ export default async function SubscribePage({
       if (resolved.user.email) next.set("email", resolved.user.email);
       redirect(`/auth/verify-email?${next.toString()}`);
     }
+    if (planNext && resolved.stage === "needs_company") {
+      redirect(`/onboarding?next=${encodeURIComponent(planNext)}`);
+    }
     redirect(redirectForStage(resolved));
   }
   if (resolved.stage === "ready") {

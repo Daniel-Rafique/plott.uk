@@ -16,6 +16,7 @@ import {
   UK_LPA_COUNT,
 } from "@/lib/marketing/copy";
 import { startFreeTrialLabel, startTrialHeroCopy } from "@/lib/trial";
+import { FunnelCtaButton } from "@/components/auth/funnel-cta-button";
 
 if (typeof window !== "undefined") {
   gsap.registerPlugin(ScrollTrigger);
@@ -407,13 +408,13 @@ export function HowItWorksContent() {
               data-reveal
               className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row sm:gap-4"
             >
-              <Link
-                href="/auth/sign-up"
+              <FunnelCtaButton
+                options={{ step: "sign-up" }}
                 className="inline-flex items-center gap-2 rounded-full border border-zinc-900 bg-zinc-900 px-8 py-4 text-[14px] font-semibold text-white transition hover:border-zinc-700 hover:bg-zinc-700"
               >
                 {startFreeTrialLabel()}
                 <ArrowRight className="h-4 w-4" strokeWidth={2} aria-hidden />
-              </Link>
+              </FunnelCtaButton>
               <Link
                 href="/pricing"
                 className="inline-flex items-center gap-2 rounded-full border border-zinc-300 px-8 py-4 text-[14px] font-semibold text-zinc-900 transition hover:border-zinc-900"

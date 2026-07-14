@@ -8,6 +8,7 @@ import { Menu, X, ArrowRight } from "lucide-react";
 import { gsap } from "gsap";
 import { cn } from "@/lib/utils";
 import { startFreeTrialLabel } from "@/lib/trial";
+import { useOptionalFunnelModal } from "@/components/auth/funnel-modal";
 
 const NAV_LINKS = [
   { href: "/how-it-works", label: "How it works" },
@@ -30,6 +31,7 @@ function prefersReduced() {
 export function MobileNav({ isSignedIn }: Props) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
+  const funnel = useOptionalFunnelModal();
   const overlayRef = useRef<HTMLDivElement | null>(null);
   const panelRef = useRef<HTMLDivElement | null>(null);
   const closingRef = useRef(false);
@@ -244,19 +246,46 @@ export function MobileNav({ isSignedIn }: Props) {
                 </Link>
               ) : (
                 <div className="flex flex-col gap-3">
-                  <Link
-                    href="/auth/sign-up"
-                    className="flex w-full items-center justify-center gap-2 rounded-full bg-zinc-900 px-6 py-3.5 text-[12px] font-semibold uppercase tracking-[0.18em] text-white transition hover:bg-zinc-800"
-                  >
-                    {startFreeTrialLabel()}
-                    <ArrowRight className="h-4 w-4" strokeWidth={1.5} />
-                  </Link>
-                  <Link
-                    href="/auth/sign-in"
-                    className="flex w-full items-center justify-center rounded-full border border-zinc-300 px-6 py-3.5 text-[12px] font-semibold uppercase tracking-[0.18em] text-zinc-700 transition hover:border-zinc-900 hover:text-zinc-950"
-                  >
-                    Sign in
-                  </Link>
+                  {funnel ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        playClose();
+                        funnel.openFunnel({ step: "sign-up" });
+                      }}
+                      className="flex w-full items-center justify-center gap-2 rounded-full bg-zinc-900 px-6 py-3.5 text-[12px] font-semibold uppercase tracking-[0.18em] text-white transition hover:bg-zinc-800"
+                    >
+                      {startFreeTrialLabel()}
+                      <ArrowRight className="h-4 w-4" strokeWidth={1.5} />
+                    </button>
+                  ) : (
+                    <Link
+                      href="/auth/sign-up"
+                      className="flex w-full items-center justify-center gap-2 rounded-full bg-zinc-900 px-6 py-3.5 text-[12px] font-semibold uppercase tracking-[0.18em] text-white transition hover:bg-zinc-800"
+                    >
+                      {startFreeTrialLabel()}
+                      <ArrowRight className="h-4 w-4" strokeWidth={1.5} />
+                    </Link>
+                  )}
+                  {funnel ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        playClose();
+                        funnel.openFunnel({ step: "sign-in" });
+                      }}
+                      className="flex w-full items-center justify-center rounded-full border border-zinc-300 px-6 py-3.5 text-[12px] font-semibold uppercase tracking-[0.18em] text-zinc-700 transition hover:border-zinc-900 hover:text-zinc-950"
+                    >
+                      Sign in
+                    </button>
+                  ) : (
+                    <Link
+                      href="/auth/sign-in"
+                      className="flex w-full items-center justify-center rounded-full border border-zinc-300 px-6 py-3.5 text-[12px] font-semibold uppercase tracking-[0.18em] text-zinc-700 transition hover:border-zinc-900 hover:text-zinc-950"
+                    >
+                      Sign in
+                    </Link>
+                  )}
                 </div>
               )}
             </div>

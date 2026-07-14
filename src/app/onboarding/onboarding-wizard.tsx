@@ -5,13 +5,24 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { AnimatePresence, motion } from "framer-motion";
 import posthog from "posthog-js";
+import { resolvePostOnboardingPath } from "@/lib/auth/sanitize-next";
+import { cn } from "@/lib/utils";
 
-type WizardInitial = {
+export type WizardInitial = {
   name: string;
   websiteUrl: string;
   addressLines: string;
   phone: string;
   logoBlobUrl: string | null;
+};
+
+export type OnboardingWizardProps = {
+  initial: WizardInitial;
+  /** Preferred post-onboarding path (e.g. /subscribe?plan=agency). */
+  next?: string | null;
+  embedded?: boolean;
+  compact?: boolean;
+  onComplete?: (nextPath: string) => void;
 };
 
 const STEPS = [
@@ -31,7 +42,13 @@ const PLAYBOOK_CHOICES = [
   { id: "", name: "Skip for now" },
 ] as const;
 
-export function OnboardingWizard({ initial }: { initial: WizardInitial }) {
+export function OnboardingWizard({
+  initial,
+  next: preferredNext = null,
+  embedded = false,
+  compact = false,
+  onComplete,
+}: OnboardingWizardProps) {
   const router = useRouter();
   const [step, setStep] = useState<StepId>("company");
   const [name, setName] = useState(initial.name);
@@ -147,11 +164,17 @@ export function OnboardingWizard({ initial }: { initial: WizardInitial }) {
         playbook_id: playbookId || null,
       });
 
-      router.push(
-        body.nextPath?.startsWith("/") && !body.nextPath.startsWith("//")
-          ? body.nextPath
-          : "/subscribe",
+      const destination = resolvePostOnboardingPath(
+        preferredNext,
+        body.nextPath,
       );
+
+      if (embedded && onComplete) {
+        onComplete(destination);
+        return;
+      }
+
+      router.push(destination);
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not save settings.");
@@ -161,12 +184,24 @@ export function OnboardingWizard({ initial }: { initial: WizardInitial }) {
   }
 
   return (
-    <div className="w-full rounded-2xl border border-zinc-200 bg-white p-8 shadow-sm">
-      <div className="mb-8">
+    <div
+      className={cn(
+        "w-full bg-white",
+        compact
+          ? "p-0"
+          : "rounded-2xl border border-zinc-200 p-8 shadow-sm",
+      )}
+    >
+      <div className={cn(compact ? "mb-6" : "mb-8")}>
         <p className="text-xs font-medium uppercase tracking-wider text-zinc-500">
           Step {stepIndex + 1} of {STEPS.length}
         </p>
-        <h1 className="mt-1 text-2xl font-semibold tracking-tight">
+        <h1
+          className={cn(
+            "mt-1 font-semibold tracking-tight",
+            compact ? "text-xl" : "text-2xl",
+          )}
+        >
           Set up your workspace
         </h1>
         <p className="mt-2 text-sm text-zinc-600">

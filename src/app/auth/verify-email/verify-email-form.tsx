@@ -4,19 +4,30 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { authClient } from "@/lib/auth/client";
 import posthog from "posthog-js";
+import { sanitizeNext } from "@/lib/auth/sanitize-next";
 
 const RESEND_COOLDOWN_S = 30;
 
-export function VerifyEmailForm() {
+export type VerifyEmailFieldsProps = {
+  email?: string | null;
+  next?: string | null;
+  justCreated?: boolean;
+  embedded?: boolean;
+  onSuccess?: () => void;
+};
+
+export function VerifyEmailFields({
+  email: emailProp = "",
+  next: nextProp = null,
+  justCreated = false,
+  embedded = false,
+  onSuccess,
+}: VerifyEmailFieldsProps) {
   const router = useRouter();
-  const search = useSearchParams();
-  const emailFromQuery = search.get("email") ?? "";
-  const nextFromQuery = search.get("next");
-  const nextTarget =
-    nextFromQuery && nextFromQuery.startsWith("/") && !nextFromQuery.startsWith("//")
-      ? nextFromQuery
-      : null;
-  const [email, setEmail] = useState(emailFromQuery);
+  const nextTarget = sanitizeNext(nextProp);
+  const initialEmail = (emailProp ?? "").trim();
+
+  const [email, setEmail] = useState(initialEmail);
   const [code, setCode] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -30,8 +41,7 @@ export function VerifyEmailForm() {
   }, []);
 
   useEffect(() => {
-    const justCreated = search.get("created") === "1";
-    const trimmed = emailFromQuery.trim();
+    const trimmed = initialEmail.trim();
     if (!justCreated || !trimmed || initialOtpSentRef.current) return;
     initialOtpSentRef.current = true;
 
@@ -48,7 +58,7 @@ export function VerifyEmailForm() {
       setCooldown(RESEND_COOLDOWN_S);
       setNotice("We sent a 6-digit code to your email.");
     })();
-  }, [emailFromQuery, search]);
+  }, [initialEmail, justCreated]);
 
   useEffect(() => {
     if (cooldown <= 0) return;
@@ -79,10 +89,11 @@ export function VerifyEmailForm() {
 
     posthog.capture("email_verified", { email: trimmedEmail });
 
-    // After verification the onboarding gate will cascade the user forward
-    // (needs_company → /onboarding, needs_plan → /subscribe, etc.). If they
-    // arrived here via a `?next=` deep link (e.g. /invites/<token>), jump
-    // straight there and let that page's own gate take over.
+    if (embedded && onSuccess) {
+      onSuccess();
+      return;
+    }
+
     const target = nextTarget ?? "/onboarding";
     router.push(target);
     router.refresh();
@@ -164,5 +175,17 @@ export function VerifyEmailForm() {
           : "Resend verification code"}
       </button>
     </form>
+  );
+}
+
+/** Full-page verify form — reads email/next from the URL. */
+export function VerifyEmailForm() {
+  const search = useSearchParams();
+  return (
+    <VerifyEmailFields
+      email={search.get("email") ?? ""}
+      next={search.get("next")}
+      justCreated={search.get("created") === "1"}
+    />
   );
 }
