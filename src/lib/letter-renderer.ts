@@ -36,6 +36,12 @@ export type LetterInput = {
   agentPhone?: string | null;
   caseOfficer?: string | null;
   ward?: string | null;
+  /** Appeal-pitch merge fields (optional; omitted keys render as empty). */
+  refusalReason?: string | null;
+  appealGrounds?: string | null;
+  appealType?: string | null;
+  decisionDate?: string | null;
+  deadlineDate?: string | null;
   /** HTML body from a LetterTemplate. Merge fields replaced if present. */
   templateBodyHtml?: string | null;
   templateSubject?: string | null;
@@ -110,15 +116,33 @@ type MergeField =
   | "companyUrl"
   | "signerName"
   | "signerTitle"
-  | "date";
+  | "date"
+  | "refusalReason"
+  | "appealGrounds"
+  | "appealType"
+  | "decisionDate"
+  | "deadlineDate";
 
 type MergeMap = Partial<Record<MergeField, string>>;
 
 function applyMerge(body: string, vars: MergeMap): string {
-  return body.replace(/\{\{\s*([a-zA-Z]+)\s*\}\}/g, (match, key: string) => {
-    if (key in vars) return esc(String(vars[key as keyof MergeMap] ?? ""));
-    return match;
+  return body.replace(/\{\{\s*([a-zA-Z]+)\s*\}\}/g, (_match, key: string) => {
+    if (Object.prototype.hasOwnProperty.call(vars, key)) {
+      return esc(String(vars[key as MergeField] ?? ""));
+    }
+    // Unknown merge keys → empty (never leave raw {{placeholders}} in letters).
+    return "";
   });
+}
+
+/** True when the body already opens with a Dear… salutation (templates / saved bodies). */
+export function hasLeadingSalutation(html: string): boolean {
+  const text = html
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  return /^dear\b/i.test(text);
 }
 
 function formatDate(d = new Date()): string {
@@ -240,6 +264,11 @@ export function renderLetterHtml(i: LetterInput): {
     signerName: i.user.name ?? "",
     signerTitle: i.user.signatoryTitle ?? "",
     date: formatDate(),
+    refusalReason: i.refusalReason ?? "",
+    appealGrounds: i.appealGrounds ?? "",
+    appealType: i.appealType ?? "",
+    decisionDate: i.decisionDate ?? "",
+    deadlineDate: i.deadlineDate ?? "",
   };
 
   // Run templateSubject through applyMerge so saved templates like
@@ -255,9 +284,12 @@ export function renderLetterHtml(i: LetterInput): {
   const mergedBody = i.templateBodyHtml
     ? sanitizeHtmlFragment(applyMerge(i.templateBodyHtml, mergeVars))
     : defaultBody(i);
-  const body = i.templateBodyHtml
-    ? `<p>Dear ${esc(i.addresseeName)},</p>\n${mergedBody}`
-    : mergedBody;
+  // Templates and defaultBody already include "Dear …". Saved letter bodies
+  // also include it — never prepend again or re-renders triple the salutation.
+  const body =
+    i.templateBodyHtml && !hasLeadingSalutation(mergedBody)
+      ? `<p>Dear ${esc(i.addresseeName)},</p>\n${mergedBody}`
+      : mergedBody;
 
   const formattedAddress = formatUkPostalAddressLines(i.addressLines);
   const showSiteInRe =

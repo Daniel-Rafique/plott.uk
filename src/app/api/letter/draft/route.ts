@@ -109,9 +109,20 @@ export async function POST(req: Request) {
     }
   }
   if (!templateBody) {
-    const tpl = await prisma.letterTemplate.findFirst({
-      where: { companyId: ctx.company.id, isDefault: true },
-    });
+    // Manual View Applicant / Proprietor letters are outreach — never pick an
+    // appeal_pitch default (which leaves {{decisionDate}} etc. unresolved).
+    const tpl =
+      (await prisma.letterTemplate.findFirst({
+        where: {
+          companyId: ctx.company.id,
+          kind: "outreach",
+          isDefault: true,
+        },
+      })) ??
+      (await prisma.letterTemplate.findFirst({
+        where: { companyId: ctx.company.id, kind: "outreach" },
+        orderBy: { createdAt: "asc" },
+      }));
     if (tpl) {
       templateBody = tpl.bodyHtml;
       templateSubject = tpl.subject;
