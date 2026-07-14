@@ -6,6 +6,7 @@ import Image from "next/image";
 import { AnimatePresence, motion } from "framer-motion";
 import posthog from "posthog-js";
 import { resolvePostOnboardingPath } from "@/lib/auth/sanitize-next";
+import { onboardingCompanySchema } from "@/lib/auth/form-validation";
 import { cn } from "@/lib/utils";
 
 export type WizardInitial = {
@@ -69,14 +70,22 @@ export function OnboardingWizard({
   const stepIndex = STEPS.findIndex((s) => s.id === step);
 
   function canAdvance(): boolean {
-    if (step === "company") return name.trim().length >= 2;
+    if (step === "company") {
+      return onboardingCompanySchema.safeParse({ name, websiteUrl }).success;
+    }
     if (step === "address") return true;
     return true;
   }
 
   function advance() {
     setError(null);
-    if (!canAdvance()) {
+    if (step === "company") {
+      const parsed = onboardingCompanySchema.safeParse({ name, websiteUrl });
+      if (!parsed.success) {
+        setError(parsed.error.issues[0]?.message ?? "Please complete this step.");
+        return;
+      }
+    } else if (!canAdvance()) {
       setError("Please complete this step before continuing.");
       return;
     }
@@ -125,9 +134,10 @@ export function OnboardingWizard({
 
   async function finish() {
     setError(null);
-    if (name.trim().length < 2) {
+    const parsed = onboardingCompanySchema.safeParse({ name, websiteUrl });
+    if (!parsed.success) {
       setStep("company");
-      setError("Company name is required.");
+      setError(parsed.error.issues[0]?.message ?? "Company name is required.");
       return;
     }
     setPending(true);
@@ -233,22 +243,30 @@ export function OnboardingWizard({
         >
           {step === "company" ? (
             <>
-              <Field label="Company name" htmlFor="name" required>
+              <Field label="Company name" htmlFor="name" required error={error && step === "company" ? error : null}>
                 <input
                   id="name"
                   type="text"
-                  required
                   autoComplete="organization"
                   value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm"
+                  aria-invalid={Boolean(error && step === "company")}
+                  onChange={(e) => {
+                    setName(e.target.value);
+                    if (error) setError(null);
+                  }}
+                  className={cn(
+                    "rounded-lg border bg-white px-3 py-2 text-sm",
+                    error && step === "company"
+                      ? "border-red-400"
+                      : "border-zinc-300",
+                  )}
                   placeholder="Acme Planning Consultants Ltd"
                 />
               </Field>
               <Field label="Website" htmlFor="websiteUrl">
                 <input
                   id="websiteUrl"
-                  type="url"
+                  type="text"
                   autoComplete="url"
                   value={websiteUrl}
                   onChange={(e) => setWebsiteUrl(e.target.value)}
@@ -367,7 +385,7 @@ export function OnboardingWizard({
         </motion.div>
       </AnimatePresence>
 
-      {error ? (
+      {error && step !== "company" ? (
         <p className="mt-4 text-sm text-red-600" role="alert">
           {error}
         </p>
@@ -413,11 +431,13 @@ function Field({
   label,
   htmlFor,
   required,
+  error,
   children,
 }: {
   label: string;
   htmlFor: string;
   required?: boolean;
+  error?: string | null;
   children: React.ReactNode;
 }) {
   return (
@@ -427,6 +447,11 @@ function Field({
         {required ? <span className="ml-0.5 text-red-600">*</span> : null}
       </label>
       {children}
+      {error ? (
+        <p className="text-sm text-red-600" role="alert">
+          {error}
+        </p>
+      ) : null}
     </div>
   );
 }

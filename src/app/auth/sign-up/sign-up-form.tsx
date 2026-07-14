@@ -8,8 +8,16 @@ import { authClient } from "@/lib/auth/client";
 import posthog from "posthog-js";
 import { trialChargeCopy } from "@/lib/trial";
 import { sanitizeNext } from "@/lib/auth/sanitize-next";
+import {
+  fieldErrorsFromZod,
+  inputErrorClass,
+  signUpSchema,
+  type FieldErrors,
+} from "@/lib/auth/form-validation";
+import { cn } from "@/lib/utils";
 
 type ErrorState = { message: string; showSignIn?: boolean } | null;
+type SignUpFields = "name" | "email" | "password";
 
 export type SignUpFormProps = {
   next?: string | null;
@@ -37,6 +45,7 @@ export function SignUpForm({
 }: SignUpFormProps) {
   const router = useRouter();
   const [error, setError] = useState<ErrorState>(null);
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors<SignUpFields>>({});
   const [pending, setPending] = useState(false);
   const [googlePending, setGooglePending] = useState(false);
   const signupStartedRef = useRef(false);
@@ -57,6 +66,7 @@ export function SignUpForm({
 
   async function signUpWithGoogle() {
     setError(null);
+    setFieldErrors({});
     captureSignupStarted("google");
     setGooglePending(true);
     try {
@@ -84,21 +94,29 @@ export function SignUpForm({
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);
+    setFieldErrors({});
     captureSignupStarted("form");
     posthog.capture("auth_signup_cta_clicked");
-    setPending(true);
-    const form = e.currentTarget;
-    const name = (form.elements.namedItem("name") as HTMLInputElement).value;
-    const email = (form.elements.namedItem("email") as HTMLInputElement).value;
-    const password = (form.elements.namedItem("password") as HTMLInputElement)
-      .value;
 
-    const trimmedEmail = email.trim();
+    const form = e.currentTarget;
+    const parsed = signUpSchema.safeParse({
+      name: (form.elements.namedItem("name") as HTMLInputElement).value,
+      email: (form.elements.namedItem("email") as HTMLInputElement).value,
+      password: (form.elements.namedItem("password") as HTMLInputElement).value,
+    });
+
+    if (!parsed.success) {
+      setFieldErrors(fieldErrorsFromZod<SignUpFields>(parsed.error));
+      return;
+    }
+
+    const { name, email: trimmedEmail, password } = parsed.data;
+    setPending(true);
 
     try {
       const res = await authClient.signUp.email({
         email: trimmedEmail,
-        name: name.trim() || "User",
+        name: name || "User",
         password,
       });
 
@@ -112,8 +130,8 @@ export function SignUpForm({
         return;
       }
 
-      posthog.identify(trimmedEmail, { email: trimmedEmail, name: name.trim() || "User" });
-      posthog.capture("sign_up", { email: trimmedEmail, name: name.trim() || "User" });
+      posthog.identify(trimmedEmail, { email: trimmedEmail, name: name || "User" });
+      posthog.capture("sign_up", { email: trimmedEmail, name: name || "User" });
 
       if (embedded && onSuccess) {
         setPending(false);
@@ -148,6 +166,7 @@ export function SignUpForm({
 
   return (
     <form
+      noValidate
       onSubmit={(e) => void handleSubmit(e)}
       className="flex flex-col gap-4"
     >
@@ -173,11 +192,28 @@ export function SignUpForm({
           id="name"
           name="name"
           type="text"
-          required
           autoComplete="name"
+          aria-invalid={Boolean(fieldErrors.name)}
+          aria-describedby={fieldErrors.name ? "name-error" : undefined}
           onFocus={() => captureSignupStarted("form")}
-          className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm"
+          onChange={() =>
+            setFieldErrors((prev) => {
+              if (!prev.name) return prev;
+              const nextErr = { ...prev };
+              delete nextErr.name;
+              return nextErr;
+            })
+          }
+          className={cn(
+            "rounded-lg border bg-white px-3 py-2 text-sm",
+            inputErrorClass(Boolean(fieldErrors.name)),
+          )}
         />
+        {fieldErrors.name ? (
+          <p id="name-error" className="text-sm text-red-600" role="alert">
+            {fieldErrors.name}
+          </p>
+        ) : null}
       </div>
       <div className="flex flex-col gap-1.5">
         <label htmlFor="email" className="text-sm font-medium">
@@ -187,14 +223,30 @@ export function SignUpForm({
           id="email"
           name="email"
           type="email"
-          required
           autoComplete="email"
           defaultValue={defaultEmail ?? undefined}
           readOnly={!!defaultEmail}
-          className={`rounded-lg border border-zinc-300 px-3 py-2 text-sm ${
-            defaultEmail ? "bg-zinc-50 text-zinc-600" : "bg-white"
-          }`}
+          aria-invalid={Boolean(fieldErrors.email)}
+          aria-describedby={fieldErrors.email ? "email-error" : undefined}
+          onChange={() =>
+            setFieldErrors((prev) => {
+              if (!prev.email) return prev;
+              const nextErr = { ...prev };
+              delete nextErr.email;
+              return nextErr;
+            })
+          }
+          className={cn(
+            "rounded-lg border px-3 py-2 text-sm",
+            defaultEmail ? "bg-zinc-50 text-zinc-600" : "bg-white",
+            inputErrorClass(Boolean(fieldErrors.email)),
+          )}
         />
+        {fieldErrors.email ? (
+          <p id="email-error" className="text-sm text-red-600" role="alert">
+            {fieldErrors.email}
+          </p>
+        ) : null}
       </div>
       <div className="flex flex-col gap-1.5">
         <label htmlFor="password" className="text-sm font-medium">
@@ -204,11 +256,27 @@ export function SignUpForm({
           id="password"
           name="password"
           type="password"
-          required
-          minLength={8}
           autoComplete="new-password"
-          className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm"
+          aria-invalid={Boolean(fieldErrors.password)}
+          aria-describedby={fieldErrors.password ? "password-error" : undefined}
+          onChange={() =>
+            setFieldErrors((prev) => {
+              if (!prev.password) return prev;
+              const nextErr = { ...prev };
+              delete nextErr.password;
+              return nextErr;
+            })
+          }
+          className={cn(
+            "rounded-lg border bg-white px-3 py-2 text-sm",
+            inputErrorClass(Boolean(fieldErrors.password)),
+          )}
         />
+        {fieldErrors.password ? (
+          <p id="password-error" className="text-sm text-red-600" role="alert">
+            {fieldErrors.password}
+          </p>
+        ) : null}
       </div>
       {error ? (
         <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">

@@ -5,6 +5,13 @@ import { useRouter } from "next/navigation";
 import { authClient } from "@/lib/auth/client";
 import posthog from "posthog-js";
 import { sanitizeNext } from "@/lib/auth/sanitize-next";
+import {
+  fieldErrorsFromZod,
+  inputErrorClass,
+  signInSchema,
+  type FieldErrors,
+} from "@/lib/auth/form-validation";
+import { cn } from "@/lib/utils";
 
 /**
  * Neon Auth / better-auth vary the shape they return on unverified-email
@@ -57,12 +64,28 @@ export type SignInFormProps = {
   onNeedsVerify?: (payload: { email: string }) => void;
 };
 
+type SignInFields = "email" | "password";
+
 function googleCallbackUrl(next: string | null | undefined): string {
   const safe = sanitizeNext(next);
   if (safe?.startsWith("/subscribe")) {
     return `/onboarding?next=${encodeURIComponent(safe)}`;
   }
   return safe ?? "/app/dashboard";
+}
+
+function clearFieldError(
+  setFieldErrors: React.Dispatch<
+    React.SetStateAction<FieldErrors<SignInFields>>
+  >,
+  key: SignInFields,
+) {
+  setFieldErrors((prev) => {
+    if (!prev[key]) return prev;
+    const next = { ...prev };
+    delete next[key];
+    return next;
+  });
 }
 
 export function SignInForm({
@@ -76,6 +99,7 @@ export function SignInForm({
   const postSignInTarget = sanitizeNext(next) ?? "/app/dashboard";
   const googleTarget = googleCallbackUrl(next);
   const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors<SignInFields>>({});
   const [info, setInfo] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const [resendPending, setResendPending] = useState(false);
@@ -97,6 +121,7 @@ export function SignInForm({
 
   async function signInWithGoogle() {
     setError(null);
+    setFieldErrors({});
     setInfo(null);
     setGooglePending(true);
     try {
@@ -119,15 +144,24 @@ export function SignInForm({
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);
+    setFieldErrors({});
     setInfo(null);
     setUnverifiedEmail(null);
     setShowOtpInput(false);
     setOtpCode("");
-    setPending(true);
+
     const form = e.currentTarget;
-    const email = (form.elements.namedItem("email") as HTMLInputElement).value;
-    const password = (form.elements.namedItem("password") as HTMLInputElement)
-      .value;
+    const parsed = signInSchema.safeParse({
+      email: (form.elements.namedItem("email") as HTMLInputElement).value,
+      password: (form.elements.namedItem("password") as HTMLInputElement).value,
+    });
+    if (!parsed.success) {
+      setFieldErrors(fieldErrorsFromZod<SignInFields>(parsed.error));
+      return;
+    }
+
+    const { email, password } = parsed.data;
+    setPending(true);
 
     try {
       const res = await authClient.signIn.email({
@@ -139,41 +173,38 @@ export function SignInForm({
         const msg = res.error.message ?? "Failed to sign in. Try again.";
         setError(msg);
         if (isEmailNotVerifiedError(res.error)) {
-          const trimmedEmail = email.trim();
-          setUnverifiedEmail(trimmedEmail);
+          setUnverifiedEmail(email);
           setSavedPassword(password);
           setPending(false);
           if (embedded && onNeedsVerify) {
-            onNeedsVerify({ email: trimmedEmail });
+            onNeedsVerify({ email });
             return;
           }
-          void sendVerificationCodeAuto(trimmedEmail);
+          void sendVerificationCodeAuto(email);
         } else {
           setPending(false);
         }
         return;
       }
 
-      const trimmedEmail = email.trim();
-      posthog.identify(trimmedEmail, { email: trimmedEmail });
-      posthog.capture("sign_in", { email: trimmedEmail });
+      posthog.identify(email, { email });
+      posthog.capture("sign_in", { email });
 
-      finishSignedIn(trimmedEmail);
+      finishSignedIn(email);
       return;
     } catch (err) {
       const msg =
         err instanceof Error ? err.message : "Failed to sign in. Try again.";
       setError(msg);
       if (isEmailNotVerifiedError(err)) {
-        const trimmedEmail = email.trim();
-        setUnverifiedEmail(trimmedEmail);
+        setUnverifiedEmail(email);
         setSavedPassword(password);
         setPending(false);
         if (embedded && onNeedsVerify) {
-          onNeedsVerify({ email: trimmedEmail });
+          onNeedsVerify({ email });
           return;
         }
-        void sendVerificationCodeAuto(trimmedEmail);
+        void sendVerificationCodeAuto(email);
       } else {
         setPending(false);
       }
@@ -265,6 +296,7 @@ export function SignInForm({
 
   return (
     <form
+      noValidate
       onSubmit={(e) => void handleSubmit(e)}
       className="flex flex-col gap-4"
     >
@@ -290,14 +322,23 @@ export function SignInForm({
           id="email"
           name="email"
           type="email"
-          required
           autoComplete="email"
           defaultValue={defaultEmail ?? undefined}
           readOnly={!!defaultEmail}
-          className={`rounded-lg border border-zinc-300 px-3 py-2 text-sm ${
-            defaultEmail ? "bg-zinc-50 text-zinc-600" : "bg-white"
-          }`}
+          aria-invalid={Boolean(fieldErrors.email)}
+          aria-describedby={fieldErrors.email ? "signin-email-error" : undefined}
+          onChange={() => clearFieldError(setFieldErrors, "email")}
+          className={cn(
+            "rounded-lg border px-3 py-2 text-sm",
+            defaultEmail ? "bg-zinc-50 text-zinc-600" : "bg-white",
+            inputErrorClass(Boolean(fieldErrors.email)),
+          )}
         />
+        {fieldErrors.email ? (
+          <p id="signin-email-error" className="text-sm text-red-600" role="alert">
+            {fieldErrors.email}
+          </p>
+        ) : null}
       </div>
       <div className="flex flex-col gap-1.5">
         <label htmlFor="password" className="text-sm font-medium">
@@ -307,10 +348,26 @@ export function SignInForm({
           id="password"
           name="password"
           type="password"
-          required
           autoComplete="current-password"
-          className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm"
+          aria-invalid={Boolean(fieldErrors.password)}
+          aria-describedby={
+            fieldErrors.password ? "signin-password-error" : undefined
+          }
+          onChange={() => clearFieldError(setFieldErrors, "password")}
+          className={cn(
+            "rounded-lg border bg-white px-3 py-2 text-sm",
+            inputErrorClass(Boolean(fieldErrors.password)),
+          )}
         />
+        {fieldErrors.password ? (
+          <p
+            id="signin-password-error"
+            className="text-sm text-red-600"
+            role="alert"
+          >
+            {fieldErrors.password}
+          </p>
+        ) : null}
       </div>
       {error ? <p className="text-sm text-red-600">{error}</p> : null}
       {info ? <p className="text-sm text-emerald-700">{info}</p> : null}
@@ -324,7 +381,6 @@ export function SignInForm({
             <input
               type="text"
               inputMode="numeric"
-              pattern="[0-9]*"
               maxLength={6}
               value={otpCode}
               onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ""))}

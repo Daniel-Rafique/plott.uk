@@ -5,6 +5,13 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { authClient } from "@/lib/auth/client";
 import posthog from "posthog-js";
 import { sanitizeNext } from "@/lib/auth/sanitize-next";
+import {
+  fieldErrorsFromZod,
+  inputErrorClass,
+  verifyEmailSchema,
+  type FieldErrors,
+} from "@/lib/auth/form-validation";
+import { cn } from "@/lib/utils";
 
 const RESEND_COOLDOWN_S = 30;
 
@@ -15,6 +22,8 @@ export type VerifyEmailFieldsProps = {
   embedded?: boolean;
   onSuccess?: () => void;
 };
+
+type VerifyFields = "email" | "code";
 
 export function VerifyEmailFields({
   email: emailProp = "",
@@ -31,6 +40,7 @@ export function VerifyEmailFields({
   const [code, setCode] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors<VerifyFields>>({});
   const [notice, setNotice] = useState<string | null>(null);
   const [cooldown, setCooldown] = useState(0);
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -69,13 +79,16 @@ export function VerifyEmailFields({
   async function handleVerify(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);
+    setFieldErrors({});
     setNotice(null);
-    const trimmedEmail = email.trim();
-    const trimmedCode = code.trim();
-    if (!trimmedEmail || trimmedCode.length < 4) {
-      setError("Enter the email and the 6-digit code we sent you.");
+
+    const parsed = verifyEmailSchema.safeParse({ email, code });
+    if (!parsed.success) {
+      setFieldErrors(fieldErrorsFromZod<VerifyFields>(parsed.error));
       return;
     }
+
+    const { email: trimmedEmail, code: trimmedCode } = parsed.data;
     setPending(true);
     const res = await authClient.emailOtp.verifyEmail({
       email: trimmedEmail,
@@ -117,6 +130,7 @@ export function VerifyEmailFields({
 
   return (
     <form
+      noValidate
       onSubmit={(e) => void handleVerify(e)}
       className="flex flex-col gap-4"
     >
@@ -128,12 +142,29 @@ export function VerifyEmailFields({
           id="email"
           name="email"
           type="email"
-          required
           autoComplete="email"
           value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm"
+          aria-invalid={Boolean(fieldErrors.email)}
+          aria-describedby={fieldErrors.email ? "verify-email-error" : undefined}
+          onChange={(e) => {
+            setEmail(e.target.value);
+            setFieldErrors((prev) => {
+              if (!prev.email) return prev;
+              const next = { ...prev };
+              delete next.email;
+              return next;
+            });
+          }}
+          className={cn(
+            "rounded-lg border bg-white px-3 py-2 text-sm",
+            inputErrorClass(Boolean(fieldErrors.email)),
+          )}
         />
+        {fieldErrors.email ? (
+          <p id="verify-email-error" className="text-sm text-red-600" role="alert">
+            {fieldErrors.email}
+          </p>
+        ) : null}
       </div>
       <div className="flex flex-col gap-1.5">
         <label htmlFor="code" className="text-sm font-medium">
@@ -146,14 +177,30 @@ export function VerifyEmailFields({
           type="text"
           inputMode="numeric"
           autoComplete="one-time-code"
-          required
-          maxLength={8}
-          pattern="[0-9]*"
+          maxLength={6}
           value={code}
-          onChange={(e) => setCode(e.target.value.replace(/[^0-9]/g, ""))}
-          className="rounded-lg border border-zinc-300 bg-white px-3 py-3 text-center font-mono text-xl tracking-[0.3em]"
+          aria-invalid={Boolean(fieldErrors.code)}
+          aria-describedby={fieldErrors.code ? "verify-code-error" : undefined}
+          onChange={(e) => {
+            setCode(e.target.value.replace(/[^0-9]/g, ""));
+            setFieldErrors((prev) => {
+              if (!prev.code) return prev;
+              const next = { ...prev };
+              delete next.code;
+              return next;
+            });
+          }}
+          className={cn(
+            "rounded-lg border bg-white px-3 py-3 text-center font-mono text-xl tracking-[0.3em]",
+            inputErrorClass(Boolean(fieldErrors.code)),
+          )}
           placeholder="••••••"
         />
+        {fieldErrors.code ? (
+          <p id="verify-code-error" className="text-sm text-red-600" role="alert">
+            {fieldErrors.code}
+          </p>
+        ) : null}
       </div>
       {error ? <p className="text-sm text-red-600">{error}</p> : null}
       {notice ? <p className="text-sm text-emerald-700">{notice}</p> : null}
