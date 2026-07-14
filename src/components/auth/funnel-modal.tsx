@@ -196,6 +196,9 @@ export function FunnelModalProvider({ children }: { children: ReactNode }) {
             "max-h-[90vh] overflow-y-auto sm:max-w-md",
             isOnboarding && "sm:max-w-lg",
           )}
+          onPointerDownOutside={(e) => e.preventDefault()}
+          onInteractOutside={(e) => e.preventDefault()}
+          onEscapeKeyDown={(e) => e.preventDefault()}
         >
           <DialogHeader className={showAuthChrome ? "pr-6" : "sr-only"}>
             {showAuthChrome && step === "sign-up" ? (
