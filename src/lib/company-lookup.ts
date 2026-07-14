@@ -32,9 +32,29 @@ import { logger } from "@/lib/logger";
 const COMPANY_SUFFIX_RE =
   /\b(ltd|limited|llp|plc|l\.?t\.?d\.?|c\.?i\.?c\.?|company|holdings|group|developments?|homes|properties|construction|builders?|associates|partnership|estates?|investments?|ventures?|studios?|architects?|surveyors?)\b/i;
 
+/**
+ * Short ALL-CAPS trading names (e.g. "NLA") from planning feeds are companies,
+ * not people — without this, enrichment treats them as named persons and never
+ * replaces them with a Companies House director / full company name.
+ */
+export function looksLikeAcronymCompany(
+  name: string | null | undefined,
+): boolean {
+  if (!name) return false;
+  const compact = name.trim().replace(/[.\s]+/g, "");
+  if (compact.length < 2 || compact.length > 4) return false;
+  if (!/^[A-Za-z]+$/.test(compact)) return false;
+  // Require mostly uppercase so short names like "Ann" / "Jon" stay people.
+  const letters = compact.split("");
+  const upper = letters.filter((c) => c === c.toUpperCase() && c !== c.toLowerCase()).length;
+  return upper === letters.length;
+}
+
 /** Heuristic: does this name look like a UK registered company? */
 export function looksLikeCompany(name: string | null | undefined): boolean {
-  return Boolean(name && COMPANY_SUFFIX_RE.test(name));
+  if (!name?.trim()) return false;
+  if (COMPANY_SUFFIX_RE.test(name)) return true;
+  return looksLikeAcronymCompany(name);
 }
 
 /**

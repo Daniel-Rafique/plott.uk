@@ -127,4 +127,63 @@ describe("enrichFromCompanyLookup", () => {
     expect(result.applicantName).toBe("Robert Jones");
     expect(result.applicantEmail).toBe("jane@starplans.co.uk");
   });
+
+  it("replaces a short ALL-CAPS acronym applicant with the CH director", async () => {
+    vi.stubEnv("HUNTER_API_KEY", "");
+    resolveCompanyContact.mockResolvedValue({
+      companyName: "NLA PROPERTIES LIMITED",
+      companyNumber: "09876543",
+      status: "active",
+      contactName: "Alex Mercer, Director",
+      address: "NLA PROPERTIES LIMITED, 105 Aslett Street, London, SW18 2BG",
+      email: null,
+      emailSource: null,
+      emailConfidence: null,
+      emailStatus: null,
+      sources: ["companies_house"],
+    });
+
+    const result = await enrichFromCompanyLookup(
+      baseResolved({
+        applicantName: "NLA",
+        companyName: "NLA Properties Limited",
+      }),
+    );
+
+    expect(resolveCompanyContact).toHaveBeenCalledWith(
+      "NLA Properties Limited",
+      {
+        needEmail: false,
+        personName: null,
+      },
+    );
+    expect(result.applicantName).toBe("Alex Mercer, Director");
+    expect(result.companyName).toBe("NLA PROPERTIES LIMITED");
+  });
+
+  it("uses a bare acronym as the CH search seed when no fuller companyName exists", async () => {
+    vi.stubEnv("HUNTER_API_KEY", "");
+    resolveCompanyContact.mockResolvedValue({
+      companyName: "NLA PROPERTIES LIMITED",
+      companyNumber: "09876543",
+      status: "active",
+      contactName: "Alex Mercer, Director",
+      address: "1 High Street",
+      email: null,
+      emailSource: null,
+      emailConfidence: null,
+      emailStatus: null,
+      sources: ["companies_house"],
+    });
+
+    const result = await enrichFromCompanyLookup(
+      baseResolved({ applicantName: "NLA" }),
+    );
+
+    expect(resolveCompanyContact).toHaveBeenCalledWith("NLA", {
+      needEmail: false,
+      personName: null,
+    });
+    expect(result.applicantName).toBe("Alex Mercer, Director");
+  });
 });
