@@ -123,11 +123,16 @@ export async function PATCH(req: Request) {
     data: { twoFactorEmailEnabled: body.twoFactorEmailEnabled },
   });
 
-  if (!body.twoFactorEmailEnabled) {
-    await clearSecondFactorVerification();
-  }
+  // Enabling 2FA mid-session would leave them in /app without a verification
+  // cookie (layout then redirects to /auth/two-factor — feels "logged out").
+  // Clear any stale cookie and tell the client to sign out so the next login
+  // runs the full password → email-code path cleanly.
+  await clearSecondFactorVerification();
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({
+    ok: true,
+    requiresSignIn: body.twoFactorEmailEnabled,
+  });
 }
 
 export async function DELETE(req: Request) {

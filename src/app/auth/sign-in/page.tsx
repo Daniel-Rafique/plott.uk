@@ -34,6 +34,7 @@ export default async function AuthSignInPage({
   const rawNext = typeof sp.next === "string" ? sp.next : null;
   const pendingEmailVerification =
     rawNext?.startsWith("/auth/verify-email") ?? false;
+  const twoFactorJustEnabled = sp.notice === "2fa-enabled";
   const next = sanitizeNext(sp.next);
   const email = sanitizeEmail(sp.email);
   const isInvite = next?.startsWith("/invites/") ?? false;
@@ -59,7 +60,15 @@ export default async function AuthSignInPage({
             : "Sign in to your account to continue."
         }
         banner={
-          pendingEmailVerification ? (
+          twoFactorJustEnabled ? (
+            <div className="mb-6 rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
+              <p className="font-medium">Email 2FA is enabled.</p>
+              <p className="mt-1 text-emerald-800/90">
+                Sign in with your password. We&apos;ll then email you a one-time
+                code before opening your workspace.
+              </p>
+            </div>
+          ) : pendingEmailVerification ? (
             <div className="mb-6 rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
               <p className="font-medium">Account created — check your email.</p>
               <p className="mt-1 text-emerald-800/90">

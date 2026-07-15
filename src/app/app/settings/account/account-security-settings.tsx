@@ -42,18 +42,30 @@ export function AccountSecuritySettings({ user, accounts }: Props) {
       }),
     });
     const data = await res.json().catch(() => ({}));
-    setSaving(false);
     if (!res.ok) {
+      setSaving(false);
       toast.error(data.error ?? "Could not update account security.");
       return;
     }
     setTwoFactorEnabled(nextValue);
     setPassword("");
-    toast.success(
-      nextValue
-        ? "Email 2FA is enabled for future sign-ins."
-        : "Email 2FA has been disabled.",
-    );
+
+    // Enabling requires a clean re-login so the password → email-code path
+    // runs immediately (avoids a half-session that looks logged out).
+    if (nextValue && data.requiresSignIn) {
+      toast.success("Email 2FA is on. Sign in again to continue.");
+      await fetch("/api/auth/second-factor/clear", { method: "POST" }).catch(
+        () => null,
+      );
+      await authClient.signOut();
+      const params = new URLSearchParams({ notice: "2fa-enabled" });
+      if (user.email) params.set("email", user.email);
+      window.location.href = `/auth/sign-in?${params.toString()}`;
+      return;
+    }
+
+    setSaving(false);
+    toast.success("Email 2FA has been disabled.");
   }
 
   async function deleteAccount() {
@@ -137,6 +149,12 @@ export function AccountSecuritySettings({ user, accounts }: Props) {
               When enabled, Plott sends a one-time email code after password
               sign-in before the workspace opens. Codes expire after 10 minutes.
             </p>
+            {!twoFactorEnabled ? (
+              <p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-600">
+                Enabling 2FA will sign you out. Sign back in with your password,
+                then enter the email code to open your workspace.
+              </p>
+            ) : null}
           </div>
           <span
             className={`rounded-full px-3 py-1 text-xs font-semibold ${
@@ -177,7 +195,9 @@ export function AccountSecuritySettings({ user, accounts }: Props) {
             className="inline-flex items-center gap-2 rounded-md bg-zinc-900 px-4 py-2 text-sm font-semibold text-white hover:bg-zinc-800 disabled:opacity-60"
           >
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-            {twoFactorEnabled ? "Disable email 2FA" : "Enable email 2FA"}
+            {twoFactorEnabled
+              ? "Disable email 2FA"
+              : "Enable email 2FA and sign out"}
           </button>
         </div>
       </section>
