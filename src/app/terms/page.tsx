@@ -140,7 +140,7 @@ export default function TermsPage() {
 
             <section className="editorial-hairline pt-8">
               <h2 className="font-[family-name:var(--font-display)] text-[28px] font-normal tracking-tight text-zinc-950">
-                4. Subscription, trial and payment
+                4. Subscription and payment
               </h2>
               <ul className="mt-5 space-y-3 text-[14px]">
                 <li className="flex items-start gap-3">

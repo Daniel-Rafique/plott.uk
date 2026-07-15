@@ -58,7 +58,7 @@ export default async function AuthSignUpPage({
         variant="signup"
         signUpHref={signUpHref}
         eyebrow={isInvite ? undefined : freeTrialEyebrow()}
-        title={isInvite ? "Join your team on Plott" : "Start your free trial"}
+        title={isInvite ? "Join your team on Plott" : "Create your account"}
         subtitle={
           isInvite
             ? "Create an account to accept your invitation."

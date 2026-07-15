@@ -165,7 +165,7 @@ export function FunnelModalProvider({ children }: { children: ReactNode }) {
 
   const title =
     step === "sign-up"
-      ? "Start your free trial"
+      ? "Create your account"
       : step === "sign-in"
         ? "Welcome back"
         : step === "verify"

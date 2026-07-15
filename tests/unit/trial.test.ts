@@ -1,19 +1,15 @@
 import { describe, expect, it } from "vitest";
 import {
-  TRIAL_DAYS,
   freeTrialEyebrow,
+  startFreeTrialLabel,
   trialChargeCopy,
-  trialDaysLabel,
 } from "@/lib/trial";
 
-describe("trial copy", () => {
-  it("defaults to 3 days", () => {
-    expect(TRIAL_DAYS).toBe(3);
-  });
-
-  it("formats trial labels consistently", () => {
-    expect(trialDaysLabel()).toBe("3-days trial");
-    expect(freeTrialEyebrow()).toBe("Free 3-day trial");
-    expect(trialChargeCopy()).toContain("3-day trial");
+describe("subscribe marketing copy", () => {
+  it("does not promise a free trial", () => {
+    expect(freeTrialEyebrow()).toBe("Cancel anytime");
+    expect(startFreeTrialLabel()).toBe("Get started");
+    expect(trialChargeCopy()).toContain("billed at checkout");
+    expect(trialChargeCopy().toLowerCase()).not.toContain("trial");
   });
 });

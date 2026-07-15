@@ -13,7 +13,7 @@ test.describe("Public surface smoke", () => {
     await expect(
       page.getByRole("heading", { name: /see every site/i }),
     ).toBeVisible();
-    await expect(page.getByRole("link", { name: /start.*free trial|create account/i })).toBeVisible();
+    await expect(page.getByRole("link", { name: /get started|create account/i })).toBeVisible();
   });
 
   test("pricing page shows at least one plan", async ({ page }) => {

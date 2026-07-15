@@ -95,13 +95,11 @@ export function SubscribePanel({
   companyName,
   selectedPlan,
   selectedInterval = "month",
-  canStartIntroTrial,
   isReturningSubscriber,
 }: {
   companyName: string;
   selectedPlan?: PaidPlanId | null;
   selectedInterval?: BillingInterval;
-  canStartIntroTrial: boolean;
   isReturningSubscriber: boolean;
 }) {
   const [plans, setPlans] = useState<ClientPlan[]>(FALLBACK_PLANS);
@@ -131,7 +129,6 @@ export function SubscribePanel({
       posthog.capture("checkout_initiated", {
         plan,
         billing_interval: billingInterval,
-        can_start_intro_trial: canStartIntroTrial,
         is_returning_subscriber: isReturningSubscriber,
       });
       try {
@@ -166,7 +163,7 @@ export function SubscribePanel({
         setLoadingPlan(null);
       }
     },
-    [canStartIntroTrial, interval, isReturningSubscriber],
+    [interval, isReturningSubscriber],
   );
 
   useEffect(() => {
@@ -184,14 +181,14 @@ export function SubscribePanel({
         <h1 className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">
           {selectedPlan
             ? "Redirecting you to Stripe Checkout"
-            : canStartIntroTrial
-              ? "Pick a plan to start your trial"
-              : "Pick a plan to resubscribe"}
+            : isReturningSubscriber
+              ? "Pick a plan to resubscribe"
+              : "Pick a plan"}
         </h1>
         <p className="mx-auto mt-3 max-w-xl text-sm text-zinc-600">
-          {canStartIntroTrial
-            ? "No charge today. Enter your billing details in Stripe and your chosen plan starts billing only after the trial."
-            : "Your workspace has already used its free trial. Stripe will restart billing for the plan you choose."}
+          {isReturningSubscriber
+            ? "Stripe will restart billing for the plan you choose. Enter a promo code at checkout if you have one."
+            : "Enter your billing details in Stripe Checkout. You are billed when you subscribe — enter a promo code if you have one."}
         </p>
         {!selectedPlan ? (
           <div className="mt-6 flex justify-center">
@@ -204,9 +201,8 @@ export function SubscribePanel({
         <div className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-950 shadow-sm">
           <p className="font-semibold">Your subscription is inactive.</p>
           <p className="mt-1 text-amber-900">
-            Choose a paid plan to restore access to Plott. Because this
-            workspace has already had a trial, the new subscription starts
-            without another free trial.
+            Choose a paid plan to restore access to Plott. Billing starts when
+            you complete Checkout.
           </p>
         </div>
       ) : null}
@@ -221,7 +217,7 @@ export function SubscribePanel({
               price={price}
               isLoading={loadingPlan === plan.id}
               disabled={loadingPlan !== null}
-              canStartIntroTrial={canStartIntroTrial}
+              isReturningSubscriber={isReturningSubscriber}
               onSelect={() => void startCheckout(plan.id)}
             />
           );
@@ -240,14 +236,14 @@ function PlanCard({
   price,
   isLoading,
   disabled,
-  canStartIntroTrial,
+  isReturningSubscriber,
   onSelect,
 }: {
   plan: ClientPlan;
   price: { label: string | null; suffix: string; sub?: string };
   isLoading: boolean;
   disabled: boolean;
-  canStartIntroTrial: boolean;
+  isReturningSubscriber: boolean;
   onSelect: () => void;
 }) {
   return (
@@ -309,9 +305,9 @@ function PlanCard({
       >
         {isLoading
           ? "Redirecting…"
-          : canStartIntroTrial
-            ? "Start trial"
-            : "Resubscribe"}
+          : isReturningSubscriber
+            ? "Resubscribe"
+            : "Subscribe"}
       </button>
     </div>
   );

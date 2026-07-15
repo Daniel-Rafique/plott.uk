@@ -104,7 +104,7 @@ For Klaviyo billing lifecycle automation, add a **second** Stripe webhook endpoi
 | Variable | Purpose |
 | --- | --- |
 | `STRIPE_AUTOMATIC_TAX` | Set to `true` if [Stripe Tax](https://stripe.com/tax) is enabled ([checkout](../src/app/api/stripe/checkout/route.ts)). |
-| `STRIPE_TRIAL_DAYS` | Trial length for new subscriptions; default **3** if unset. |
+| `STRIPE_TRIAL_DAYS` | Intro trial length for new subscriptions. Set to **0** to disable (recommended when marketing no longer promises a trial). If unset, checkout defaults to **3**. |
 | `NEXT_PUBLIC_APP_URL` | Must match the site URL used for Checkout success/cancel redirects. |
 
 ## 5. App-set metadata (do not set manually in Dashboard for normal flow)

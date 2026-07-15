@@ -1,9 +1,7 @@
 /**
  * Canonical product marketing copy. Import from here instead of hardcoding
- * stats, trial CTAs, or feature bullets in pages and components.
+ * stats, CTAs, or feature bullets in pages and components.
  */
-
-import { TRIAL_DAYS } from "@/lib/trial";
 
 export const UK_LPA_COUNT = 337;
 
@@ -197,20 +195,20 @@ export function faqGdpr(): string {
 
 export function faqTrialWorks(): { question: string; answer: string } {
   return {
-    question: `How does the ${TRIAL_DAYS}-day trial work?`,
-    answer: `Start any plan from the pricing grid, enter your card details in Stripe Checkout, and you won't be charged for ${TRIAL_DAYS} days. Cancel any time from the billing portal with a single click.`,
+    question: "How does billing work?",
+    answer:
+      "Start any plan from the pricing grid and enter your card details in Stripe Checkout. You are billed when you subscribe. If you have a promo code, enter it at checkout. Cancel any time from the billing portal with a single click.",
   };
 }
 
 export function pricingHeroDescription(): string {
-  return `Start with a ${TRIAL_DAYS}-day trial on any plan. Cancel from the billing portal any time. VAT added automatically where applicable.`;
+  return "Choose a plan that fits your team. Cancel from the billing portal any time. VAT added automatically where applicable.";
 }
 
 export function pricingMetadataTrialPhrase(): string {
-  return `${TRIAL_DAYS}-day trial`;
+  return "cancel anytime";
 }
 
 export function termsTrialSentence(): string {
-  const word = TRIAL_DAYS === 1 ? "day" : "days";
-  return `A ${TRIAL_DAYS}-${word} trial is available on the first subscription per Customer.`;
+  return "Subscriptions begin when you complete Checkout. Promo codes may be entered at Checkout when offered.";
 }

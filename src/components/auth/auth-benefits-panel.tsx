@@ -124,7 +124,7 @@ export function AuthBenefitsPanel({
             <div className="rounded-xl border border-white/10 bg-white/5 p-5 backdrop-blur-sm">
               <p className="text-sm font-medium text-white">New to Plott?</p>
               <p className="mt-1 text-sm text-zinc-400">
-                Start a free trial — map applications, enrich contacts and send
+                Get started — map applications, enrich contacts and send
                 outreach in minutes.
               </p>
               <AuthTransitionLink

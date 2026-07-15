@@ -21,21 +21,21 @@ export const revalidate = 3600;
 function starterPriceCopy(plans: Awaited<ReturnType<typeof loadPlans>>): string {
   const starter = plans.find((plan) => plan.id === "starter");
   const label = starter?.monthlyPriceLabel ?? starter?.priceLabel;
-  return label ? `Start from ${label}/month` : `Start with a ${pricingMetadataTrialPhrase()}`;
+  return label ? `Start from ${label}/month` : "Choose a plan";
 }
 
 export async function generateMetadata(): Promise<Metadata> {
   const plans = await loadPlans();
-  const trialCopy = starterPriceCopy(plans);
-  const trialPhrase = pricingMetadataTrialPhrase();
+  const priceCopy = starterPriceCopy(plans);
+  const cancelPhrase = pricingMetadataTrialPhrase();
   return publicPageMetadata({
     title: "Pricing",
-    description: `Simple, transparent pricing for Plott. ${trialCopy} with a ${trialPhrase}. Annual billing saves two months. Cancel any time, VAT may apply.`,
+    description: `Simple, transparent pricing for Plott. ${priceCopy}. Annual billing saves two months. ${cancelPhrase.charAt(0).toUpperCase()}${cancelPhrase.slice(1)}, VAT may apply.`,
     path: "/pricing",
     openGraphTitle: "Pricing — Plott",
-    openGraphDescription: `Simple, transparent pricing. ${trialCopy} with a ${trialPhrase}.`,
+    openGraphDescription: `Simple, transparent pricing. ${priceCopy}.`,
     twitterTitle: "Pricing — Plott",
-    twitterDescription: `Simple, transparent pricing. ${trialCopy} with a ${trialPhrase}.`,
+    twitterDescription: `Simple, transparent pricing. ${priceCopy}.`,
   });
 }
 

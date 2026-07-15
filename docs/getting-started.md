@@ -12,13 +12,13 @@ Get from sign-up to your first letter in under 10 minutes.
 | **Pro** | See Stripe / pricing page | Growing contractors | Higher limits, 3 seats, letter assist, research |
 | **Agency** | See Stripe / pricing page | Multi-office firms | Unlimited seats, autonomous outreach, priority support |
 
-All plans include a **3-day trial** with full access to your plan's features.
+All plans are billed at Stripe Checkout when you subscribe. Promo codes can be entered at checkout when offered.
 
 ---
 
 ## Step 1: Sign Up (2 minutes)
 
-1. Go to the homepage and click **"Start 3-day trial"**
+1. Go to the homepage and click **"Get started"**
 2. Enter your email and create a password
 3. Check your inbox for a **6-digit verification code**
 4. Enter the code to verify your email
@@ -48,7 +48,7 @@ Select a plan based on your needs:
 | Active lead generation, small team | Pro |
 | Automated outreach at scale | Agency |
 
-You'll be redirected to Stripe to enter payment details. Your card won't be charged during the 7-day trial.
+You'll be redirected to Stripe to enter payment details. You are billed when you subscribe — enter a promo code at checkout if you have one.
 
 ---
 

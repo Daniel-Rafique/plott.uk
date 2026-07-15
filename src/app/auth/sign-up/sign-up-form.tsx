@@ -308,7 +308,7 @@ export function SignUpForm({
         disabled={pending}
         className="inline-flex items-center justify-center gap-2 rounded-full bg-zinc-900 py-2.5 text-sm font-semibold text-white transition hover:bg-zinc-800 disabled:opacity-60"
       >
-        {pending ? "Creating account…" : "Start my free trial"}
+        {pending ? "Creating account…" : "Create account"}
         {!pending ? <ArrowRight className="h-4 w-4" aria-hidden /> : null}
       </button>
       <p className="text-center text-xs leading-relaxed text-zinc-500">

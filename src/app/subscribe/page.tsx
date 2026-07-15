@@ -89,9 +89,9 @@ export default async function SubscribePage({
     );
   }
 
-  const canStartIntroTrial = shouldOfferStripeIntroTrial(resolved.company);
   const isReturningSubscriber =
-    !canStartIntroTrial || resolved.company.subscriptionStatus !== "none";
+    !shouldOfferStripeIntroTrial(resolved.company) ||
+    resolved.company.subscriptionStatus !== "none";
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -101,7 +101,6 @@ export default async function SubscribePage({
           companyName={resolved.company.name}
           selectedPlan={selectedPlan}
           selectedInterval={selectedInterval}
-          canStartIntroTrial={canStartIntroTrial}
           isReturningSubscriber={isReturningSubscriber}
         />
         <p className="mt-8 text-center text-sm text-zinc-500">

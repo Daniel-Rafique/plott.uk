@@ -560,7 +560,7 @@ function PlanCard({
   let actionLabel: string;
   if (isCurrent) actionLabel = "Current plan";
   else if (isCanceledWithAccess) actionLabel = `Subscribe to ${plan.name}`;
-  else if (!isSubscribed) actionLabel = "Start 7-day trial";
+  else if (!isSubscribed) actionLabel = `Subscribe to ${plan.name}`;
   else if (isUpgrade) actionLabel = `Upgrade to ${plan.name}`;
   else if (isDowngrade) actionLabel = `Downgrade to ${plan.name}`;
   else actionLabel = `Switch to ${plan.name}`;
