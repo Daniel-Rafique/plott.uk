@@ -67,7 +67,8 @@ export const PLAN_CATALOG: PlanCatalogEntry[] = [
     interval: "month",
     label: "Starter",
     productName: "Plott Starter",
-    productDescription: "Sole traders: NL search + digest summaries",
+    productDescription:
+      "Plott Starter SaaS subscription for UK construction firms. Cloud software access for planning-application map search, natural-language search, planning Q&A, manual letter PDF export, and CSV export. Includes 1 user seat and monthly AI credit; AI overage is metered separately.",
     amountPence: 4900,
     priceNickname: "Starter / monthly",
     metadata: { ...STARTER_META },
@@ -78,7 +79,8 @@ export const PLAN_CATALOG: PlanCatalogEntry[] = [
     interval: "year",
     label: "Starter",
     productName: "Plott Starter",
-    productDescription: "Sole traders: NL search + digest summaries",
+    productDescription:
+      "Plott Starter SaaS subscription for UK construction firms. Cloud software access for planning-application map search, natural-language search, planning Q&A, manual letter PDF export, and CSV export. Includes 1 user seat and monthly AI credit; AI overage is metered separately.",
     amountPence: 49900,
     priceNickname: "Starter / annual (2 months free)",
     metadata: { ...STARTER_META },
@@ -90,7 +92,7 @@ export const PLAN_CATALOG: PlanCatalogEntry[] = [
     label: "Pro",
     productName: "Plott Pro",
     productDescription:
-      "Growing contractors: Starter + letter assist + enrichment",
+      "Plott Pro SaaS subscription for UK construction firms. Cloud software access for unlimited map search, saved searches with email digests, pinned application tracking, branded letter and email outreach, AI drafting, applicant enrichment, and property ownership lookup. Includes 5 team seats; additional licensed seats and AI overage are billed separately.",
     amountPence: 9900,
     priceNickname: "Pro / monthly",
     metadata: { ...PRO_META },
@@ -102,7 +104,7 @@ export const PLAN_CATALOG: PlanCatalogEntry[] = [
     label: "Pro",
     productName: "Plott Pro",
     productDescription:
-      "Growing contractors: Starter + letter assist + enrichment",
+      "Plott Pro SaaS subscription for UK construction firms. Cloud software access for unlimited map search, saved searches with email digests, pinned application tracking, branded letter and email outreach, AI drafting, applicant enrichment, and property ownership lookup. Includes 5 team seats; additional licensed seats and AI overage are billed separately.",
     amountPence: 99000,
     priceNickname: "Pro / annual (2 months free)",
     metadata: { ...PRO_META },
@@ -113,7 +115,8 @@ export const PLAN_CATALOG: PlanCatalogEntry[] = [
     interval: "month",
     label: "Agency",
     productName: "Plott Agency",
-    productDescription: "Multi-office firms: Pro + autonomous outreach",
+    productDescription:
+      "Plott Agency SaaS subscription for multi-office firms and lead-generation agencies. Cloud software access including everything in Pro plus autonomous outreach pipeline and bulk letter generation. Includes 10 team seats; additional licensed seats and AI overage are billed separately.",
     amountPence: 19900,
     priceNickname: "Agency / monthly",
     metadata: { ...AGENCY_META },
@@ -124,7 +127,8 @@ export const PLAN_CATALOG: PlanCatalogEntry[] = [
     interval: "year",
     label: "Agency",
     productName: "Plott Agency",
-    productDescription: "Multi-office firms: Pro + autonomous outreach",
+    productDescription:
+      "Plott Agency SaaS subscription for multi-office firms and lead-generation agencies. Cloud software access including everything in Pro plus autonomous outreach pipeline and bulk letter generation. Includes 10 team seats; additional licensed seats and AI overage are billed separately.",
     amountPence: 199000,
     priceNickname: "Agency / annual (2 months free)",
     metadata: { ...AGENCY_META },
