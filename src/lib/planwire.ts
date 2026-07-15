@@ -4,6 +4,7 @@ import type {
 } from "@/lib/planning-data";
 import { logger } from "@/lib/logger";
 import { geocodePostcodes } from "@/lib/geocode";
+import { decodeHtmlEntities } from "@/lib/utils";
 
 /**
  * Typed error for PlanWire 429 / circuit-breaker cooldowns. API routes catch
@@ -181,8 +182,9 @@ const councilWebsiteCache = new Map<
 >();
 
 function pickStr(v: unknown): string | undefined {
-  if (typeof v === "string" && v.trim() !== "") return v;
-  return undefined;
+  if (typeof v !== "string" || v.trim() === "") return undefined;
+  // PlanWire (and some LPA feeds) return HTML-encoded plain text, e.g. "Mr &amp; Mrs".
+  return decodeHtmlEntities(v) ?? undefined;
 }
 
 function normaliseForMatch(value: string | undefined): string {

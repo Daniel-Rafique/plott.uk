@@ -135,6 +135,40 @@ describe("fetchPlanwireApplicationsByQuery", () => {
     expect(postcodeCall).toBeTruthy();
   });
 
+  it("decodes HTML entities in applicant and address fields", async () => {
+    vi.stubEnv("PLANWIRE_API_KEY", "pw_test_key");
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        data: [
+          {
+            id: "app-uuid-3",
+            councilId: "camden",
+            reference: "2026/2859/P",
+            address: "Flat 7, 14 Netherhall Gardens, London",
+            postcode: "NW3 5TH",
+            lat: 51.55,
+            lng: -0.18,
+            description: "Roof terrace &amp; balustrade",
+            status: "REGISTERED",
+            url: "https://example.com/app",
+            applicant: {
+              name: "Mr &amp; Mrs Sofian Lignier",
+              agent: "4D PLANNING",
+            },
+          },
+        ],
+      }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const results = await fetchPlanwireApplicationsByQuery({ council: "camden" });
+
+    expect(results).toHaveLength(1);
+    expect(results[0].applicant?.name).toBe("Mr & Mrs Sofian Lignier");
+    expect(results[0].description).toBe("Roof terrace & balustrade");
+  });
+
   it("omits unset optional params and defaults page/limit", async () => {
     vi.stubEnv("PLANWIRE_API_KEY", "pw_test_key");
     const fetchMock = vi.fn().mockResolvedValue({
