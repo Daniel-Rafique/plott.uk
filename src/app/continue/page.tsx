@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import {
-  redirectForStage,
+  resolvePostAuthPath,
   resolveStage,
 } from "@/lib/auth/onboarding-gate";
 import { StaleAuthUserError } from "@/lib/tenant";
@@ -18,7 +18,8 @@ type Search = Promise<{ [k: string]: string | string[] | undefined }>;
 
 /**
  * Stage-aware entry for signed-in users (marketing Dashboard, post sign-in).
- * Sends incomplete accounts into the funnel instead of bouncing through /app.
+ * Resolves onboarding stage + 2FA in one server hop so ready users who need
+ * email 2FA never bounce through /app/dashboard first.
  */
 export default async function ContinuePage({
   searchParams,
@@ -53,32 +54,5 @@ export default async function ContinuePage({
     throw err;
   }
 
-  if (resolved.stage === "unauthenticated") {
-    const signIn = preferredNext
-      ? `/auth/sign-in?next=${encodeURIComponent(preferredNext)}`
-      : "/auth/sign-in";
-    redirect(signIn);
-  }
-
-  if (
-    preferredNext &&
-    (resolved.stage === "ready" ||
-      resolved.stage === "needs_plan" ||
-      resolved.stage === "needs_company")
-  ) {
-    if (resolved.stage === "ready") {
-      redirect(preferredNext);
-    }
-    if (
-      resolved.stage === "needs_company" &&
-      preferredNext.startsWith("/subscribe")
-    ) {
-      redirect(`/onboarding?next=${encodeURIComponent(preferredNext)}`);
-    }
-    if (resolved.stage === "needs_plan" && preferredNext.startsWith("/subscribe")) {
-      redirect(preferredNext);
-    }
-  }
-
-  redirect(redirectForStage(resolved));
+  redirect(await resolvePostAuthPath(resolved, preferredNext));
 }

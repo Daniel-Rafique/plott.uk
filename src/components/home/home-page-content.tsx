@@ -43,7 +43,7 @@ type Props = {
 };
 
 export function HomePageContent({ heroFontClassName }: Props) {
-  const { data: session } = authClient.useSession();
+  const { data: session, isPending: sessionPending } = authClient.useSession();
   const isSignedIn = Boolean(session?.user);
 
   const ctaHeadingRef = useTextReveal<HTMLHeadingElement>();
@@ -109,7 +109,13 @@ export function HomePageContent({ heroFontClassName }: Props) {
               }}
               className="flex flex-wrap items-center gap-4 pt-4"
             >
-              {!isSignedIn ? (
+              {sessionPending ? (
+                <div
+                  className="h-12 w-44 animate-pulse rounded-full bg-white/20"
+                  aria-hidden
+                  aria-busy="true"
+                />
+              ) : !isSignedIn ? (
                 <>
                   <FunnelCtaButton
                     options={{ step: "sign-up" }}
@@ -199,7 +205,13 @@ export function HomePageContent({ heroFontClassName }: Props) {
             data-reveal
             className="mt-12 flex flex-col items-center justify-center gap-3 sm:flex-row sm:gap-4"
           >
-            {isSignedIn ? (
+            {sessionPending ? (
+              <div
+                className="h-12 w-44 animate-pulse rounded-full bg-zinc-200"
+                aria-hidden
+                aria-busy="true"
+              />
+            ) : isSignedIn ? (
               <WorkspaceEntryCta className="inline-flex items-center gap-2 rounded-full border border-zinc-900 bg-zinc-900 px-7 py-3.5 text-[13px] font-medium text-white transition hover:border-zinc-700 hover:bg-zinc-700">
                 Open dashboard
                 <ArrowRight className="h-4 w-4" strokeWidth={1.5} aria-hidden />

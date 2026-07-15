@@ -38,13 +38,15 @@ function displayPrice(plan: Plan, interval: BillingInterval): {
 export function PricingGrid({ plans }: { plans: Plan[] }) {
   const router = useRouter();
   const funnel = useOptionalFunnelModal();
-  const { data: session } = authClient.useSession();
+  const { data: session, isPending: sessionPending } = authClient.useSession();
   const isSignedIn = Boolean(session?.user);
   const [loadingId, setLoadingId] = useState<string | null>(null);
   const [interval, setInterval] = useState<BillingInterval>("month");
   const ref = useGsapReveal<HTMLDivElement>({ stagger: 0.08, y: 28 });
 
   async function subscribe(plan: Plan) {
+    if (sessionPending) return;
+
     const priceId =
       interval === "year" ? plan.annualPriceId : plan.monthlyPriceId ?? plan.priceId;
     const subscribeNext = buildSubscribeNext(plan.id, interval);
@@ -174,7 +176,7 @@ export function PricingGrid({ plans }: { plans: Plan[] }) {
                 <button
                   type="button"
                   onClick={() => subscribe(plan)}
-                  disabled={loadingId === plan.id}
+                  disabled={sessionPending || loadingId === plan.id}
                   className={cn(
                     "mt-10 inline-flex w-full items-center justify-center rounded-full px-6 py-3 text-[13px] font-medium transition",
                     plan.highlight
@@ -182,7 +184,7 @@ export function PricingGrid({ plans }: { plans: Plan[] }) {
                       : "border border-zinc-900 bg-transparent text-zinc-900 hover:bg-zinc-900 hover:text-white disabled:opacity-60",
                   )}
                 >
-                  {loadingId === plan.id
+                  {sessionPending || loadingId === plan.id
                     ? "Loading…"
                     : hasPrice
                       ? startFreeTrialLabel()

@@ -10,6 +10,8 @@ import { getSessionUser } from "@/lib/auth/session";
 import { ensureUserAndPersonalCompany } from "@/lib/tenant";
 import { prisma } from "@/lib/prisma";
 import { hasSubscriptionAccess } from "@/lib/subscription-entitlement";
+import { userNeedsSecondFactor } from "@/lib/auth/second-factor";
+import { sanitizeNext } from "@/lib/auth/sanitize-next";
 import type { Company, Membership, User } from "@prisma/client";
 import type { SessionUser } from "@/lib/auth/session";
 
@@ -61,6 +63,46 @@ function hasActiveSub(
 export function redirectForStage(stage: OnboardingStage): string {
   if (stage.stage === "pending_invite") return stage.invitePath;
   return STAGE_REDIRECTS[stage.stage];
+}
+
+/**
+ * Single post-auth destination for `/continue` (and similar entry points).
+ * Applies preferred `next` when safe, and routes ready users who still need
+ * email 2FA straight to `/auth/two-factor` — avoiding /app → 2FA bounce.
+ */
+export async function resolvePostAuthPath(
+  stage: OnboardingStage,
+  preferredNext?: string | null,
+): Promise<string> {
+  const next = sanitizeNext(preferredNext);
+
+  if (stage.stage === "unauthenticated") {
+    return next
+      ? `/auth/sign-in?next=${encodeURIComponent(next)}`
+      : STAGE_REDIRECTS.unauthenticated;
+  }
+
+  if (stage.stage === "ready") {
+    if (await userNeedsSecondFactor(stage.dbUser.id)) {
+      return "/auth/two-factor";
+    }
+    if (next) return next;
+    return STAGE_REDIRECTS.ready;
+  }
+
+  if (stage.stage === "needs_company") {
+    if (next?.startsWith("/subscribe")) {
+      return `/onboarding?next=${encodeURIComponent(next)}`;
+    }
+    return STAGE_REDIRECTS.needs_company;
+  }
+
+  if (stage.stage === "needs_plan") {
+    if (next?.startsWith("/subscribe")) return next;
+    return STAGE_REDIRECTS.needs_plan;
+  }
+
+  return redirectForStage(stage);
 }
 
 export async function resolveStage(): Promise<OnboardingStage> {

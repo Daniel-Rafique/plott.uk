@@ -8,10 +8,28 @@ import { startFreeTrialLabel } from "@/lib/trial";
 import { useOptionalFunnelModal } from "@/components/auth/funnel-modal";
 import { WorkspaceEntryCta } from "@/components/auth/workspace-entry-cta";
 
+function SessionActionsSkeleton() {
+  return (
+    <div
+      className="flex items-center gap-3"
+      aria-hidden
+      aria-busy="true"
+    >
+      <div className="hidden h-9 w-16 animate-pulse rounded-full bg-zinc-200 md:block" />
+      <div className="hidden h-9 w-28 animate-pulse rounded-full bg-zinc-200 md:block" />
+      <div className="h-9 w-9 animate-pulse rounded-md bg-zinc-200 md:hidden" />
+    </div>
+  );
+}
+
 export function SiteHeaderSessionActions() {
-  const { data: session } = authClient.useSession();
+  const { data: session, isPending } = authClient.useSession();
   const user = session?.user;
   const funnel = useOptionalFunnelModal();
+
+  if (isPending) {
+    return <SessionActionsSkeleton />;
+  }
 
   return (
     <div className="flex items-center gap-3">
