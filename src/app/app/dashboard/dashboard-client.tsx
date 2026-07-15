@@ -958,9 +958,10 @@ export function DashboardClient({ features }: { features: PlanFeatures }) {
         const res = await fetch(`/api/planning/search?${params.toString()}`);
         if (res.status === 429) {
           setError(null);
-          toast.error(
-            "A 429 error occurred — please try again later or contact support.",
-          );
+          toast.error("Planning data is rate-limited right now", {
+            description:
+              "Wait a few seconds, zoom in a little if the map is wide, then try Search this area again.",
+          });
           return null;
         }
         const data = (await res.json()) as PlanningSearchResponse & {

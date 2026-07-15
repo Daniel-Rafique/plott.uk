@@ -360,24 +360,60 @@ export const MapCanvas = forwardRef<MapCanvasHandle, MapCanvasProps>(function Ma
     );
   }, [currentBounds]);
 
-  function zoomToSearchable() {
+  /** Square bbox at 85% of the server max, centred on the given point. */
+  function searchableBoundsAround(lat: number, lng: number): Bounds {
+    const half = Math.sqrt(MAX_BBOX_AREA_SQ_DEG * 0.85) / 2;
+    return {
+      west: lng - half,
+      south: lat - half,
+      east: lng + half,
+      north: lat + half,
+    };
+  }
+
+  /**
+   * When the viewport is too wide for PlanWire nearby, zoom to the max
+   * searchable square around the current centre and search that box in one
+   * click (previously the button only zoomed, requiring a second press).
+   */
+  function zoomToSearchableAndSearch() {
+    posthog.capture("map_auto_zoom_triggered", {
+      view_mode: viewMode,
+      area_km2: areaKm2 ?? undefined,
+      auto_search: true,
+    });
+
     if (viewMode === "3d") {
+      const existing = map3dRef.current?.getSearchBounds();
+      const lat =
+        existing != null
+          ? (existing.south + existing.north) / 2
+          : (mapCenter?.lat ?? 51.5074);
+      const lng =
+        existing != null
+          ? (existing.west + existing.east) / 2
+          : (mapCenter?.lng ?? -0.1276);
+      const target = searchableBoundsAround(lat, lng);
       map3dRef.current?.zoomToSearchable();
+      onSearchArea(target);
       return;
     }
+
     const map = mapRef.current;
     if (!map) return;
     const c = map.getCenter();
     if (!c) return;
-    // Build a synthetic square bbox around the current center whose area is
-    // 85% of MAX_BBOX_AREA_SQ_DEG — comfortably under the server threshold
-    // so a small pan won't bump the user back into "too large".
-    const half = Math.sqrt(MAX_BBOX_AREA_SQ_DEG * 0.85) / 2;
-    const target = new google.maps.LatLngBounds(
-      { lat: c.lat() - half, lng: c.lng() - half },
-      { lat: c.lat() + half, lng: c.lng() + half },
+    const target = searchableBoundsAround(c.lat(), c.lng());
+    map.fitBounds(
+      new google.maps.LatLngBounds(
+        { lat: target.south, lng: target.west },
+        { lat: target.north, lng: target.east },
+      ),
+      24,
     );
-    map.fitBounds(target, 24);
+    // Search the known-good target immediately — don't wait for idle; the
+    // map animation can finish while the request is in flight.
+    onSearchArea(target);
   }
 
   const panAndZoomTo = useCallback((bounds: Bounds) => {
@@ -436,11 +472,7 @@ export const MapCanvas = forwardRef<MapCanvasHandle, MapCanvasProps>(function Ma
 
   function runSearchFromMap() {
     if (tooLarge) {
-      posthog.capture("map_auto_zoom_triggered", {
-        view_mode: viewMode,
-        area_km2: areaKm2 ?? undefined,
-      });
-      zoomToSearchable();
+      zoomToSearchableAndSearch();
       return;
     }
 
@@ -576,7 +608,7 @@ export const MapCanvas = forwardRef<MapCanvasHandle, MapCanvasProps>(function Ma
             searching
               ? "Searching this area"
               : tooLarge
-                ? "Zoom in to a searchable area"
+                ? "Zoom in to a searchable area and search"
                 : "Search the visible area"
           }
           className="pointer-events-auto flex items-center gap-2 rounded-full border border-zinc-200 bg-white px-6 py-3 text-sm font-semibold text-zinc-900 shadow-lg transition hover:bg-zinc-50 disabled:opacity-70"
@@ -586,7 +618,7 @@ export const MapCanvas = forwardRef<MapCanvasHandle, MapCanvasProps>(function Ma
           ) : tooLarge ? (
             <>
               <ZoomIn className="h-4 w-4 text-zinc-700" />
-              Zoom in to search
+              Zoom in &amp; search
             </>
           ) : (
             <>
@@ -598,7 +630,7 @@ export const MapCanvas = forwardRef<MapCanvasHandle, MapCanvasProps>(function Ma
         {tooLarge && !searching && areaKm2 != null ? (
           <p className="pointer-events-auto rounded-md bg-white/90 px-2 py-0.5 text-[11px] text-zinc-600 shadow-sm backdrop-blur-sm">
             Showing ~{areaKm2 >= 10 ? Math.round(areaKm2) : areaKm2.toFixed(1)} km² —
-            click to zoom into a searchable area
+            click to zoom to a searchable area and search
           </p>
         ) : null}
       </div>
