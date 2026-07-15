@@ -11,6 +11,7 @@ export type DeepSearchBounds = {
 
 export type DeepSearchStreamEvent =
   | { type: "parsed"; filters: NlFilterResult; summary: string }
+  | { type: "hint"; message: string; suggestions: string[] }
   | { type: "viewport"; bounds: DeepSearchBounds; place: string | null }
   | { type: "status"; message: string }
   | {
@@ -37,6 +38,7 @@ type StreamHandlers = {
     meta: { total: number; mode: "fast" | "agent" },
   ) => void;
   onStatusLine?: (message: string | null) => void;
+  onHint?: (hint: { message: string; suggestions: string[] }) => void;
 };
 
 /**
@@ -52,7 +54,7 @@ export async function consumeDeepSearchStream(
   resultsMeta: { total: number; mode: "fast" | "agent" } | null;
   httpError: string | null;
 }> {
-  const { onParsed, onViewport, onResults, onStatusLine } = handlers;
+  const { onParsed, onViewport, onResults, onStatusLine, onHint } = handlers;
   const res = await fetch("/api/ai/deep-search", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -95,6 +97,9 @@ export async function consumeDeepSearchStream(
       switch (event.type) {
         case "parsed":
           onParsed(event.filters);
+          break;
+        case "hint":
+          onHint?.({ message: event.message, suggestions: event.suggestions });
           break;
         case "viewport":
           onViewport(event.bounds, event.place);

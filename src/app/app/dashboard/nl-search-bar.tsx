@@ -70,6 +70,11 @@ export type NlSearchBarProps = {
   className?: string;
 };
 
+type VagueHint = {
+  message: string;
+  suggestions: string[];
+};
+
 export function NlSearchBar({
   onParsed,
   onViewport,
@@ -83,6 +88,7 @@ export function NlSearchBar({
   const [prompt, setPrompt] = useState("");
   const [loading, setLoading] = useState(false);
   const [statusLine, setStatusLine] = useState<string | null>(null);
+  const [vagueHint, setVagueHint] = useState<VagueHint | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
   const runDeepSearch = useCallback(
@@ -123,6 +129,12 @@ export function NlSearchBar({
           },
           onResults,
           onStatusLine: (msg) => setStatusLine(msg),
+          onHint: (hint) => {
+            setVagueHint(hint);
+            posthog.capture("deep_search_vague_hint", {
+              suggestion_count: hint.suggestions.length,
+            });
+          },
         },
         { signal: ctrl.signal },
       );
@@ -134,53 +146,75 @@ export function NlSearchBar({
     [getCurrentBounds, onParsed, onResults, onViewport],
   );
 
-  const submit = async (e: FormEvent) => {
-    e.preventDefault();
-    const trimmed = prompt.trim();
-    if (trimmed.length < 2 || loading) return;
-    setLoading(true);
-    setStatusLine(null);
-    onStreamStart?.();
-    posthog.capture("deep_search_submitted", {
-      prompt_length: trimmed.length,
-    });
-    try {
-      const first = await runDeepSearch(trimmed);
-      if (first.lastError && !first.resultsMeta) {
-        toast.error(first.lastError);
-      } else if (
-        first.resultsMeta &&
-        first.resultsMeta.mode === "fast" &&
-        first.resultsMeta.total === 0
-      ) {
-        // If the server already explained WHY we got nothing (e.g. the area
-        // isn't indexed upstream, or a filter is too strict), show it and
-        // skip the agent retry — the agent can't conjure records that the
-        // upstream dataset doesn't have.
-        if (first.lastError) {
-          toast.info(first.lastError, { duration: 8000 });
-        } else {
-          setStatusLine("Nothing obvious here — asking the agent to dig deeper…");
-          posthog.capture("deep_search_agent_retry", { prompt: trimmed });
-          const retry = await runDeepSearch(trimmed, { forceAgent: true });
-          if (retry.lastError && !retry.resultsMeta) {
-            toast.error(retry.lastError);
-          } else if (retry.resultsMeta && retry.resultsMeta.total === 0 && retry.lastError) {
-            toast.info(retry.lastError, { duration: 8000 });
+  const executeSearch = useCallback(
+    async (trimmed: string) => {
+      if (trimmed.length < 2 || loading) return;
+      setLoading(true);
+      setStatusLine(null);
+      setVagueHint(null);
+      onStreamStart?.();
+      posthog.capture("deep_search_submitted", {
+        prompt_length: trimmed.length,
+      });
+      try {
+        const first = await runDeepSearch(trimmed);
+        if (first.lastError && !first.resultsMeta) {
+          toast.error(first.lastError);
+        } else if (
+          first.resultsMeta &&
+          first.resultsMeta.mode === "fast" &&
+          first.resultsMeta.total === 0
+        ) {
+          // If the server already explained WHY we got nothing (e.g. the area
+          // isn't indexed upstream, or a filter is too strict), show it and
+          // skip the agent retry — the agent can't conjure records that the
+          // upstream dataset doesn't have.
+          if (first.lastError) {
+            toast.info(first.lastError, { duration: 8000 });
+          } else {
+            setStatusLine(
+              "Nothing obvious here — asking the agent to dig deeper…",
+            );
+            posthog.capture("deep_search_agent_retry", { prompt: trimmed });
+            const retry = await runDeepSearch(trimmed, { forceAgent: true });
+            if (retry.lastError && !retry.resultsMeta) {
+              toast.error(retry.lastError);
+            } else if (
+              retry.resultsMeta &&
+              retry.resultsMeta.total === 0 &&
+              retry.lastError
+            ) {
+              toast.info(retry.lastError, { duration: 8000 });
+            }
           }
         }
+        setPrompt("");
+      } catch (err) {
+        if ((err as Error)?.name !== "AbortError") {
+          toast.error(err instanceof Error ? err.message : "Search failed");
+        }
+      } finally {
+        setLoading(false);
+        setStatusLine(null);
+        abortRef.current = null;
+        onStreamEnd?.();
       }
-      setPrompt("");
-    } catch (err) {
-      if ((err as Error)?.name !== "AbortError") {
-        toast.error(err instanceof Error ? err.message : "Search failed");
-      }
-    } finally {
-      setLoading(false);
-      setStatusLine(null);
-      abortRef.current = null;
-      onStreamEnd?.();
-    }
+    },
+    [loading, onStreamEnd, onStreamStart, runDeepSearch],
+  );
+
+  const submit = async (e: FormEvent) => {
+    e.preventDefault();
+    await executeSearch(prompt.trim());
+  };
+
+  const runSuggestion = async (suggestion: string) => {
+    if (loading) return;
+    posthog.capture("deep_search_vague_suggestion_clicked", {
+      suggestion,
+    });
+    setPrompt(suggestion);
+    await executeSearch(suggestion);
   };
 
   return (
@@ -211,6 +245,26 @@ export function NlSearchBar({
           <WaveformLoader tone="ai" />
           {statusLine}
         </p>
+      ) : null}
+      {vagueHint && !loading ? (
+        <div className="rounded-lg border border-amber-200 bg-amber-50/80 px-2.5 py-2">
+          <p className="text-[11px] leading-snug text-amber-900/90">
+            {vagueHint.message}
+          </p>
+          <div className="mt-1.5 flex flex-wrap gap-1.5">
+            {vagueHint.suggestions.map((suggestion) => (
+              <button
+                key={suggestion}
+                type="button"
+                onClick={() => void runSuggestion(suggestion)}
+                className="rounded-full border border-amber-300 bg-white px-2 py-0.5 text-[11px] font-medium text-amber-950 transition-colors hover:bg-amber-100"
+                title={`Search for "${suggestion}"`}
+              >
+                {suggestion}
+              </button>
+            ))}
+          </div>
+        </div>
       ) : null}
       {chips.length > 0 && (
         <div className="flex flex-wrap gap-1.5">

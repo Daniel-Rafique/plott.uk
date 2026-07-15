@@ -76,7 +76,10 @@ Rules:
 4. "locationHint" is a short free-text place name (neighbourhood, town, borough, postcode) we will geocode to a map viewport. Use null if no place is named.
 5. "applicantLike" is a company or person name the user wants results filtered by (e.g. "Argent", "Berkeley Homes", "University of London"). Use null if not implied. Do NOT put place names here.
 6. "summary" is a plain-English one-liner describing the filter, shown in the UI chip row.
-7. Always include every key: use [] or null where a filter does not apply; vague prompts still get a helpful summary.`;
+7. Always include every key: use [] or null where a filter does not apply; vague prompts still get a helpful summary.
+8. Ignore generic nouns as keywords: "applications", "application", "projects", "planning", "records", "cases". They add no thematic signal.
+9. When the user names a work type that maps to an enum (e.g. "residential", "extension", "householder"), set the matching developmentTypes / applicationTypes AND also put the most specific work-type word in "keywords" (e.g. "residential extensions" → developmentTypes: ["residential","extension"], keywords: ["extension"]). That keyword drives full-text search upstream.
+10. Do not invent a work type the user did not mention. Status + place alone is valid — leave keywords and developmentTypes empty.`;
 
 /**
  * Shared parser used by the nl-search route, deep-search, and AI evals.

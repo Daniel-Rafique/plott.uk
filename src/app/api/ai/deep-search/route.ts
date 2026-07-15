@@ -13,6 +13,7 @@
  * waiting for the full pipeline. Each frame is one line:
  *
  *   {"type":"parsed","filters":{...}}
+ *   {"type":"hint","message":"…","suggestions":["…"]}
  *   {"type":"viewport","bounds":{west,south,east,north},"place":"Brixton"}
  *   {"type":"status","message":"Searching Companies House for Argent…"}
  *   {"type":"results","entities":[...],"total":42,"mode":"fast"}
@@ -53,6 +54,12 @@ import {
   countApplicantOrCompanyMatches,
   rankPlanningResultsByApplicantOrCompany,
 } from "@/lib/planning-result-ranking";
+import {
+  buildVagueSearchSuggestions,
+  derivePlanwireQuery,
+  isUnderSpecifiedNlSearch,
+  VAGUE_SEARCH_HINT_MESSAGE,
+} from "@/lib/ai/nl-search-specificity";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -93,6 +100,11 @@ const bodySchema = z
 
 type StreamEvent =
   | { type: "parsed"; filters: NlFilterResult; summary: string }
+  | {
+      type: "hint";
+      message: string;
+      suggestions: string[];
+    }
   | {
       type: "viewport";
       bounds: { west: number; south: number; east: number; north: number };
@@ -251,6 +263,28 @@ export async function POST(req: Request) {
               indexedSinceYear: filters.indexedSinceYear,
             },
             "deep_search_parsed",
+          );
+        }
+
+        if (
+          isUnderSpecifiedNlSearch(filters, {
+            hasMapBounds: Boolean(currentBounds),
+          })
+        ) {
+          const suggestions = buildVagueSearchSuggestions(filters);
+          send({
+            type: "hint",
+            message: VAGUE_SEARCH_HINT_MESSAGE,
+            suggestions,
+          });
+          logger.info(
+            {
+              deepSearchStep: "vague_hint",
+              locationHint: filters.locationHint,
+              statuses: filters.statuses,
+              suggestions,
+            },
+            "deep_search_vague_hint",
           );
         }
 
@@ -418,9 +452,10 @@ export async function POST(req: Request) {
                 ? `${filters.indexedSinceYear}-01-01`
                 : filters.decisionFrom ?? undefined,
             dateTo: filters.decisionTo ?? undefined,
-            q: filters.keywords.length
-              ? filters.keywords.join(" ")
-              : undefined,
+            // Prefer keywords; fall back to enum-derived q so "residential
+            // extensions" still gets PlanWire full-text when the parser only
+            // set developmentTypes.
+            q: derivePlanwireQuery(filters),
           });
           pwApps = filterPlanwireApplications(raw, searchFilters);
           logger.info(
