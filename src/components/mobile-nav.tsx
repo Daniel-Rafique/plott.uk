@@ -6,9 +6,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { Menu, X, ArrowRight } from "lucide-react";
 import { gsap } from "gsap";
-import { cn } from "@/lib/utils";
-import { startFreeTrialLabel } from "@/lib/trial";
 import { useOptionalFunnelModal } from "@/components/auth/funnel-modal";
+import { WorkspaceEntryCta } from "@/components/auth/workspace-entry-cta";
+import { startFreeTrialLabel } from "@/lib/trial";
+import { cn } from "@/lib/utils";
 
 const NAV_LINKS = [
   { href: "/how-it-works", label: "How it works" },
@@ -237,13 +238,14 @@ export function MobileNav({ isSignedIn }: Props) {
               className="shrink-0 border-t border-zinc-200 px-6 py-6"
             >
               {isSignedIn ? (
-                <Link
-                  href="/app/dashboard"
+                <WorkspaceEntryCta
                   className="flex w-full items-center justify-center gap-2 rounded-full bg-zinc-900 px-6 py-3.5 text-[12px] font-semibold uppercase tracking-[0.18em] text-white transition hover:bg-zinc-800"
+                  href="/continue"
+                  onNavigate={playClose}
                 >
                   Dashboard
                   <ArrowRight className="h-4 w-4" strokeWidth={1.5} />
-                </Link>
+                </WorkspaceEntryCta>
               ) : (
                 <div className="flex flex-col gap-3">
                   {funnel ? (

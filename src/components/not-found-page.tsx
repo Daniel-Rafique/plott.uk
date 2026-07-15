@@ -64,7 +64,7 @@ function AppNotFound() {
         </p>
         <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
           <Link
-            href="/app/dashboard"
+            href="/continue"
             className="inline-flex items-center gap-2 rounded-full border border-zinc-900 bg-zinc-900 px-6 py-3 text-[13px] font-medium text-white transition hover:border-zinc-700 hover:bg-zinc-700"
           >
             Dashboard

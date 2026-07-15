@@ -44,6 +44,7 @@ export async function GET() {
 
     return NextResponse.json({
       stage: "needs_company",
+      redirect: redirectForStage(resolved),
       initial: {
         name,
         websiteUrl: resolved.company.websiteUrl ?? "",

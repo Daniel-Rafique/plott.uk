@@ -69,9 +69,9 @@ type SignInFields = "email" | "password";
 function googleCallbackUrl(next: string | null | undefined): string {
   const safe = sanitizeNext(next);
   if (safe?.startsWith("/subscribe")) {
-    return `/onboarding?next=${encodeURIComponent(safe)}`;
+    return `/continue?next=${encodeURIComponent(safe)}`;
   }
-  return safe ?? "/app/dashboard";
+  return safe ?? "/continue";
 }
 
 function clearFieldError(
@@ -96,7 +96,7 @@ export function SignInForm({
   onNeedsVerify,
 }: SignInFormProps) {
   const router = useRouter();
-  const postSignInTarget = sanitizeNext(next) ?? "/app/dashboard";
+  const postSignInTarget = sanitizeNext(next) ?? "/continue";
   const googleTarget = googleCallbackUrl(next);
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors<SignInFields>>({});

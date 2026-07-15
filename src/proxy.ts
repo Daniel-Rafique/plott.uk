@@ -76,6 +76,7 @@ export const config = {
   matcher: [
     "/api/auth/:path*",
     "/app/:path*",
+    "/continue",
     "/onboarding",
     "/subscribe",
   ],

@@ -6,6 +6,7 @@ import { MobileNav } from "@/components/mobile-nav";
 import { authClient } from "@/lib/auth/client";
 import { startFreeTrialLabel } from "@/lib/trial";
 import { useOptionalFunnelModal } from "@/components/auth/funnel-modal";
+import { WorkspaceEntryCta } from "@/components/auth/workspace-entry-cta";
 
 export function SiteHeaderSessionActions() {
   const { data: session } = authClient.useSession();
@@ -16,12 +17,9 @@ export function SiteHeaderSessionActions() {
     <div className="flex items-center gap-3">
       {user ? (
         <>
-          <Link
-            href="/app/dashboard"
-            className="hidden rounded-full bg-zinc-900 px-5 py-2.5 text-[11px] font-semibold uppercase tracking-[0.2em] text-white shadow-sm transition hover:bg-zinc-800 md:inline-flex"
-          >
+          <WorkspaceEntryCta className="hidden rounded-full bg-zinc-900 px-5 py-2.5 text-[11px] font-semibold uppercase tracking-[0.2em] text-white shadow-sm transition hover:bg-zinc-800 md:inline-flex">
             Dashboard
-          </Link>
+          </WorkspaceEntryCta>
           <div className="hidden md:block">
             <SignOutButton />
           </div>

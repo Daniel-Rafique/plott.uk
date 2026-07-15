@@ -31,9 +31,9 @@ export type SignUpFormProps = {
 function googleCallbackUrl(next: string | null | undefined): string {
   const safe = sanitizeNext(next);
   if (safe?.startsWith("/subscribe")) {
-    return `/onboarding?next=${encodeURIComponent(safe)}`;
+    return `/continue?next=${encodeURIComponent(safe)}`;
   }
-  return safe ?? "/onboarding";
+  return safe ?? "/continue";
 }
 
 export function SignUpForm({

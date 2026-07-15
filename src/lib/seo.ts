@@ -119,6 +119,7 @@ export const disallowedCrawlerPaths = [
   "/invites/",
   "/monitoring",
   "/onboarding/",
+  "/continue",
   "/subscribe",
 ] as const;
 

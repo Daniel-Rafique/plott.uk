@@ -26,6 +26,7 @@ import {
   trialChargeCopy,
 } from "@/lib/trial";
 import { FunnelCtaButton } from "@/components/auth/funnel-cta-button";
+import { WorkspaceEntryCta } from "@/components/auth/workspace-entry-cta";
 
 const Map3DHero = dynamic(
   () => import("./map3d-hero").then((m) => m.Map3DHero),
@@ -125,13 +126,10 @@ export function HomePageContent({ heroFontClassName }: Props) {
                   </Link>
                 </>
               ) : (
-                <Link
-                  href="/app/dashboard"
-                  className="group inline-flex items-center gap-2 rounded-full bg-white/90 px-8 py-3.5 text-sm font-semibold text-zinc-900 shadow-lg shadow-brand/20 backdrop-blur-sm transition-all duration-300 ease-out hover:-translate-y-0.5 hover:bg-white/20 hover:text-white hover:shadow-xl"
-                >
+                <WorkspaceEntryCta className="group inline-flex items-center gap-2 rounded-full bg-white/90 px-8 py-3.5 text-sm font-semibold text-zinc-900 shadow-lg shadow-brand/20 backdrop-blur-sm transition-all duration-300 ease-out hover:-translate-y-0.5 hover:bg-white/20 hover:text-white hover:shadow-xl">
                   Open dashboard
                   <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-0.5" aria-hidden />
-                </Link>
+                </WorkspaceEntryCta>
               )}
             </motion.div>
             <motion.div
@@ -202,13 +200,10 @@ export function HomePageContent({ heroFontClassName }: Props) {
             className="mt-12 flex flex-col items-center justify-center gap-3 sm:flex-row sm:gap-4"
           >
             {isSignedIn ? (
-              <Link
-                href="/app/dashboard"
-                className="inline-flex items-center gap-2 rounded-full border border-zinc-900 bg-zinc-900 px-7 py-3.5 text-[13px] font-medium text-white transition hover:border-zinc-700 hover:bg-zinc-700"
-              >
+              <WorkspaceEntryCta className="inline-flex items-center gap-2 rounded-full border border-zinc-900 bg-zinc-900 px-7 py-3.5 text-[13px] font-medium text-white transition hover:border-zinc-700 hover:bg-zinc-700">
                 Open dashboard
                 <ArrowRight className="h-4 w-4" strokeWidth={1.5} aria-hidden />
-              </Link>
+              </WorkspaceEntryCta>
             ) : (
               <FunnelCtaButton
                 options={{ step: "sign-up" }}

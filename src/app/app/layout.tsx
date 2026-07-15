@@ -1,6 +1,8 @@
+import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { Toaster } from "sonner";
 import { WorkspaceHeaderClient } from "@/components/workspace-header-client";
+import { BrandedRouteLoading } from "@/components/branded-route-loading";
 import {
   redirectForStage,
   resolveStage,
@@ -16,11 +18,26 @@ export const metadata = privatePageMetadata({
   title: "App",
 });
 
-export default async function AppSectionLayout({
+/**
+ * Gate + chrome must live inside Suspense. A top-level await in this layout
+ * would block the sibling `loading.tsx` and flash blank white while
+ * resolveStage() runs (e.g. Dashboard → redirect → /onboarding).
+ */
+export default function AppSectionLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  return (
+    <Suspense
+      fallback={<BrandedRouteLoading message="Loading your workspace…" />}
+    >
+      <AppReadyLayout>{children}</AppReadyLayout>
+    </Suspense>
+  );
+}
+
+async function AppReadyLayout({ children }: { children: React.ReactNode }) {
   const resolved = await resolveStage();
   if (resolved.stage !== "ready") {
     redirect(redirectForStage(resolved));

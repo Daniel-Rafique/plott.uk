@@ -39,6 +39,11 @@ export type OpenFunnelOptions = {
 type FunnelModalContextValue = {
   openFunnel: (options?: OpenFunnelOptions) => void;
   closeFunnel: () => void;
+  /**
+   * Route a signed-in user to the right funnel step (verify / onboarding modal)
+   * or navigate to subscribe / dashboard — without bouncing through /app.
+   */
+  continueWorkspace: () => Promise<void>;
 };
 
 const FunnelModalContext = createContext<FunnelModalContextValue | null>(null);
@@ -113,21 +118,18 @@ export function FunnelModalProvider({ children }: { children: ReactNode }) {
     [closeFunnel, router],
   );
 
-  const advanceAfterAuth = useCallback(async () => {
-    setLoadingStage(true);
-    setStageError(null);
-    try {
-      const res = await fetch("/api/company/onboarding-seed");
-      const data = (await res.json().catch(() => ({}))) as SeedResponse;
-
-      if (res.status === 401 || data.stage === "unauthenticated") {
+  const applySeedResponse = useCallback(
+    async (data: SeedResponse, resStatus: number) => {
+      if (resStatus === 401 || data.stage === "unauthenticated") {
         setStep("sign-in");
+        setOpen(true);
         return;
       }
       if (data.stage === "unverified") {
         if (data.email) setEmail(data.email);
         setJustCreated(false);
         setStep("verify");
+        setOpen(true);
         return;
       }
       if (data.stage === "pending_invite" && data.redirect) {
@@ -145,19 +147,59 @@ export function FunnelModalProvider({ children }: { children: ReactNode }) {
       if (data.stage === "needs_company" && data.initial) {
         setWizardInitial(data.initial);
         setStep("onboarding");
+        setOpen(true);
         return;
       }
       setStageError(data.error ?? "Could not continue setup. Try again.");
+      setOpen(true);
+    },
+    [navigateAndClose, next],
+  );
+
+  const advanceAfterAuth = useCallback(async () => {
+    setLoadingStage(true);
+    setStageError(null);
+    try {
+      const res = await fetch("/api/company/onboarding-seed");
+      const data = (await res.json().catch(() => ({}))) as SeedResponse;
+      await applySeedResponse(data, res.status);
     } catch {
       setStageError("Could not continue setup. Try again.");
     } finally {
       setLoadingStage(false);
     }
-  }, [navigateAndClose, next]);
+  }, [applySeedResponse]);
+
+  const continueWorkspace = useCallback(async () => {
+    resetTransient();
+    setLoadingStage(true);
+    try {
+      const res = await fetch("/api/company/onboarding-seed");
+      const data = (await res.json().catch(() => ({}))) as SeedResponse;
+
+      // Navigate-only stages: skip opening the modal.
+      if (
+        data.stage === "pending_invite" ||
+        data.stage === "needs_plan" ||
+        data.stage === "ready"
+      ) {
+        await applySeedResponse(data, res.status);
+        return;
+      }
+
+      setOpen(true);
+      await applySeedResponse(data, res.status);
+    } catch {
+      setOpen(true);
+      setStageError("Could not continue setup. Try again.");
+    } finally {
+      setLoadingStage(false);
+    }
+  }, [applySeedResponse, resetTransient]);
 
   const value = useMemo(
-    () => ({ openFunnel, closeFunnel }),
-    [openFunnel, closeFunnel],
+    () => ({ openFunnel, closeFunnel, continueWorkspace }),
+    [openFunnel, closeFunnel, continueWorkspace],
   );
 
   const isOnboarding = step === "onboarding";
