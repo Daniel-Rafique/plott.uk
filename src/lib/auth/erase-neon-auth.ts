@@ -169,7 +169,7 @@ export async function eraseNeonAuthIdentity(options: {
     return {
       ok: false,
       error:
-        managed.error ||
+        (!managed.ok ? managed.error : undefined) ||
         selfDelete.error?.message ||
         (sqlOk
           ? "Neon Auth user row still present after SQL delete."
