@@ -1,7 +1,7 @@
 #!/usr/bin/env tsx
 /**
- * Delete a single email's app user + owned companies + Neon Auth rows so
- * onboarding can be retested after a Stripe customer wipe / new Neon Auth id.
+ * Delete a single email's app user + companies + Neon Auth + marketing lead
+ * so onboarding can be retested cleanly.
  *
  * Usage:
  *   npx tsx scripts/wipe-user-by-email.ts ukplott@gmail.com
@@ -23,6 +23,26 @@ function looksLikeProd(): boolean {
   return url.includes("plott.uk");
 }
 
+async function deleteCompanyHard(companyId: string): Promise<void> {
+  await prisma.invite.deleteMany({ where: { companyId } });
+  await prisma.membership.deleteMany({ where: { companyId } });
+  await prisma.letter.deleteMany({ where: { companyId } }).catch(() => {});
+  await prisma.savedSearch.deleteMany({ where: { companyId } }).catch(() => {});
+  await prisma.letterTemplate.deleteMany({ where: { companyId } }).catch(() => {});
+  await prisma.pinnedApplication.deleteMany({ where: { companyId } }).catch(() => {});
+  await prisma.agentRun.deleteMany({ where: { companyId } }).catch(() => {});
+  await prisma.pipelineLead.deleteMany({ where: { companyId } }).catch(() => {});
+  await prisma.icpProfile.deleteMany({ where: { companyId } }).catch(() => {});
+  await prisma.companyRateCard.deleteMany({ where: { companyId } }).catch(() => {});
+
+  await prisma.user.updateMany({
+    where: { activeCompanyId: companyId },
+    data: { activeCompanyId: null },
+  });
+
+  await prisma.company.delete({ where: { id: companyId } });
+}
+
 async function main() {
   const args = process.argv.slice(2).filter((a) => a !== "--yes");
   const dryRun = !process.argv.includes("--yes");
@@ -42,11 +62,26 @@ async function main() {
   console.log(dryRun ? "--- DRY RUN ---" : "--- WIPING ---");
   console.log("email:", email);
 
-  const user = await prisma.user.findUnique({
-    where: { email },
+  const user = await prisma.user.findFirst({
+    where: { email: { equals: email, mode: "insensitive" } },
     include: {
       memberships: { include: { company: true } },
     },
+  });
+
+  const companiesByEmail = await prisma.company.findMany({
+    where: { email: { equals: email, mode: "insensitive" } },
+    select: { id: true, name: true, email: true },
+  });
+
+  const invites = await prisma.invite.findMany({
+    where: { email: { equals: email, mode: "insensitive" } },
+    select: { id: true, companyId: true },
+  });
+
+  const marketingLeads = await prisma.marketingLead.findMany({
+    where: { email: { equals: email, mode: "insensitive" } },
+    select: { id: true, source: true },
   });
 
   if (!user) {
@@ -64,6 +99,9 @@ async function main() {
       })),
     );
   }
+  console.log("companies.email:", companiesByEmail);
+  console.log("invites:", invites.length);
+  console.log("marketing_leads:", marketingLeads);
 
   let authUserIds: string[] = [];
   try {
@@ -85,23 +123,36 @@ async function main() {
     return;
   }
 
-  // Owned companies: delete company (cascades memberships / invites / etc. where FK allows)
-  const ownedCompanyIds =
-    user?.memberships
-      .filter((m) => m.role === "owner")
-      .map((m) => m.companyId) ?? [];
+  const companyIds = new Set<string>([
+    ...(user?.memberships.map((m) => m.companyId) ?? []),
+    ...companiesByEmail.map((c) => c.id),
+  ]);
 
-  for (const companyId of ownedCompanyIds) {
-    // Clear dependent rows that may block company delete
-    await prisma.invite.deleteMany({ where: { companyId } });
-    await prisma.membership.deleteMany({ where: { companyId } });
-    await prisma.letter.deleteMany({ where: { companyId } }).catch(() => {});
-    await prisma.savedSearch.deleteMany({ where: { companyId } }).catch(() => {});
-    await prisma.company.delete({ where: { id: companyId } }).catch(async (err) => {
-      console.warn("company delete soft-fallback:", err instanceof Error ? err.message : err);
-      // If company has other FKs, try memberships already cleared — leave company orphaned only as last resort
+  for (const companyId of companyIds) {
+    try {
+      await deleteCompanyHard(companyId);
+      console.log("deleted company:", companyId);
+    } catch (err) {
+      console.warn(
+        "company delete failed:",
+        companyId,
+        err instanceof Error ? err.message : err,
+      );
+    }
+  }
+
+  if (invites.length) {
+    await prisma.invite.deleteMany({
+      where: { email: { equals: email, mode: "insensitive" } },
     });
-    console.log("deleted company:", companyId);
+    console.log("deleted invites:", invites.length);
+  }
+
+  if (marketingLeads.length) {
+    await prisma.marketingLead.deleteMany({
+      where: { email: { equals: email, mode: "insensitive" } },
+    });
+    console.log("deleted marketing_leads:", marketingLeads.length);
   }
 
   if (user) {
@@ -145,7 +196,20 @@ async function main() {
     // optional table
   }
 
-  console.log("\nDone. Sign up again with", email);
+  // Verify clean
+  const leftUser = await prisma.user.findFirst({
+    where: { email: { equals: email, mode: "insensitive" } },
+  });
+  const leftCompanies = await prisma.company.findMany({
+    where: { email: { equals: email, mode: "insensitive" } },
+  });
+  const leftLeads = await prisma.marketingLead.findMany({
+    where: { email: { equals: email, mode: "insensitive" } },
+  });
+  console.log("\nVerify — users:", leftUser ? 1 : 0);
+  console.log("Verify — companies:", leftCompanies.length);
+  console.log("Verify — marketing_leads:", leftLeads.length);
+  console.log("\nDone. Clear cookies / sign out, then sign up again with", email);
 }
 
 main()

@@ -865,7 +865,7 @@ export async function sendSubscriptionWelcomeEmail(args: {
       <p style="margin:0 0 12px 0;font-size:11px;text-transform:uppercase;letter-spacing:0.12em;color:${BRAND.dark};font-weight:600;">Start here</p>
       <ul style="margin:0;padding-left:20px;font-size:14px;color:#3f3f46;line-height:1.75;">
         <li style="margin-bottom:6px;">Open the <strong>dashboard</strong> and search planning applications in your area</li>
-        <li style="margin-bottom:6px;">Save a search to get <strong>weekly email digests</strong> of new matches</li>
+        <li style="margin-bottom:6px;">Save a search to get <strong>email digests</strong> of new matches</li>
         <li>Upgrade seats or invite your team from <strong>Settings</strong> when you need to</li>
       </ul>
     </div>
@@ -943,5 +943,53 @@ export async function sendSubscriptionPlanChangedEmail(args: {
       footerText:
         "You're receiving this because your Plott subscription was changed.",
     }),
+  });
+}
+
+export async function sendAccountDeletedEmail(args: {
+  to: string;
+  companyName?: string | null;
+  refundedAmount: number;
+  currency?: string | null;
+}): Promise<void> {
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://plott.uk";
+  const supportUrl = `${baseUrl}/contact`;
+  const companyLabel = args.companyName?.trim() || "your workspace";
+  const currency = (args.currency ?? "gbp").toUpperCase();
+  const refundLabel =
+    args.refundedAmount > 0
+      ? (args.refundedAmount / 100).toLocaleString("en-GB", {
+          style: "currency",
+          currency,
+        })
+      : null;
+  const refundBlock = refundLabel
+    ? `<p style="margin:0 0 20px 0;font-size:15px;color:#3f3f46;line-height:1.65;">
+        Your subscription was canceled immediately. A refund of <strong>${escapeHtml(refundLabel)}</strong> for unused days in the current billing period has been issued to your original payment method. Stripe usually returns refunds in 5–10 business days.
+      </p>`
+    : `<p style="margin:0 0 20px 0;font-size:15px;color:#3f3f46;line-height:1.65;">
+        Any active subscription was canceled immediately. There was no unused paid balance to refund.
+      </p>`;
+  const body = `
+    <p style="margin:0 0 20px 0;font-size:15px;color:#3f3f46;line-height:1.65;">
+      Your Plott account for <strong>${escapeHtml(companyLabel)}</strong> has been permanently deleted, including workspace data tied to that login.
+    </p>
+    ${refundBlock}
+    <p style="margin:0 0 24px 0;font-size:15px;color:#3f3f46;line-height:1.65;">
+      If this wasn’t you, or you need a copy of invoices, contact support and we’ll help.
+    </p>
+    <p style="margin:28px 0;text-align:center;">
+      ${ctaButton(supportUrl, "Contact support")}
+    </p>`;
+  await resendSend({
+    to: args.to,
+    subject: "Your Plott account has been deleted",
+    html: brandedShell({
+      heading: "Account deleted",
+      body,
+      footerText:
+        "You're receiving this because a Plott account deletion was confirmed for this email.",
+    }),
+    tags: [{ name: "category", value: "account_deleted" }],
   });
 }

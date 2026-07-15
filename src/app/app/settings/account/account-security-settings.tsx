@@ -80,6 +80,20 @@ export function AccountSecuritySettings({ user, accounts }: Props) {
       toast.error(data.error ?? "Could not delete account.");
       return;
     }
+    const refunded =
+      typeof data.refundedAmount === "number" && data.refundedAmount > 0
+        ? data.refundedAmount
+        : 0;
+    if (refunded > 0) {
+      const currency = typeof data.currency === "string" ? data.currency : "gbp";
+      const amount = (refunded / 100).toLocaleString("en-GB", {
+        style: "currency",
+        currency: currency.toUpperCase(),
+      });
+      toast.success(`Account deleted. Refund of ${amount} is on the way.`);
+    } else {
+      toast.success("Account deleted.");
+    }
     await fetch("/api/auth/second-factor/clear", { method: "POST" }).catch(
       () => null,
     );
@@ -172,9 +186,11 @@ export function AccountSecuritySettings({ user, accounts }: Props) {
               Delete account
             </h2>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-600">
-              This removes your Plott login and, if you are the only member of a
-              workspace, deletes that workspace data. Shared workspaces require
-              ownership transfer before deletion.
+              This permanently removes your Plott login and, if you are the only
+              member of a workspace, deletes that workspace. Any active
+              subscription is canceled immediately and unused days in the
+              current billing period are refunded to your payment method. Shared
+              workspaces require ownership transfer before deletion.
             </p>
           </div>
         </div>
