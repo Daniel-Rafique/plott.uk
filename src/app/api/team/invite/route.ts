@@ -4,8 +4,18 @@ import { getTenantContext } from "@/lib/tenant";
 import { sendInviteEmail } from "@/lib/email";
 import { randomBytes } from "node:crypto";
 import { captureServerEvent } from "@/lib/posthog-server";
-import { getCompanyPlan } from "@/lib/pricing";
+import { getCompanyBillingInterval, getCompanyPlan } from "@/lib/pricing";
 import { syncSeatBilling } from "@/lib/stripe/sync-seat-billing";
+import {
+  planAllowsExtraSeats,
+  resolveExtraSeatPriceId,
+} from "@/lib/stripe/seat-prices";
+import {
+  fetchStripePricesById,
+  formatPriceMinor,
+  priceMinorUnits,
+} from "@/lib/stripe/price-display";
+import { planForPriceId } from "@/lib/stripe/plan-prices";
 
 export const runtime = "nodejs";
 
@@ -67,7 +77,7 @@ export async function POST(req: Request) {
   const totalSeats = memberCount + pendingInviteCount;
 
   if (totalSeats >= plan.seatLimit) {
-    if (plan.extraSeatPrice === null) {
+    if (!planAllowsExtraSeats(plan.id)) {
       // No overage allowed — must upgrade
       return NextResponse.json(
         {
@@ -111,6 +121,24 @@ export async function POST(req: Request) {
   const isOverage = totalSeats >= plan.seatLimit;
   await syncSeatBilling(ctx.company.id).catch(() => {});
 
+  let overagePrice: string | null = null;
+  if (planAllowsExtraSeats(plan.id)) {
+    const planId = planForPriceId(ctx.company.subscriptionPriceId ?? undefined);
+    const interval = getCompanyBillingInterval(ctx.company);
+    const seatPriceId =
+      planId && planId !== "starter"
+        ? resolveExtraSeatPriceId(planId, interval)
+        : null;
+    if (seatPriceId) {
+      const byId = await fetchStripePricesById([seatPriceId]);
+      const price = byId.get(seatPriceId);
+      const minor = price ? priceMinorUnits(price) : null;
+      if (price && minor != null && price.currency) {
+        overagePrice = `${formatPriceMinor(minor, price.currency)}/seat`;
+      }
+    }
+  }
+
   await captureServerEvent({
     distinctId: ctx.user.email ?? ctx.user.id,
     event: "team_member_invited",
@@ -131,7 +159,7 @@ export async function POST(req: Request) {
       current: totalSeats + 1,
       limit: plan.seatLimit,
       isOverage,
-      overagePrice: plan.extraSeatPriceLabel ?? null,
+      overagePrice,
     },
   });
 }

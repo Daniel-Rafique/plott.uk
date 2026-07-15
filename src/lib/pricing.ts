@@ -71,8 +71,8 @@ const PLAN_DEFINITIONS: PlanDef[] = [
     tagline: "For growing contractors who need an edge.",
     highlight: true,
     seatLimit: 5,
-    extraSeatPrice: 2500,
-    extraSeatPriceLabel: "£25/seat",
+    // Overridden from Stripe STRIPE_PRICE_EXTRA_SEAT_PRO when loadPlans() runs.
+    extraSeatPrice: null,
     savedSearchLimit: 5,
     pinnedApplicationLimit: 5,
     aiBudgetGbp: defaultMonthlyBudgetCapGbp("pro"),
@@ -85,8 +85,8 @@ const PLAN_DEFINITIONS: PlanDef[] = [
     name: "Agency",
     tagline: "For multi-office firms and lead generation agencies.",
     seatLimit: 10,
-    extraSeatPrice: 2000,
-    extraSeatPriceLabel: "£20/seat",
+    // Overridden from Stripe STRIPE_PRICE_EXTRA_SEAT_AGENCY when loadPlans() runs.
+    extraSeatPrice: null,
     savedSearchLimit: 20,
     pinnedApplicationLimit: 20,
     aiBudgetGbp: defaultMonthlyBudgetCapGbp("agency"),

@@ -34,3 +34,12 @@ export function resolveExtraSeatPriceId(
   const id = raw?.trim();
   return id ? sanitizePriceId(id) : null;
 }
+
+/** True when a Stripe extra-seat price is configured for this plan (any interval). */
+export function planAllowsExtraSeats(planId: string): boolean {
+  if (planId !== "pro" && planId !== "agency") return false;
+  return (
+    resolveExtraSeatPriceId(planId, "month") != null ||
+    resolveExtraSeatPriceId(planId, "year") != null
+  );
+}

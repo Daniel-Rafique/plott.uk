@@ -56,8 +56,8 @@ npm run stripe:ensure-seat-prices -- --fix # create missing prices
 
 | Plan | Monthly per extra seat | Annual per extra seat (10× monthly) |
 | --- | --- | --- |
-| Pro | £25 | £250 |
-| Agency | £20 | £200 |
+| Pro | £99 | £990 |
+| Agency | £99 | £990 |
 
 Seat add-on interval must match the company’s plan billing interval (monthly vs annual licensed price).
 

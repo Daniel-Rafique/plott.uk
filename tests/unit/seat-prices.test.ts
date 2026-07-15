@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 import {
   configuredExtraSeatPriceIds,
+  planAllowsExtraSeats,
   resolveExtraSeatPriceId,
 } from "@/lib/stripe/seat-prices";
 
@@ -19,5 +20,20 @@ describe("seat-prices", () => {
     expect(resolveExtraSeatPriceId("pro", "year")).toBe("price_seat_pro_year");
     expect(resolveExtraSeatPriceId("starter", "month")).toBeNull();
     expect(configuredExtraSeatPriceIds().has("price_seat_pro")).toBe(true);
+  });
+
+  it("treats extra seats as allowed only when Stripe price env is set", () => {
+    delete process.env.STRIPE_PRICE_EXTRA_SEAT_PRO;
+    delete process.env.STRIPE_PRICE_EXTRA_SEAT_PRO_ANNUAL;
+    delete process.env.STRIPE_PRICE_EXTRA_SEAT_AGENCY;
+    delete process.env.STRIPE_PRICE_EXTRA_SEAT_AGENCY_ANNUAL;
+
+    expect(planAllowsExtraSeats("pro")).toBe(false);
+    expect(planAllowsExtraSeats("agency")).toBe(false);
+    expect(planAllowsExtraSeats("starter")).toBe(false);
+
+    process.env.STRIPE_PRICE_EXTRA_SEAT_PRO = "price_seat_pro";
+    expect(planAllowsExtraSeats("pro")).toBe(true);
+    expect(planAllowsExtraSeats("agency")).toBe(false);
   });
 });

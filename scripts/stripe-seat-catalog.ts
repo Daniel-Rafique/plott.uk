@@ -20,8 +20,8 @@ export type SeatAddonCatalogEntry = {
   priceNickname: string;
 };
 
-const PRO_SEAT_MONTHLY_PENCE = 2500;
-const AGENCY_SEAT_MONTHLY_PENCE = 2000;
+const PRO_SEAT_MONTHLY_PENCE = 9900;
+const AGENCY_SEAT_MONTHLY_PENCE = 9900;
 
 export const SEAT_ADDON_CATALOG: SeatAddonCatalogEntry[] = [
   {

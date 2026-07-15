@@ -9,7 +9,10 @@ import {
 import { getSeatUsage } from "@/lib/seats";
 import { hasSubscriptionAccess } from "@/lib/subscription-entitlement";
 import { planForPriceId } from "@/lib/stripe/plan-prices";
-import { resolveExtraSeatPriceId } from "@/lib/stripe/seat-prices";
+import {
+  planAllowsExtraSeats,
+  resolveExtraSeatPriceId,
+} from "@/lib/stripe/seat-prices";
 import {
   licensedSubscriptionItem,
   overageSubscriptionItem,
@@ -77,7 +80,7 @@ export async function syncSeatBilling(companyId: string): Promise<void> {
   }
 
   const plan = getCompanyPlan(company);
-  if (plan.extraSeatPrice == null) return;
+  if (!planAllowsExtraSeats(plan.id)) return;
 
   const planId = planForPriceId(company.subscriptionPriceId ?? undefined);
   if (!planId || planId === "starter") return;

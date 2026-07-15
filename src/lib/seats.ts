@@ -1,5 +1,19 @@
 import { prisma } from "@/lib/prisma";
-import { getCompanyPlan, type Plan } from "@/lib/pricing";
+import {
+  getCompanyBillingInterval,
+  getCompanyPlan,
+  type Plan,
+} from "@/lib/pricing";
+import {
+  fetchStripePricesById,
+  formatPriceMinor,
+  priceMinorUnits,
+} from "@/lib/stripe/price-display";
+import {
+  planAllowsExtraSeats,
+  resolveExtraSeatPriceId,
+} from "@/lib/stripe/seat-prices";
+import { planForPriceId } from "@/lib/stripe/plan-prices";
 
 export type SeatUsage = {
   /** Number of active team members (accepted memberships). */
@@ -12,13 +26,29 @@ export type SeatUsage = {
   limit: number;
   /** Number of seats over the limit. */
   overage: number;
-  /** Whether the company allows seat overages (has extraSeatPrice). */
+  /** Whether the company allows seat overages (Stripe extra-seat price configured). */
   overageAllowed: boolean;
-  /** Human-readable price for each overage seat, if applicable. */
+  /** Human-readable price for each overage seat, from Stripe when available. */
   overagePriceLabel: string | null;
   /** The current plan. */
   plan: Plan;
 };
+
+async function extraSeatPriceLabelForCompany(company: {
+  subscriptionPriceId: string | null;
+}): Promise<string | null> {
+  const planId = planForPriceId(company.subscriptionPriceId ?? undefined);
+  if (!planId || !planAllowsExtraSeats(planId)) return null;
+  const interval = getCompanyBillingInterval(company);
+  const priceId = resolveExtraSeatPriceId(planId, interval);
+  if (!priceId) return null;
+  const byId = await fetchStripePricesById([priceId]);
+  const price = byId.get(priceId);
+  if (!price) return null;
+  const minor = priceMinorUnits(price);
+  if (minor == null || !price.currency) return null;
+  return `${formatPriceMinor(minor, price.currency)}/seat`;
+}
 
 /**
  * Get seat usage for a company.
@@ -49,6 +79,10 @@ export async function getSeatUsage(companyId: string): Promise<SeatUsage> {
   const members = company._count.memberships;
   const total = members + pendingInvites;
   const overage = Math.max(0, total - plan.seatLimit);
+  const overageAllowed = planAllowsExtraSeats(plan.id);
+  const overagePriceLabel = overageAllowed
+    ? await extraSeatPriceLabelForCompany(company)
+    : null;
 
   return {
     members,
@@ -56,9 +90,8 @@ export async function getSeatUsage(companyId: string): Promise<SeatUsage> {
     total,
     limit: plan.seatLimit,
     overage,
-    overageAllowed: plan.extraSeatPrice !== null,
-    overagePriceLabel: plan.extraSeatPriceLabel ?? null,
+    overageAllowed,
+    overagePriceLabel,
     plan,
   };
 }
-
