@@ -24,26 +24,38 @@ export type GeocodeViewport = {
   formatted: string;
 };
 
+type GoogleGeocodeResult = {
+  formatted_address?: string;
+  types?: string[];
+  geometry?: {
+    location?: { lat: number; lng: number };
+    location_type?: string;
+    viewport?: {
+      northeast: { lat: number; lng: number };
+      southwest: { lat: number; lng: number };
+    };
+    bounds?: {
+      northeast: { lat: number; lng: number };
+      southwest: { lat: number; lng: number };
+    };
+  };
+};
+
 type GoogleGeocodeResponse = {
   status: string;
   error_message?: string;
-  results?: Array<{
-    formatted_address?: string;
-    geometry?: {
-      location?: { lat: number; lng: number };
-      viewport?: {
-        northeast: { lat: number; lng: number };
-        southwest: { lat: number; lng: number };
-      };
-      bounds?: {
-        northeast: { lat: number; lng: number };
-        southwest: { lat: number; lng: number };
-      };
-    };
-  }>;
+  results?: GoogleGeocodeResult[];
 };
 
 const TTL_MS = 24 * 60 * 60 * 1000;
+
+/** Prefer LPA / borough geometry over neighbourhood POIs (e.g. Camden Town). */
+const ADMIN_RESULT_TYPES = [
+  "administrative_area_level_2",
+  "administrative_area_level_1",
+  "locality",
+  "postal_town",
+] as const;
 
 type CacheEntry = { result: GeocodeViewport | null; expiresAt: number };
 const cache = new Map<string, CacheEntry>();
@@ -56,14 +68,114 @@ function getKey(): string | null {
   );
 }
 
-function cacheKey(q: string): string {
-  return q.trim().toLowerCase();
+function cacheKey(q: string, preferAdmin: boolean): string {
+  return `${preferAdmin ? "admin:" : ""}${q.trim().toLowerCase()}`;
+}
+
+function adminRank(types: string[] | undefined): number {
+  if (!types?.length) return 99;
+  for (let i = 0; i < ADMIN_RESULT_TYPES.length; i++) {
+    if (types.includes(ADMIN_RESULT_TYPES[i])) return i;
+  }
+  return 99;
+}
+
+function bboxArea(
+  sw: { lat: number; lng: number },
+  ne: { lat: number; lng: number },
+): number {
+  return Math.max(0, ne.lat - sw.lat) * Math.max(0, ne.lng - sw.lng);
+}
+
+/**
+ * Pick the result that best represents a planning search area.
+ * Bare names like "Camden" often return a neighbourhood (Camden Town) first;
+ * prefer administrative_area / locality with a larger bounds when available.
+ */
+function pickBestGeocodeResult(
+  results: GoogleGeocodeResult[],
+): GoogleGeocodeResult | null {
+  if (!results.length) return null;
+
+  const scored = results
+    .map((r) => {
+      const geom = r.geometry;
+      const box = geom?.bounds ?? geom?.viewport;
+      if (!box || !geom?.location) return null;
+      const area = bboxArea(box.southwest, box.northeast);
+      const rank = adminRank(r.types);
+      return { r, area, rank };
+    })
+    .filter((x): x is NonNullable<typeof x> => x != null);
+
+  if (!scored.length) return null;
+
+  scored.sort((a, b) => {
+    if (a.rank !== b.rank) return a.rank - b.rank;
+    return b.area - a.area;
+  });
+  return scored[0].r;
+}
+
+function toViewport(
+  result: GoogleGeocodeResult,
+  fallbackLabel: string,
+): GeocodeViewport | null {
+  const geom = result.geometry;
+  const vp = geom?.bounds ?? geom?.viewport;
+  if (!vp || !geom?.location) return null;
+  return {
+    bounds: {
+      west: vp.southwest.lng,
+      south: vp.southwest.lat,
+      east: vp.northeast.lng,
+      north: vp.northeast.lat,
+    },
+    center: { lat: geom.location.lat, lng: geom.location.lng },
+    formatted: result.formatted_address ?? fallbackLabel,
+  };
+}
+
+async function fetchGoogleGeocode(
+  query: string,
+  key: string,
+  opts?: { resultType?: string },
+): Promise<GoogleGeocodeResponse | null> {
+  const url = new URL("https://maps.googleapis.com/maps/api/geocode/json");
+  url.searchParams.set("address", query);
+  url.searchParams.set("region", "uk");
+  url.searchParams.set("components", "country:GB");
+  url.searchParams.set("key", key);
+  if (opts?.resultType) {
+    url.searchParams.set("result_type", opts.resultType);
+  }
+
+  try {
+    const res = await fetch(url.toString(), {
+      signal: AbortSignal.timeout(8_000),
+      next: { revalidate: 86_400 },
+    });
+    if (!res.ok) {
+      logger.warn({ status: res.status, query }, "geocode_http_error");
+      return null;
+    }
+    return (await res.json()) as GoogleGeocodeResponse;
+  } catch (err) {
+    logger.warn(
+      { err: err instanceof Error ? err.message : String(err), query },
+      "geocode_fetch_failed",
+    );
+    return null;
+  }
 }
 
 /**
  * Geocode a place name. Returns `null` when Google can't resolve it or the
  * API key isn't configured; callers should fall back gracefully (e.g. keep
  * whatever viewport the user already has on screen).
+ *
+ * Prefers UK administrative areas / localities so borough queries like
+ * "Camden" resolve to the London Borough, not Camden Town neighbourhood.
  */
 export async function geocodePlace(
   query: string,
@@ -79,82 +191,50 @@ export async function geocodePlace(
     return null;
   }
 
-  const k = cacheKey(q);
+  const k = cacheKey(q, true);
   const hit = cache.get(k);
   if (hit && hit.expiresAt > Date.now()) return hit.result;
 
-  const url = new URL("https://maps.googleapis.com/maps/api/geocode/json");
-  url.searchParams.set("address", q);
-  url.searchParams.set("region", "uk");
-  url.searchParams.set("components", "country:GB");
-  url.searchParams.set("key", key);
+  // Pass 1: ask Google for admin / locality geometry first.
+  let data = await fetchGoogleGeocode(q, key, {
+    resultType: ADMIN_RESULT_TYPES.join("|"),
+  });
 
-  try {
-    const res = await fetch(url.toString(), {
-      signal: AbortSignal.timeout(8_000),
-      // Cache at the edge for a day too.
-      next: { revalidate: 86_400 },
-    });
-    if (!res.ok) {
-      logger.warn(
-        { status: res.status, query: q },
-        "geocode_http_error",
-      );
-      cache.set(k, { result: null, expiresAt: Date.now() + 5 * 60_000 });
-      return null;
-    }
-    const data = (await res.json()) as GoogleGeocodeResponse;
-    if (data.status !== "OK" || !data.results?.length) {
-      if (data.status !== "ZERO_RESULTS") {
-        logger.warn(
-          { status: data.status, error: data.error_message, query: q },
-          "geocode_api_status",
-        );
-      }
-      // Cache policy depends on why we failed:
-      //   - ZERO_RESULTS is a stable fact about the query ("Nonexistentville"
-      //     doesn't exist) → cache for a full hour.
-      //   - REQUEST_DENIED / OVER_QUERY_LIMIT / INVALID_REQUEST are transient
-      //     or config-side failures (API not enabled, quota exhausted, key
-      //     revoked). Cache VERY briefly so the moment the operator fixes
-      //     the Cloud Console, the next query sees the change without us
-      //     needing to restart the process.
-      const transient =
-        data.status === "REQUEST_DENIED" ||
-        data.status === "OVER_QUERY_LIMIT" ||
-        data.status === "INVALID_REQUEST";
-      const ttlMs = transient ? 30_000 : 60 * 60_000;
-      cache.set(k, { result: null, expiresAt: Date.now() + ttlMs });
-      return null;
-    }
+  // Pass 2: unrestricted if admin filter returned nothing useful.
+  if (!data || data.status !== "OK" || !data.results?.length) {
+    data = await fetchGoogleGeocode(q, key);
+  }
 
-    const top = data.results[0];
-    const geom = top.geometry;
-    const vp = geom?.viewport ?? geom?.bounds;
-    if (!vp || !geom?.location) {
-      cache.set(k, { result: null, expiresAt: Date.now() + 60 * 60_000 });
-      return null;
-    }
-
-    const result: GeocodeViewport = {
-      bounds: {
-        west: vp.southwest.lng,
-        south: vp.southwest.lat,
-        east: vp.northeast.lng,
-        north: vp.northeast.lat,
-      },
-      center: { lat: geom.location.lat, lng: geom.location.lng },
-      formatted: top.formatted_address ?? q,
-    };
-    cache.set(k, { result, expiresAt: Date.now() + TTL_MS });
-    return result;
-  } catch (err) {
-    logger.warn(
-      { err: err instanceof Error ? err.message : String(err), query: q },
-      "geocode_fetch_failed",
-    );
+  if (!data) {
+    cache.set(k, { result: null, expiresAt: Date.now() + 5 * 60_000 });
     return null;
   }
+
+  if (data.status !== "OK" || !data.results?.length) {
+    if (data.status !== "ZERO_RESULTS") {
+      logger.warn(
+        { status: data.status, error: data.error_message, query: q },
+        "geocode_api_status",
+      );
+    }
+    const transient =
+      data.status === "REQUEST_DENIED" ||
+      data.status === "OVER_QUERY_LIMIT" ||
+      data.status === "INVALID_REQUEST";
+    const ttlMs = transient ? 30_000 : 60 * 60_000;
+    cache.set(k, { result: null, expiresAt: Date.now() + ttlMs });
+    return null;
+  }
+
+  const top = pickBestGeocodeResult(data.results);
+  const result = top ? toViewport(top, q) : null;
+  if (!result) {
+    cache.set(k, { result: null, expiresAt: Date.now() + 60 * 60_000 });
+    return null;
+  }
+
+  cache.set(k, { result, expiresAt: Date.now() + TTL_MS });
+  return result;
 }
 
 type LatLng = { lat: number; lng: number };

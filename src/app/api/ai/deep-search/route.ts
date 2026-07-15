@@ -41,7 +41,9 @@ import {
 } from "@/lib/planning-data";
 import {
   fetchPlanwireApplicationsByBbox,
+  getPlanwireCouncils,
   mapPlanwireToPlanningEntity,
+  matchPlanwireCouncilId,
   PlanwireRateLimitedError,
 } from "@/lib/planwire";
 import { resolveOutreachContact } from "@/lib/outreach-contact";
@@ -259,9 +261,43 @@ export async function POST(req: Request) {
             type: "status",
             message: `Locating ${filters.locationHint}…`,
           });
-          const geo: GeocodeViewport | null = await geocodePlace(
-            filters.locationHint,
-          );
+
+          // Prefer the PlanWire council's full legal name when the hint is an
+          // LPA ("Camden" → "London Borough of Camden"). Bare geocodes often
+          // resolve to a neighbourhood (Camden Town) and search a ~2 km² box.
+          let geocodeQuery = filters.locationHint;
+          try {
+            const councils = await getPlanwireCouncils();
+            const councilId = matchPlanwireCouncilId(
+              filters.locationHint,
+              councils,
+            );
+            if (councilId) {
+              const council = councils.find((c) => c.id === councilId);
+              if (council?.name) {
+                geocodeQuery = council.name;
+                logger.info(
+                  {
+                    deepSearchStep: "council_resolved",
+                    locationHint: filters.locationHint,
+                    councilId,
+                    geocodeQuery,
+                  },
+                  "deep_search_council_resolved",
+                );
+              }
+            }
+          } catch (err) {
+            logger.warn(
+              {
+                err: err instanceof Error ? err.message : String(err),
+                locationHint: filters.locationHint,
+              },
+              "deep_search_council_resolve_failed",
+            );
+          }
+
+          const geo: GeocodeViewport | null = await geocodePlace(geocodeQuery);
           if (geo) {
             bounds = geo.bounds;
             placeLabel = geo.formatted;
@@ -274,6 +310,7 @@ export async function POST(req: Request) {
               {
                 deepSearchStep: "geocoded",
                 locationHint: filters.locationHint,
+                geocodeQuery,
                 place: geo.formatted,
                 bounds: geo.bounds,
               },
