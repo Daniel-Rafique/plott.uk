@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server";
-import { bboxTooLargeError } from "@/lib/planning-data";
+import {
+  bboxTooLargeError,
+  clampBboxToSearchable,
+} from "@/lib/planning-data";
 import {
   fetchPlanwireApplicationsByBbox,
   mapPlanwireToPlanningEntity,
@@ -9,6 +12,7 @@ import { requireSubscribedTenant } from "@/lib/tenant";
 import { enrichSearchResults } from "@/lib/enrichment";
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import { rankPlanningResultsByApplicantOrCompany } from "@/lib/planning-result-ranking";
+import { logger } from "@/lib/logger";
 
 export const runtime = "nodejs";
 
@@ -44,9 +48,23 @@ export async function GET(req: Request) {
     );
   }
 
-  const tooLarge = bboxTooLargeError(west, south, east, north);
-  if (tooLarge) {
-    return NextResponse.json({ error: tooLarge }, { status: 400 });
+  // PlanWire nearby is radius-capped (~5 km). Oversized borough viewports from
+  // deep-search used to 400 here when the map sync re-ran /api/planning/search.
+  // Clamp to a searchable centre box instead of failing the request.
+  let searchWest = west;
+  let searchSouth = south;
+  let searchEast = east;
+  let searchNorth = north;
+  if (bboxTooLargeError(west, south, east, north)) {
+    const clamped = clampBboxToSearchable({ west, south, east, north });
+    searchWest = clamped.west;
+    searchSouth = clamped.south;
+    searchEast = clamped.east;
+    searchNorth = clamped.north;
+    logger.info(
+      { west, south, east, north, clamped },
+      "planning_search_bbox_clamped",
+    );
   }
 
   const limit = Math.min(
@@ -72,10 +90,10 @@ export async function GET(req: Request) {
 
   try {
     const apps = await fetchPlanwireApplicationsByBbox({
-      west,
-      south,
-      east,
-      north,
+      west: searchWest,
+      south: searchSouth,
+      east: searchEast,
+      north: searchNorth,
       limit: limit + offset,
       filters: {
         developmentTypes: developmentTypes.length ? developmentTypes : undefined,

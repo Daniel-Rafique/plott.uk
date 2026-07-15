@@ -220,8 +220,24 @@ function matchesStatus(
   if (!statuses?.length) return true;
   const text = normaliseForMatch(`${app.status} ${app.decision}`);
   return matchSelectedTextGroup(statuses, text, {
-    approved: ["approved", "approve", "approval", "granted", "grant"],
-    granted: ["granted", "grant", "approved", "approve", "approval"],
+    approved: [
+      "approved",
+      "approve",
+      "approval",
+      "granted",
+      "grant",
+      "final decision",
+      "permitted",
+    ],
+    granted: [
+      "granted",
+      "grant",
+      "approved",
+      "approve",
+      "approval",
+      "final decision",
+      "permitted",
+    ],
     refused: ["refused", "refuse", "rejected", "reject", "declined"],
     withdrawn: ["withdrawn", "withdraw", "cancelled", "canceled"],
     pending: [
@@ -253,10 +269,13 @@ function matchesIndexedSinceYear(
   year: number | undefined,
 ): boolean {
   if (year == null) return true;
+  // decisionDate is backfilled from receivedDate in mapToPlanwireApplication
+  // when the council has not issued a decision yet.
   const date = app.decisionDate.trim().slice(0, 10);
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return false;
   return date >= `${year}-01-01`;
 }
+
 
 function applicationMatchText(app: PlanwireApplication): string {
   return normaliseForMatch(

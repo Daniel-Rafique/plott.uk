@@ -7,7 +7,7 @@
 
 import { tool } from "ai";
 import { z } from "zod";
-import { bboxTooLargeError } from "@/lib/planning-data";
+import { bboxTooLargeError, clampBboxToSearchable } from "@/lib/planning-data";
 import {
   fetchPlanwireApplicationsByBbox,
   mapPlanwireToPlanningEntity,
@@ -16,7 +16,7 @@ import {
 
 export const planningSearchByBboxTool = tool({
   description:
-    "Search UK planning applications (powered by PlanWire) inside a bounding box. Returns up to 100 entities. Prefer narrow bboxes (neighbourhood-sized, under 0.0009 square degrees) or the call will be rejected.",
+    "Search UK planning applications (powered by PlanWire) inside a bounding box. Returns up to 100 entities. Large borough-sized boxes are auto-clamped to a searchable centre area.",
   inputSchema: z.object({
     west: z.number(),
     south: z.number(),
@@ -31,16 +31,20 @@ export const planningSearchByBboxTool = tool({
     limit: z.number().int().min(1).max(100).optional(),
   }),
   execute: async (args) => {
-    const tooLarge = bboxTooLargeError(args.west, args.south, args.east, args.north);
-    if (tooLarge) {
-      return { ok: false as const, error: tooLarge, entities: [] };
+    let { west, south, east, north } = args;
+    if (bboxTooLargeError(west, south, east, north)) {
+      const clamped = clampBboxToSearchable({ west, south, east, north });
+      west = clamped.west;
+      south = clamped.south;
+      east = clamped.east;
+      north = clamped.north;
     }
     try {
       const apps = await fetchPlanwireApplicationsByBbox({
-        west: args.west,
-        south: args.south,
-        east: args.east,
-        north: args.north,
+        west,
+        south,
+        east,
+        north,
         limit: args.limit ?? 50,
         filters: {
           statuses: args.statuses?.length ? args.statuses : undefined,

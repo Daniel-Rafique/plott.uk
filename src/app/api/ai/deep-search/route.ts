@@ -41,6 +41,8 @@ import {
 } from "@/lib/planning-data";
 import {
   fetchPlanwireApplicationsByBbox,
+  fetchPlanwireApplicationsByQuery,
+  filterPlanwireApplications,
   getPlanwireCouncils,
   mapPlanwireToPlanningEntity,
   matchPlanwireCouncilId,
@@ -255,6 +257,7 @@ export async function POST(req: Request) {
         let bounds =
           currentBounds ?? null;
         let placeLabel: string | null = null;
+        let resolvedCouncilId: string | null = null;
 
         if (filters.locationHint) {
           send({
@@ -273,6 +276,7 @@ export async function POST(req: Request) {
               councils,
             );
             if (councilId) {
+              resolvedCouncilId = councilId;
               const council = councils.find((c) => c.id === councilId);
               if (council?.name) {
                 geocodeQuery = council.name;
@@ -336,7 +340,7 @@ export async function POST(req: Request) {
           }
         }
 
-        if (!bounds) {
+        if (!bounds && !resolvedCouncilId) {
           send({
             type: "error",
             message:
@@ -359,14 +363,22 @@ export async function POST(req: Request) {
         // Cap high enough to cover the largest London borough (Bromley ≈ 150 km²
         // needs ~45 tiles). Anything above this is a genuine "narrow your query"
         // situation (e.g. whole counties).
-        logger.info(
-          {
-            deepSearchStep: "bbox_ready",
-            approxKm2: bboxAreaKm2(bounds.west, bounds.south, bounds.east, bounds.north),
-            bounds,
-          },
-          "deep_search_bbox",
-        );
+        if (bounds) {
+          logger.info(
+            {
+              deepSearchStep: "bbox_ready",
+              approxKm2: bboxAreaKm2(
+                bounds.west,
+                bounds.south,
+                bounds.east,
+                bounds.north,
+              ),
+              bounds,
+              resolvedCouncilId,
+            },
+            "deep_search_bbox",
+          );
+        }
 
         const runAgentPath =
           Boolean(forceAgent) ||
@@ -381,34 +393,66 @@ export async function POST(req: Request) {
             : "Searching planning records in this area…",
         });
 
-        // Fast path: bbox search via PlanWire (full UK coverage with PostGIS)
-        const pwApps = await fetchPlanwireApplicationsByBbox({
-          west: bounds.west,
-          south: bounds.south,
-          east: bounds.east,
-          north: bounds.north,
-          limit: 100,
-          filters: {
-            statuses: filters.statuses.length ? filters.statuses : undefined,
-            applicationTypes: filters.applicationTypes.length
-              ? filters.applicationTypes
+        const searchFilters = {
+          statuses: filters.statuses.length ? filters.statuses : undefined,
+          applicationTypes: filters.applicationTypes.length
+            ? filters.applicationTypes
+            : undefined,
+          developmentTypes: filters.developmentTypes.length
+            ? filters.developmentTypes
+            : undefined,
+          decisionDateFrom: filters.decisionFrom ?? undefined,
+          decisionDateTo: filters.decisionTo ?? undefined,
+          indexedSinceYear: filters.indexedSinceYear ?? undefined,
+        };
+
+        // Named LPAs: use PlanWire's council search (full borough coverage).
+        // Bbox/nearby is capped at ~5 km and rejects oversized map syncs.
+        let pwApps;
+        if (resolvedCouncilId) {
+          const raw = await fetchPlanwireApplicationsByQuery({
+            council: resolvedCouncilId,
+            limit: 100,
+            dateFrom:
+              filters.indexedSinceYear != null
+                ? `${filters.indexedSinceYear}-01-01`
+                : filters.decisionFrom ?? undefined,
+            dateTo: filters.decisionTo ?? undefined,
+            q: filters.keywords.length
+              ? filters.keywords.join(" ")
               : undefined,
-            developmentTypes: filters.developmentTypes.length
-              ? filters.developmentTypes
-              : undefined,
-            decisionDateFrom: filters.decisionFrom ?? undefined,
-            decisionDateTo: filters.decisionTo ?? undefined,
-            indexedSinceYear: filters.indexedSinceYear ?? undefined,
-          },
-        });
-        let entities: PlanningApplicationEntity[] = pwApps.map(mapPlanwireToPlanningEntity);
-        logger.info(
-          {
-            deepSearchStep: "fast_path_done",
-            total: entities.length,
-            placeLabel,
-          },
-          "deep_search_fast_path",
+          });
+          pwApps = filterPlanwireApplications(raw, searchFilters);
+          logger.info(
+            {
+              deepSearchStep: "council_path_done",
+              councilId: resolvedCouncilId,
+              raw: raw.length,
+              total: pwApps.length,
+              placeLabel,
+            },
+            "deep_search_council_path",
+          );
+        } else {
+          pwApps = await fetchPlanwireApplicationsByBbox({
+            west: bounds!.west,
+            south: bounds!.south,
+            east: bounds!.east,
+            north: bounds!.north,
+            limit: 100,
+            filters: searchFilters,
+          });
+          logger.info(
+            {
+              deepSearchStep: "fast_path_done",
+              total: pwApps.length,
+              placeLabel,
+            },
+            "deep_search_fast_path",
+          );
+        }
+        let entities: PlanningApplicationEntity[] = pwApps.map(
+          mapPlanwireToPlanningEntity,
         );
 
 
