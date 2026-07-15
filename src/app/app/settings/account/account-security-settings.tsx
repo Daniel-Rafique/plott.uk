@@ -77,7 +77,11 @@ export function AccountSecuritySettings({ user, accounts }: Props) {
     const data = await res.json().catch(() => ({}));
     setDeleting(false);
     if (!res.ok) {
-      toast.error(data.error ?? "Could not delete account.");
+      toast.error(
+        typeof data.error === "string" && data.error.length > 0
+          ? data.error
+          : "Could not delete account. Please try again or contact support@plott.uk.",
+      );
       return;
     }
     const refunded =
