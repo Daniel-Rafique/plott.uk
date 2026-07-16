@@ -12,7 +12,12 @@ import { lastSeenIdsToNumbers } from "@/lib/planning-entity-bigint";
 import { logger } from "@/lib/logger";
 import { isRefusalDecision } from "@/lib/refusal-detection";
 import { getCompanyTier, type Tier } from "@/lib/ai/tiers";
-import { DIGEST_EMAIL_MAX_LEADS, DIGEST_ICP_SCORE_CAP, OUTREACH_ESTIMATE_CAP } from "@/lib/digest-config";
+import {
+  DIGEST_EMAIL_MAX_LEADS,
+  DIGEST_ICP_SCORE_CAP,
+  OUTREACH_ESTIMATE_CAP,
+  OUTREACH_WORKFLOW_DISPATCH_CAP,
+} from "@/lib/digest-config";
 import { getCompanyPlanFeatures } from "@/lib/plan-features";
 import { start } from "workflow/api";
 import {
@@ -314,7 +319,7 @@ export async function GET(req: Request) {
             .map((e) => e.entity),
         );
         const workflowPayloads: OutreachLeadDiscoveredPayload[] = newOnes
-          .slice(0, 50)
+          .slice(0, OUTREACH_WORKFLOW_DISPATCH_CAP)
           .map((e) => {
           const status = e["planning-application-status"] ?? undefined;
           const decision = e["planning-decision-type"] ?? undefined;

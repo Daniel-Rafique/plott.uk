@@ -120,7 +120,9 @@ const PRESETS: Record<AgentKind, ModelPreset> = {
     usdPerMInput: 1.0,
     usdPerMOutput: 5.0,
     maxSteps: 1,
-    timeoutMs: 15_000,
+    // Haiku is fast, but saved-search cron can fan out many parallel workflows;
+    // leave headroom for gateway latency under load.
+    timeoutMs: 25_000,
   },
   outreach_drafter: {
     kind: "outreach_drafter",

@@ -27,6 +27,10 @@ import { prisma } from "@/lib/prisma";
 import { logger } from "@/lib/logger";
 import { captureError } from "@/lib/observability";
 import {
+  isTransientAiGatewayError,
+  normalizeAiError,
+} from "@/lib/ai/errors";
+import {
   getModel,
   getPreset,
   estimateCostGbp,
@@ -278,12 +282,25 @@ async function persistFinish(
   return costGbp;
 }
 
+function reportAgentFailure(
+  err: unknown,
+  kind: AgentKind,
+  companyId: string,
+): void {
+  if (isTransientAiGatewayError(err)) {
+    logger.warn({ err, kind }, "agent run failed (transient gateway error)");
+    return;
+  }
+  captureError(err, { companyId, extra: { kind } });
+}
+
 async function persistFailure(
   runId: string,
   err: unknown,
   stats: Partial<FinishStats> = {},
 ): Promise<void> {
-  const message = err instanceof Error ? err.message : String(err);
+  const normalized = normalizeAiError(err);
+  const message = normalized.message;
   await prisma.agentRun
     .update({
       where: { id: runId },
@@ -357,12 +374,12 @@ export async function runText(
     };
   } catch (err) {
     logger.error({ err, kind: args.kind, runId }, "agent runText failed");
-    captureError(err, { companyId: args.ctx.companyId, extra: { kind: args.kind } });
+    reportAgentFailure(err, args.kind, args.ctx.companyId);
     await persistFailure(runId, err, { durationMs: Date.now() - started });
     endTrace({
       traceId,
       status: "error",
-      errorMessage: err instanceof Error ? err.message : String(err),
+      errorMessage: normalizeAiError(err).message,
     });
     await flushAllTraces();
     throw err;
@@ -430,12 +447,12 @@ export async function runObject<T>(
     };
   } catch (err) {
     logger.error({ err, kind: args.kind, runId }, "agent runObject failed");
-    captureError(err, { companyId: args.ctx.companyId, extra: { kind: args.kind } });
+    reportAgentFailure(err, args.kind, args.ctx.companyId);
     await persistFailure(runId, err, { durationMs: Date.now() - started });
     endTrace({
       traceId,
       status: "error",
-      errorMessage: err instanceof Error ? err.message : String(err),
+      errorMessage: normalizeAiError(err).message,
     });
     await flushAllTraces();
     throw err;
@@ -554,12 +571,12 @@ export async function runAgent<T = string>(
     };
   } catch (err) {
     logger.error({ err, kind: args.kind, runId }, "agent runAgent failed");
-    captureError(err, { companyId: args.ctx.companyId, extra: { kind: args.kind } });
+    reportAgentFailure(err, args.kind, args.ctx.companyId);
     await persistFailure(runId, err, { durationMs: Date.now() - started });
     endTrace({
       traceId,
       status: "error",
-      errorMessage: err instanceof Error ? err.message : String(err),
+      errorMessage: normalizeAiError(err).message,
     });
     await flushAllTraces();
     throw err;

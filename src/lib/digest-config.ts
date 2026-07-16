@@ -6,3 +6,10 @@ export const DIGEST_ICP_SCORE_CAP = 15;
 
 /** Max job_estimator calls for auto-outreach workflows per digest run. */
 export const OUTREACH_ESTIMATE_CAP = 5;
+
+/**
+ * Max outreach workflows started per saved-search cron tick. Keeps the first
+ * workflow step (ICP classify → AI Gateway) from stampeding when a search
+ * returns many new leads at once.
+ */
+export const OUTREACH_WORKFLOW_DISPATCH_CAP = 15;
