@@ -42,6 +42,9 @@ const outputSchema = z.object({
   agentName: z.string().nullable().optional(),
   agentAddress: z.string().nullable().optional(),
   agentEmail: z.string().nullable().optional(),
+  agentEmailSource: z.string().nullable().optional(),
+  agentEmailConfidence: z.number().int().min(0).max(100).nullable().optional(),
+  agentEmailStatus: z.string().nullable().optional(),
   agentPhone: z.string().nullable().optional(),
   caseOfficer: z.string().nullable().optional(),
   ward: z.string().nullable().optional(),
@@ -60,6 +63,9 @@ export type EnrichedApplication = {
   agentName: string | null;
   agentAddress: string | null;
   agentEmail: string | null;
+  agentEmailSource: string | null;
+  agentEmailConfidence: number | null;
+  agentEmailStatus: string | null;
   agentPhone: string | null;
   caseOfficer: string | null;
   ward: string | null;
@@ -81,6 +87,9 @@ function normaliseEnriched(
     agentName: raw.agentName ?? null,
     agentAddress: raw.agentAddress ?? null,
     agentEmail: raw.agentEmail ?? null,
+    agentEmailSource: raw.agentEmailSource ?? null,
+    agentEmailConfidence: raw.agentEmailConfidence ?? null,
+    agentEmailStatus: raw.agentEmailStatus ?? null,
     agentPhone: raw.agentPhone ?? null,
     caseOfficer: raw.caseOfficer ?? null,
     ward: raw.ward ?? null,
@@ -124,6 +133,7 @@ Tools at your disposal:
 - companiesHouseProfile: get registered office address + SIC codes for a company number.
 - companiesHouseOfficers: get current directors and secretaries for a company number. USE THIS to find a named person to address letters to when the applicant is a company.
 - hunterDomainSearch: structured email discovery for an organisation domain or company name. Prefer this before webSearch when email is missing.
+- hunterCompanyEnrichment: resolve a company domain (and firmographic name) when Domain Search did not return a domain. Use before Email Finder when you only have a company name.
 - hunterEmailFinder: find a likely email for a named person at a company/domain.
 - hunterEmailVerifier: verify an email candidate before storing it.
 - webSearch: open-web fallback for missing contact details (email/phone), individual applicants, or finding a contact name at an organisation.
@@ -146,7 +156,7 @@ Fast cascade (run only what's needed, stop as soon as fields are full):
 1. Look at the PRE-RESOLVED block below. Treat those values as given — do NOT re-fetch them.
 2. If the pre-resolved record already has a contact name AND address, only use Hunter if email is missing, or webSearch if phone is missing. Otherwise emit immediately.
 3. For every organisation-shaped name without an address: companiesHouseSearch → companiesHouseProfile → companiesHouseOfficers.
-4. If you have a company/domain and no email: hunterDomainSearch. If you have a named person plus company/domain: hunterEmailFinder. Verify non-Hunter email candidates with hunterEmailVerifier.
+4. If you have a company/domain and no email: hunterDomainSearch. If Domain Search returns no domain, call hunterCompanyEnrichment with the company name to resolve one. If you have a named person plus company/domain: hunterEmailFinder. Verify non-Hunter email candidates with hunterEmailVerifier.
 5. If you have a name + org address but no contact person: ONE webSearch for "{org} planning contact".
 6. If you still lack email/phone: up to ONE webSearch.
 7. Emit the merged result. Do not spend a final tool step solely to write cache.
@@ -160,7 +170,7 @@ Output rules:
 - Emit ONE JSON object matching the schema, even when every field is null.
 - Never invent fields; null is better than a guess.
 - Store Hunter emails for applicants in applicantEmail with applicantEmailSource="hunter", applicantEmailConfidence as Hunter score/confidence, and applicantEmailStatus as verifier/finder status.
-- Store Hunter emails for planning agents in agentEmail. Include "hunter" in sources so the UI can show provenance.
+- Store Hunter emails for planning agents in agentEmail with agentEmailSource="hunter", agentEmailConfidence as Hunter score/confidence, and agentEmailStatus as verifier/finder status. Include "hunter" in sources so the UI can show provenance.
 - If Hunter returns an error or rate limit, move on without retrying; do not treat an API error as evidence that no email exists.
 - Populate \`sources\` with every tool that actually contributed (include "cascade" for data from the pre-resolved block).
 - confidence: "high" when you have both a name AND address from an authoritative source; "medium" when you have a name but no address; "low" otherwise.`;
@@ -187,6 +197,8 @@ Output rules:
     if (pre.agentName) preLines.push(`  * agentName: ${pre.agentName}`);
     if (pre.agentAddress) preLines.push(`  * agentAddress: ${pre.agentAddress}`);
     if (pre.agentEmail) preLines.push(`  * agentEmail: ${pre.agentEmail}`);
+    if (pre.agentEmailStatus)
+      preLines.push(`  * agentEmailStatus: ${pre.agentEmailStatus}`);
     if (pre.agentPhone) preLines.push(`  * agentPhone: ${pre.agentPhone}`);
     if (pre.caseOfficer) preLines.push(`  * caseOfficer: ${pre.caseOfficer}`);
     if (pre.ward) preLines.push(`  * ward: ${pre.ward}`);
@@ -276,6 +288,9 @@ function preResolvedToEnriched(
       agentName: args.seedAgent ?? null,
       agentAddress: args.seedAgentAddress ?? null,
       agentEmail: null,
+      agentEmailSource: null,
+      agentEmailConfidence: null,
+      agentEmailStatus: null,
       agentPhone: null,
       caseOfficer: null,
       ward: null,
@@ -294,6 +309,9 @@ function preResolvedToEnriched(
     agentName: pre.agentName ?? args.seedAgent ?? null,
     agentAddress: pre.agentAddress ?? args.seedAgentAddress ?? null,
     agentEmail: pre.agentEmail ?? null,
+    agentEmailSource: pre.agentEmailSource ?? null,
+    agentEmailConfidence: pre.agentEmailConfidence ?? null,
+    agentEmailStatus: pre.agentEmailStatus ?? null,
     agentPhone: pre.agentPhone ?? null,
     caseOfficer: pre.caseOfficer ?? null,
     ward: pre.ward ?? null,
@@ -333,6 +351,10 @@ function mergePreResolved(
     agentAddress:
       agent.agentAddress ?? pre?.agentAddress ?? args.seedAgentAddress ?? null,
     agentEmail: agent.agentEmail ?? pre?.agentEmail ?? null,
+    agentEmailSource: agent.agentEmailSource ?? pre?.agentEmailSource ?? null,
+    agentEmailConfidence:
+      agent.agentEmailConfidence ?? pre?.agentEmailConfidence ?? null,
+    agentEmailStatus: agent.agentEmailStatus ?? pre?.agentEmailStatus ?? null,
     agentPhone: agent.agentPhone ?? pre?.agentPhone ?? null,
     caseOfficer: agent.caseOfficer ?? pre?.caseOfficer ?? null,
     ward: agent.ward ?? pre?.ward ?? null,
@@ -454,6 +476,9 @@ export async function resolveApplicationWithAi(
       agentName: enriched.agentName ?? params.seedAgent ?? null,
       agentAddress: enriched.agentAddress ?? params.seedAgentAddress ?? null,
       agentEmail: enriched.agentEmail,
+      agentEmailSource: enriched.agentEmailSource,
+      agentEmailConfidence: enriched.agentEmailConfidence,
+      agentEmailStatus: enriched.agentEmailStatus,
       agentPhone: enriched.agentPhone,
       caseOfficer: enriched.caseOfficer,
       ward: enriched.ward,

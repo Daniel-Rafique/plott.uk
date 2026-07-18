@@ -23,6 +23,7 @@ import {
   type CompaniesHouseSearchResult,
 } from "@/lib/ai/tools/companies-house";
 import {
+  hunterCompanyEnrichment,
   hunterDomainSearch,
   hunterEmailFinder,
   hunterEmailVerifier,
@@ -118,7 +119,19 @@ export type CompanyContact = {
   sources: string[];
 };
 
-async function resolveHunterEmail(args: {
+function domainFromEmail(email: string | null | undefined): string | null {
+  if (!email?.includes("@")) return null;
+  const host = email.split("@")[1]?.trim().toLowerCase();
+  return host || null;
+}
+
+/**
+ * Resolve an email for a company (and optional named person) via Hunter.
+ * Callable without a Companies House match — Domain Search accepts a raw
+ * company name, and Company Enrichment fills in a domain when Domain Search
+ * alone cannot.
+ */
+export async function resolveHunterEmail(args: {
   company: string;
   personName: string | null;
 }): Promise<{ email: string; confidence: number | null; status: string } | null> {
@@ -128,12 +141,27 @@ async function resolveHunterEmail(args: {
       limit: 10,
     });
     if (!domainSearch.configured) return null;
-    const domain = domainSearch.domain;
 
-    // Targeted lookup when we have a named officer and a resolved domain.
-    if (args.personName && domain) {
+    let domain =
+      domainSearch.domain ??
+      domainFromEmail(domainSearch.results?.[0]?.email) ??
+      null;
+
+    // Domain Search sometimes returns emails without a top-level domain field;
+    // Company Enrichment can confirm/resolve when we still lack a domain.
+    if (!domain) {
+      const enriched = await hunterCompanyEnrichment({ company: args.company });
+      if (enriched.configured && enriched.domain) {
+        domain = enriched.domain;
+      }
+    }
+
+    // Targeted lookup when we have a named person — Email Finder accepts
+    // company without domain, so still try when domain resolution failed.
+    if (args.personName) {
       const finder = await hunterEmailFinder({
-        domain,
+        domain: domain ?? undefined,
+        company: args.company,
         fullName: args.personName,
       });
       if (finder.configured && finder.found && finder.email) {

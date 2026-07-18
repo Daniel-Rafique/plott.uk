@@ -10,10 +10,14 @@ vi.mock("@/lib/company-lookup", async (importOriginal) => {
   return {
     ...actual,
     resolveCompanyContact: vi.fn(),
+    resolveHunterEmail: vi.fn(),
   };
 });
 
 const resolveCompanyContact = companyLookup.resolveCompanyContact as ReturnType<
+  typeof vi.fn
+>;
+const resolveHunterEmail = companyLookup.resolveHunterEmail as ReturnType<
   typeof vi.fn
 >;
 
@@ -185,5 +189,84 @@ describe("enrichFromCompanyLookup", () => {
       personName: null,
     });
     expect(result.applicantName).toBe("Alex Mercer, Director");
+  });
+
+  it("calls Hunter directly when Companies House returns no match", async () => {
+    vi.stubEnv("HUNTER_API_KEY", "hunter_test");
+    resolveCompanyContact.mockResolvedValue(null);
+    resolveHunterEmail.mockResolvedValue({
+      email: "hello@starplans.co.uk",
+      confidence: 72,
+      status: "valid",
+    });
+
+    const result = await enrichFromCompanyLookup(
+      baseResolved({ applicantName: "Star Plans Ltd" }),
+    );
+
+    expect(resolveCompanyContact).toHaveBeenCalled();
+    expect(resolveHunterEmail).toHaveBeenCalledWith({
+      company: "Star Plans Ltd",
+      personName: null,
+    });
+    expect(result).toMatchObject({
+      applicantEmail: "hello@starplans.co.uk",
+      applicantEmailSource: "hunter",
+      applicantEmailConfidence: 72,
+      applicantEmailStatus: "valid",
+      sources: ["planwire", "hunter"],
+    });
+  });
+
+  it("stores agent email provenance when Hunter fills an agent contact", async () => {
+    vi.stubEnv("HUNTER_API_KEY", "hunter_test");
+    resolveCompanyContact.mockResolvedValue(null);
+    resolveHunterEmail.mockResolvedValue({
+      email: "office@planningagents.co.uk",
+      confidence: 65,
+      status: "accept_all",
+    });
+
+    const result = await enrichFromCompanyLookup(
+      baseResolved({
+        applicantName: "Jane Smith",
+        agentName: "Planning Agents Ltd",
+      }),
+    );
+
+    expect(resolveHunterEmail).toHaveBeenCalledWith({
+      company: "Planning Agents Ltd",
+      personName: null,
+    });
+    expect(result).toMatchObject({
+      agentEmail: "office@planningagents.co.uk",
+      agentEmailSource: "hunter",
+      agentEmailConfidence: 65,
+      agentEmailStatus: "accept_all",
+    });
+  });
+
+  it("does not re-call Hunter when Companies House already attempted email lookup", async () => {
+    vi.stubEnv("HUNTER_API_KEY", "hunter_test");
+    resolveCompanyContact.mockResolvedValue({
+      companyName: "STAR PLANS LTD",
+      companyNumber: "13888490",
+      status: "active",
+      contactName: "Jane Doe, Director",
+      address: "STAR PLANS LTD, 1 High Street",
+      email: null,
+      emailSource: null,
+      emailConfidence: null,
+      emailStatus: null,
+      sources: ["companies_house"],
+    });
+
+    const result = await enrichFromCompanyLookup(
+      baseResolved({ applicantName: "Star Plans Ltd" }),
+    );
+
+    expect(resolveHunterEmail).not.toHaveBeenCalled();
+    expect(result.applicantEmail).toBeNull();
+    expect(result.applicantName).toBe("Jane Doe, Director");
   });
 });

@@ -64,6 +64,19 @@ export type HunterEmailVerifierResult =
       error?: string;
     };
 
+export type HunterCompanyEnrichmentResult =
+  | {
+      configured: false;
+      domain: null;
+      name: null;
+    }
+  | {
+      configured: true;
+      domain: string | null;
+      name: string | null;
+      error?: string;
+    };
+
 type HunterDomainSearchResponse = {
   data?: {
     domain?: string | null;
@@ -97,6 +110,14 @@ type HunterEmailVerifierResponse = {
     status?: string | null;
     score?: number | null;
     result?: string | null;
+  };
+};
+
+type HunterCompanyEnrichmentResponse = {
+  data?: {
+    domain?: string | null;
+    name?: string | null;
+    legalName?: string | null;
   };
 };
 
@@ -250,6 +271,48 @@ export async function hunterEmailVerifier(
   };
 }
 
+/**
+ * Company Enrichment (`/companies/find`) requires a domain. When only a company
+ * name is provided we first resolve a domain via Domain Search, then enrich.
+ */
+export async function hunterCompanyEnrichment(args: {
+  company?: string | null;
+  domain?: string | null;
+}): Promise<HunterCompanyEnrichmentResult> {
+  if (!apiKey()) return { configured: false, domain: null, name: null };
+
+  let domain = args.domain ? cleanDomain(args.domain) : "";
+  if (!domain && args.company?.trim()) {
+    const search = await hunterDomainSearch({
+      company: args.company.trim(),
+      limit: 1,
+    });
+    if (search.configured && search.domain) {
+      domain = cleanDomain(search.domain);
+    }
+  }
+  if (!domain) {
+    return {
+      configured: true,
+      domain: null,
+      name: args.company?.trim() || null,
+      error: "domain_unresolved",
+    };
+  }
+
+  const { data, error } = await hunterFetch<HunterCompanyEnrichmentResponse>(
+    "/companies/find",
+    { domain },
+  );
+
+  return {
+    configured: true,
+    domain: data?.data?.domain ?? domain,
+    name: data?.data?.name ?? data?.data?.legalName ?? args.company?.trim() ?? null,
+    ...(error ? { error } : {}),
+  };
+}
+
 export const hunterDomainSearchTool = tool({
   description:
     "Search Hunter for email addresses associated with a company domain or company name. Prefer this before broad web search when an organisation email is missing.",
@@ -291,4 +354,22 @@ export const hunterEmailVerifierTool = tool({
     email: z.string().email(),
   }),
   execute: async ({ email }) => hunterEmailVerifier(email),
+});
+
+export const hunterCompanyEnrichmentTool = tool({
+  description:
+    "Resolve a company domain (and firmographic name) via Hunter Company Enrichment. Use when Domain Search did not return a domain for a known company name, or to confirm the organisation behind a domain before Email Finder.",
+  inputSchema: z.object({
+    company: z
+      .string()
+      .nullable()
+      .optional()
+      .describe("Company or organisation name when the domain is unknown."),
+    domain: z
+      .string()
+      .nullable()
+      .optional()
+      .describe("Known company domain, e.g. example.com."),
+  }),
+  execute: hunterCompanyEnrichment,
 });

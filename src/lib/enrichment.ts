@@ -22,6 +22,7 @@ import type { PlanningApplicationEntity } from "@/lib/planning-data";
 import {
   looksLikeCompany,
   resolveCompanyContact,
+  resolveHunterEmail,
   type CompanyContact,
 } from "@/lib/company-lookup";
 
@@ -43,6 +44,9 @@ export type ResolvedApplication = {
   agentAddress?: string | null;
   agentPhone?: string | null;
   agentEmail?: string | null;
+  agentEmailSource?: string | null;
+  agentEmailConfidence?: number | null;
+  agentEmailStatus?: string | null;
   caseOfficer?: string | null;
   ward?: string | null;
   receivedDate?: string | null;
@@ -156,11 +160,50 @@ function mergeAgentCompanyContact(
       ? (r.agentAddress ?? contact.address)
       : r.agentAddress,
     agentEmail: opts.fillEmail ? (r.agentEmail ?? contact.email) : r.agentEmail,
+    agentEmailSource: opts.fillEmail
+      ? (r.agentEmailSource ?? contact.emailSource)
+      : r.agentEmailSource,
+    agentEmailConfidence: opts.fillEmail
+      ? (r.agentEmailConfidence ?? contact.emailConfidence)
+      : r.agentEmailConfidence,
+    agentEmailStatus: opts.fillEmail
+      ? (r.agentEmailStatus ?? contact.emailStatus)
+      : r.agentEmailStatus,
     source: contact.email && !r.applicantEmail ? "hunter" : r.source,
     confidence:
       (r.agentName || contact.companyName) && (r.agentAddress || contact.address)
         ? "high"
         : r.confidence,
+    sources,
+  };
+}
+
+function mergeHunterEmailOnly(
+  r: ResolvedApplication,
+  hunter: { email: string; confidence: number | null; status: string },
+  target: "applicant" | "agent",
+): ResolvedApplication {
+  const sources = Array.from(
+    new Set([...(r.sources ?? [r.source]), "hunter"]),
+  );
+  if (target === "applicant") {
+    return {
+      ...r,
+      applicantEmail: r.applicantEmail ?? hunter.email,
+      applicantEmailSource: r.applicantEmailSource ?? "hunter",
+      applicantEmailConfidence: r.applicantEmailConfidence ?? hunter.confidence,
+      applicantEmailStatus: r.applicantEmailStatus ?? hunter.status,
+      source: "hunter",
+      sources,
+    };
+  }
+  return {
+    ...r,
+    agentEmail: r.agentEmail ?? hunter.email,
+    agentEmailSource: r.agentEmailSource ?? "hunter",
+    agentEmailConfidence: r.agentEmailConfidence ?? hunter.confidence,
+    agentEmailStatus: r.agentEmailStatus ?? hunter.status,
+    source: !r.applicantEmail ? "hunter" : r.source,
     sources,
   };
 }
@@ -182,19 +225,32 @@ export async function enrichFromCompanyLookup(
       !hasNamedPerson(out.applicantName) || looksLikeCompany(out.applicantName);
     const fillAddress = !out.applicantAddress;
     const fillEmail = hunterConfigured && !out.applicantEmail;
+    const personName = hasNamedPerson(out.applicantName)
+      ? personNameForHunter(out.applicantName!)
+      : null;
+    let applicantContact: CompanyContact | null = null;
     if (fillName || fillAddress || fillEmail) {
-      const contact = await resolveCompanyContact(applicantCompany, {
+      applicantContact = await resolveCompanyContact(applicantCompany, {
         needEmail: fillEmail,
-        personName: hasNamedPerson(out.applicantName)
-          ? personNameForHunter(out.applicantName!)
-          : null,
+        personName,
       });
-      if (contact) {
-        out = mergeApplicantCompanyContact(out, contact, {
+      if (applicantContact) {
+        out = mergeApplicantCompanyContact(out, applicantContact, {
           fillName,
           fillAddress,
           fillEmail,
         });
+      }
+    }
+    // Companies House miss — still try Hunter from the raw company name.
+    // (When CH matched with needEmail, Hunter was already attempted inside.)
+    if (hunterConfigured && !out.applicantEmail && !applicantContact) {
+      const hunter = await resolveHunterEmail({
+        company: applicantCompany,
+        personName,
+      });
+      if (hunter) {
+        out = mergeHunterEmailOnly(out, hunter, "applicant");
       }
     }
   }
@@ -203,12 +259,25 @@ export async function enrichFromCompanyLookup(
   if (agentCompany) {
     const fillAddress = !out.agentAddress;
     const fillEmail = hunterConfigured && !out.agentEmail;
+    let agentContact: CompanyContact | null = null;
     if (fillAddress || fillEmail) {
-      const contact = await resolveCompanyContact(agentCompany, {
+      agentContact = await resolveCompanyContact(agentCompany, {
         needEmail: fillEmail,
       });
-      if (contact) {
-        out = mergeAgentCompanyContact(out, contact, { fillAddress, fillEmail });
+      if (agentContact) {
+        out = mergeAgentCompanyContact(out, agentContact, {
+          fillAddress,
+          fillEmail,
+        });
+      }
+    }
+    if (hunterConfigured && !out.agentEmail && !agentContact) {
+      const hunter = await resolveHunterEmail({
+        company: agentCompany,
+        personName: null,
+      });
+      if (hunter) {
+        out = mergeHunterEmailOnly(out, hunter, "agent");
       }
     }
   }
@@ -277,6 +346,9 @@ function mergeResolved(
     agentAddress: pick("agentAddress"),
     agentPhone: pick("agentPhone"),
     agentEmail: pick("agentEmail"),
+    agentEmailSource: pick("agentEmailSource"),
+    agentEmailConfidence: pick("agentEmailConfidence"),
+    agentEmailStatus: pick("agentEmailStatus"),
     caseOfficer: pick("caseOfficer"),
     ward: pick("ward"),
     receivedDate: pick("receivedDate"),
@@ -315,6 +387,9 @@ async function readFromCache(
         agentAddress: row.agentAddress,
         agentPhone: row.agentPhone,
         agentEmail: row.agentEmail,
+        agentEmailSource: row.agentEmailSource,
+        agentEmailConfidence: row.agentEmailConfidence,
+        agentEmailStatus: row.agentEmailStatus,
         caseOfficer: row.caseOfficer,
         ward: row.ward,
         receivedDate: row.receivedDate?.toISOString() ?? null,
@@ -357,6 +432,9 @@ export async function writeResolvedApplicationToCache(
         agentAddress: r.agentAddress ?? null,
         agentPhone: r.agentPhone ?? null,
         agentEmail: r.agentEmail ?? null,
+        agentEmailSource: r.agentEmailSource ?? null,
+        agentEmailConfidence: r.agentEmailConfidence ?? null,
+        agentEmailStatus: r.agentEmailStatus ?? null,
         caseOfficer: r.caseOfficer ?? null,
         ward: r.ward ?? null,
         receivedDate: r.receivedDate ? new Date(r.receivedDate) : null,
@@ -377,6 +455,9 @@ export async function writeResolvedApplicationToCache(
         agentAddress: r.agentAddress ?? undefined,
         agentPhone: r.agentPhone ?? undefined,
         agentEmail: r.agentEmail ?? undefined,
+        agentEmailSource: r.agentEmailSource ?? undefined,
+        agentEmailConfidence: r.agentEmailConfidence ?? undefined,
+        agentEmailStatus: r.agentEmailStatus ?? undefined,
         caseOfficer: r.caseOfficer ?? undefined,
         ward: r.ward ?? undefined,
         source: r.source,

@@ -22,6 +22,9 @@ export type ApplicantResponse = {
     agent?: string | null;
     agentAddress?: string | null;
     agentEmail?: string | null;
+    agentEmailSource?: string | null;
+    agentEmailConfidence?: number | null;
+    agentEmailStatus?: string | null;
     agentPhone?: string | null;
   };
   caseOfficer?: string | null;
@@ -52,6 +55,9 @@ function toApplicantResponse(
       agent: r.agentName ?? null,
       agentAddress: r.agentAddress ?? null,
       agentEmail: r.agentEmail ?? null,
+      agentEmailSource: r.agentEmailSource ?? null,
+      agentEmailConfidence: r.agentEmailConfidence ?? null,
+      agentEmailStatus: r.agentEmailStatus ?? null,
       agentPhone: r.agentPhone ?? null,
     },
     caseOfficer: r.caseOfficer ?? null,

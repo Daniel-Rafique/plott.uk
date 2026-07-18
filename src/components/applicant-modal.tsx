@@ -311,11 +311,26 @@ export function ApplicantModal({
                     </p>
                   ) : null}
                   {enrichment?.applicantEmail ? (
-                    <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-zinc-600">
+                    <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-zinc-600">
                       <span className="inline-flex items-center gap-1">
                         <Mail className="h-3 w-3 text-zinc-400" />
                         {enrichment.applicantEmail}
                       </span>
+                      {enrichment.applicantEmailConfidence != null ||
+                      enrichment.applicantEmailStatus ||
+                      enrichment.applicantEmailSource ? (
+                        <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-zinc-500">
+                          {[
+                            enrichment.applicantEmailSource,
+                            enrichment.applicantEmailConfidence != null
+                              ? `${enrichment.applicantEmailConfidence}%`
+                              : null,
+                            enrichment.applicantEmailStatus,
+                          ]
+                            .filter(Boolean)
+                            .join(" · ")}
+                        </span>
+                      ) : null}
                     </div>
                   ) : null}
                 </div>
@@ -336,11 +351,27 @@ export function ApplicantModal({
                     </p>
                   ) : null}
                   {(enrichment?.agentEmail || enrichment?.agentPhone) && (
-                    <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-zinc-600">
+                    <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-zinc-600">
                       {enrichment?.agentEmail ? (
                         <span className="inline-flex items-center gap-1">
                           <Mail className="h-3 w-3 text-zinc-400" />
                           {enrichment.agentEmail}
+                        </span>
+                      ) : null}
+                      {enrichment?.agentEmail &&
+                      (enrichment.agentEmailConfidence != null ||
+                        enrichment.agentEmailStatus ||
+                        enrichment.agentEmailSource) ? (
+                        <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-zinc-500">
+                          {[
+                            enrichment.agentEmailSource,
+                            enrichment.agentEmailConfidence != null
+                              ? `${enrichment.agentEmailConfidence}%`
+                              : null,
+                            enrichment.agentEmailStatus,
+                          ]
+                            .filter(Boolean)
+                            .join(" · ")}
                         </span>
                       ) : null}
                       {enrichment?.agentPhone ? (

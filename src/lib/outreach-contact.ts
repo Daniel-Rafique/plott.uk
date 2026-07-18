@@ -72,6 +72,9 @@ function resolvedToEnriched(r: ResolvedApplication): EnrichedApplication {
     agentName: r.agentName ?? null,
     agentAddress: r.agentAddress ?? null,
     agentEmail: r.agentEmail ?? null,
+    agentEmailSource: r.agentEmailSource ?? null,
+    agentEmailConfidence: r.agentEmailConfidence ?? null,
+    agentEmailStatus: r.agentEmailStatus ?? null,
     agentPhone: r.agentPhone ?? null,
     caseOfficer: r.caseOfficer ?? null,
     ward: r.ward ?? null,
@@ -80,19 +83,44 @@ function resolvedToEnriched(r: ResolvedApplication): EnrichedApplication {
   };
 }
 
+const WEAK_EMAIL_STATUSES = [
+  "invalid",
+  "undeliverable",
+  "do_not_mail",
+  "risky",
+];
+
+function isEmailWeak(
+  email: string | null | undefined,
+  status: string | null | undefined,
+  confidence: number | null | undefined,
+): boolean {
+  if (!email) return true;
+  if (
+    status != null &&
+    WEAK_EMAIL_STATUSES.includes(status.toLowerCase())
+  ) {
+    return true;
+  }
+  if (confidence != null && confidence < 50) return true;
+  return false;
+}
+
 export function rankCandidates(
   enrichment: EnrichedApplication | null,
   siteAddress: string | null,
 ): OutreachContact[] {
   const out: OutreachContact[] = [];
-  const applicantWeak =
-    !enrichment?.applicantEmail ||
-    (enrichment.applicantEmailStatus != null &&
-      ["invalid", "undeliverable", "do_not_mail", "risky"].includes(
-        enrichment.applicantEmailStatus.toLowerCase(),
-      )) ||
-    (enrichment.applicantEmailConfidence != null &&
-      enrichment.applicantEmailConfidence < 50);
+  const applicantWeak = isEmailWeak(
+    enrichment?.applicantEmail,
+    enrichment?.applicantEmailStatus,
+    enrichment?.applicantEmailConfidence,
+  );
+  const agentWeak = isEmailWeak(
+    enrichment?.agentEmail,
+    enrichment?.agentEmailStatus,
+    enrichment?.agentEmailConfidence,
+  );
 
   const agentContact: OutreachContact | null = enrichment?.agentName
     ? {
@@ -120,11 +148,14 @@ export function rankCandidates(
       }
     : null;
 
-  // Prefer agent when applicant email is weak; otherwise keep agent-first
-  // (agents are usually the practical B2B contact for planning work).
-  if (applicantWeak) {
+  // Prefer the contact with the stronger email. Agents remain the default
+  // B2B contact when quality is equal (typical for planning work).
+  if (applicantWeak && !agentWeak) {
     if (agentContact) out.push(agentContact);
     if (applicantContact) out.push(applicantContact);
+  } else if (!applicantWeak && agentWeak) {
+    if (applicantContact) out.push(applicantContact);
+    if (agentContact) out.push(agentContact);
   } else {
     if (agentContact) out.push(agentContact);
     if (applicantContact) out.push(applicantContact);

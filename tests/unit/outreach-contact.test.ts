@@ -15,6 +15,9 @@ function enrichment(
     agentName: null,
     agentAddress: null,
     agentEmail: null,
+    agentEmailSource: null,
+    agentEmailConfidence: null,
+    agentEmailStatus: null,
     agentPhone: null,
     caseOfficer: null,
     ward: null,
@@ -51,5 +54,27 @@ describe("outreach contact ranking", () => {
         confidence: "high",
       },
     ]);
+  });
+
+  it("prefers applicant over agent when agent email quality is weak", () => {
+    const candidates = rankCandidates(
+      enrichment({
+        applicantName: "Jane Smith, Director",
+        applicantAddress: "Example Ltd, 1 High Street",
+        applicantEmail: "jane@example.com",
+        applicantEmailConfidence: 91,
+        applicantEmailStatus: "valid",
+        agentName: "Planning Agents Ltd",
+        agentAddress: "2 Agent Road",
+        agentEmail: "info@planningagents.co.uk",
+        agentEmailConfidence: 20,
+        agentEmailStatus: "risky",
+        confidence: "high",
+        sources: ["hunter"],
+      }),
+      "1 Site Road",
+    );
+
+    expect(candidates.map((c) => c.kind)).toEqual(["applicant", "agent"]);
   });
 });

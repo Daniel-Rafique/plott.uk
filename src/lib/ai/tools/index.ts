@@ -18,6 +18,7 @@ import {
   writeEnrichmentCacheTool,
 } from "./enrichment";
 import {
+  hunterCompanyEnrichmentTool,
   hunterDomainSearchTool,
   hunterEmailFinderTool,
   hunterEmailVerifierTool,
@@ -36,6 +37,7 @@ export {
   webSearchTool,
   readEnrichmentCacheTool,
   writeEnrichmentCacheTool,
+  hunterCompanyEnrichmentTool,
   hunterDomainSearchTool,
   hunterEmailFinderTool,
   hunterEmailVerifierTool,
@@ -55,6 +57,7 @@ export function enrichmentToolSet(): ToolSet {
     companiesHouseProfile: companiesHouseProfileTool,
     companiesHouseOfficers: companiesHouseOfficersTool,
     hunterDomainSearch: hunterDomainSearchTool,
+    hunterCompanyEnrichment: hunterCompanyEnrichmentTool,
     hunterEmailFinder: hunterEmailFinderTool,
     hunterEmailVerifier: hunterEmailVerifierTool,
     webSearch: webSearchTool,

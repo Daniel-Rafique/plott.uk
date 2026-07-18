@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  hunterCompanyEnrichment,
   hunterDomainSearch,
   hunterEmailFinder,
   hunterEmailVerifier,
@@ -27,6 +28,9 @@ describe("Hunter enrichment helpers", () => {
       configured: false,
       verified: false,
     });
+    await expect(
+      hunterCompanyEnrichment({ company: "Example Ltd" }),
+    ).resolves.toEqual({ configured: false, domain: null, name: null });
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
@@ -105,5 +109,62 @@ describe("Hunter enrichment helpers", () => {
       score: 96,
       result: "deliverable",
     });
+  });
+
+  it("enriches a company by domain via /companies/find", async () => {
+    vi.stubEnv("HUNTER_API_KEY", "hunter_test_key");
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        data: { domain: "stripe.com", name: "Stripe", legalName: "Stripe, Inc." },
+      }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      hunterCompanyEnrichment({ domain: "https://www.stripe.com" }),
+    ).resolves.toEqual({
+      configured: true,
+      domain: "stripe.com",
+      name: "Stripe",
+    });
+
+    const url = fetchMock.mock.calls[0]?.[0] as URL;
+    expect(String(url.pathname)).toContain("/companies/find");
+    expect(url.searchParams.get("domain")).toBe("stripe.com");
+  });
+
+  it("resolves a domain via Domain Search when only company name is given", async () => {
+    vi.stubEnv("HUNTER_API_KEY", "hunter_test_key");
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          data: { domain: "example.com", organization: "Example Ltd", emails: [] },
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          data: { domain: "example.com", name: "Example Ltd" },
+        }),
+      });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      hunterCompanyEnrichment({ company: "Example Ltd" }),
+    ).resolves.toEqual({
+      configured: true,
+      domain: "example.com",
+      name: "Example Ltd",
+    });
+
+    expect(String((fetchMock.mock.calls[0]?.[0] as URL).pathname)).toContain(
+      "/domain-search",
+    );
+    expect(String((fetchMock.mock.calls[1]?.[0] as URL).pathname)).toContain(
+      "/companies/find",
+    );
   });
 });
