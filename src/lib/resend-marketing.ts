@@ -24,7 +24,7 @@ type MarketingTemplateConfig = {
 const FROM =
   process.env.EMAIL_FROM ??
   process.env.RESEND_FROM ??
-  "Plott <hello@plott.uk>";
+  "Plott <hi@plott.uk>";
 const BUSINESS_ADDRESS =
   process.env.BUSINESS_ADDRESS ?? "10 Buckhold Road London, SW18 4FW";
 

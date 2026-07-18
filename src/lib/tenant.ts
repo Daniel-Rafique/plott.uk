@@ -38,7 +38,7 @@ function nameFromEmail(email: string | null): string {
 export class StaleAuthUserError extends Error {
   constructor(email: string) {
     super(
-      `An account for ${email} already exists with a different sign-in. Contact support@plott.uk for help.`,
+      `An account for ${email} already exists with a different sign-in. Contact hi@plott.uk for help.`,
     );
     this.name = "StaleAuthUserError";
   }

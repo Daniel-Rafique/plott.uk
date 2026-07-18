@@ -39,8 +39,8 @@ Plott combines a map-first search experience for UK planning applications with a
 
 ## Contact
 
-- Sales and partnerships: hello@plott.uk
-- Product support: support@plott.uk
+- Sales and partnerships: hi@plott.uk
+- Product support: hi@plott.uk
 - Privacy: privacy@plott.uk
 
 ## Crawling Notes

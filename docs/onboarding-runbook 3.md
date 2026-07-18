@@ -45,7 +45,7 @@ Once the webhook is listening and returning `200 { handled: true }`, Neon Auth s
 
 - Verify the domain you send from (e.g. `plott.uk`).
 - Add SPF/DKIM/DMARC records in your DNS provider.
-- Set `EMAIL_FROM` in Vercel to something like `Plott <hello@plott.uk>`.
+- Set `EMAIL_FROM` in Vercel to something like `Plott <hi@plott.uk>`.
 - Set `RESEND_API_KEY` in Vercel (you likely already have this — we use it for letter sending).
 
 Resend dashboard -> **Emails** shows delivery status; we log the Resend message ID from the webhook handler so you can cross-reference.

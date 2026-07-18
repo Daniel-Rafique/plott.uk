@@ -82,8 +82,8 @@ export function ContactForm({ source }: { source: Source }) {
         <p className="mt-1 text-emerald-800/90">
           We reply from{" "}
           {source === "support"
-            ? "support@plott.uk"
-            : "hello@plott.uk"}{" "}
+            ? "hi@plott.uk"
+            : "hi@plott.uk"}{" "}
           within one working day.
         </p>
         <button

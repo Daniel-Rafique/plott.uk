@@ -92,7 +92,7 @@ export function AccountSecuritySettings({ user, accounts }: Props) {
       toast.error(
         typeof data.error === "string" && data.error.length > 0
           ? data.error
-          : "Could not delete account. Please try again or contact support@plott.uk.",
+          : "Could not delete account. Please try again or contact hi@plott.uk.",
       );
       return;
     }

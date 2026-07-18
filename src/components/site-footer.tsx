@@ -110,7 +110,7 @@ export function SiteFooter() {
               © {new Date().getFullYear()} Plott · Built in the UK
             </p>
             <p className="text-[11px] text-zinc-500">
-              hello@plott.uk
+              hi@plott.uk
             </p>
           </div>
         </div>

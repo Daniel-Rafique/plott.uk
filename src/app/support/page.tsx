@@ -70,7 +70,7 @@ export default function SupportPage() {
                     Response
                   </dt>
                   <dd className="mt-2 text-zinc-900">
-                    support@plott.uk — replies within one working
+                    hi@plott.uk — replies within one working
                     day.
                   </dd>
                 </div>

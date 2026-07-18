@@ -33,7 +33,7 @@ type SendArgs = {
 const FROM =
   process.env.EMAIL_FROM ??
   process.env.RESEND_FROM ??
-  "Plott <hello@plott.uk>";
+  "Plott <hi@plott.uk>";
 
 const AGENT_OUTREACH_TEMPLATE_ID =
   process.env.RESEND_AGENT_OUTREACH_TEMPLATE_ID ??
@@ -712,7 +712,7 @@ export async function sendContactSubmissionEmail(args: {
   userAgent?: string | null;
 }): Promise<void> {
   const to =
-    process.env.CONTACT_INBOX_EMAIL ?? "support@plott.uk";
+    process.env.CONTACT_INBOX_EMAIL ?? "hi@plott.uk";
   const label = args.source === "support" ? "Support" : "Contact";
   const meta: string[] = [];
   if (args.company) meta.push(`<strong>Company:</strong> ${escapeHtml(args.company)}`);

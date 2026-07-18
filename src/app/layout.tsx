@@ -139,7 +139,7 @@ const organizationJsonLd = {
   logo: `${SITE_URL}/logo-7.png`,
   contactPoint: {
     "@type": "ContactPoint",
-    email: "hello@plott.uk",
+    email: "hi@plott.uk",
     contactType: "customer service",
     areaServed: "GB",
     availableLanguage: "English",

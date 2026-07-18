@@ -182,7 +182,7 @@ Included AI allowance is configured per plan in **Stripe Price metadata** (`ai_m
 
 - **In-app Q&A** — Click the AI chat panel to ask questions about any application
 - **Support page** — Visit `/support` for FAQs and contact options
-- **Email** — hello@plott.uk
+- **Email** — hi@plott.uk
 
 ---
 

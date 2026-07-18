@@ -65,7 +65,7 @@ export default function ContactPage() {
                     Sales &amp; partnerships
                   </dt>
                   <dd className="mt-2 text-zinc-900">
-                    hello@plott.uk
+                    hi@plott.uk
                   </dd>
                 </div>
                 <div className="editorial-hairline pt-4">

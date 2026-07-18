@@ -201,7 +201,7 @@ export async function DELETE(req: Request) {
     return NextResponse.json(
       {
         error:
-          "Your account has no email on file, so we cannot complete GDPR erasure. Contact support@plott.uk.",
+          "Your account has no email on file, so we cannot complete GDPR erasure. Contact hi@plott.uk.",
       },
       { status: 400 },
     );
@@ -255,7 +255,7 @@ export async function DELETE(req: Request) {
       return NextResponse.json(
         {
           error:
-            "Could not cancel your Stripe subscription and issue a refund. Please try again or contact support@plott.uk.",
+            "Could not cancel your Stripe subscription and issue a refund. Please try again or contact hi@plott.uk.",
         },
         { status: 502 },
       );
@@ -282,7 +282,7 @@ export async function DELETE(req: Request) {
     return NextResponse.json(
       {
         error:
-          "Could not fully erase your sign-in identity. Your subscription was settled, but please try again or contact support@plott.uk so we can complete deletion and free your email.",
+          "Could not fully erase your sign-in identity. Your subscription was settled, but please try again or contact hi@plott.uk so we can complete deletion and free your email.",
       },
       { status: 502 },
     );
@@ -320,7 +320,7 @@ export async function DELETE(req: Request) {
     return NextResponse.json(
       {
         error:
-          "Your sign-in identity was erased, but local workspace data could not be fully removed. Contact support@plott.uk.",
+          "Your sign-in identity was erased, but local workspace data could not be fully removed. Contact hi@plott.uk.",
       },
       { status: 500 },
     );
