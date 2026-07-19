@@ -31,6 +31,10 @@ type Briefing = {
   entityType: "individual" | "company" | "unknown";
   companyNumber: string | null;
   website: string | null;
+  position?: string | null;
+  seniority?: string | null;
+  employer?: string | null;
+  linkedin?: string | null;
   keyPeople: string[];
   recentActivity: string[];
   riskFlags: string[];
@@ -49,11 +53,14 @@ type Result = {
 export function ResearchBriefingCard({
   displayName,
   hint,
+  email,
   autoLoad = false,
   className,
 }: {
   displayName: string | null | undefined;
   hint?: string;
+  /** Known email — forwarded to research for Hunter Person Enrichment. */
+  email?: string | null;
   /** If true, fetch on mount. Otherwise show a "Run research" button. */
   autoLoad?: boolean;
   className?: string;
@@ -70,6 +77,7 @@ export function ResearchBriefingCard({
       try {
         const params = new URLSearchParams({ name: displayName });
         if (hint) params.set("hint", hint);
+        if (email?.trim()) params.set("email", email.trim());
         if (force) params.set("refresh", "1");
         const res = await fetch(`/api/ai/research?${params.toString()}`);
         const json = await res.json();
@@ -83,7 +91,7 @@ export function ResearchBriefingCard({
         setLoading(false);
       }
     },
-    [displayName, hint],
+    [displayName, hint, email],
   );
 
   useEffect(() => {
@@ -158,6 +166,27 @@ export function ResearchBriefingCard({
                 <Building2 className="h-3 w-3" />
                 Company {data.briefing.companyNumber}
               </span>
+            )}
+            {(data.briefing.position || data.briefing.employer) && (
+              <span className="inline-flex items-center gap-1">
+                <Users className="h-3 w-3" />
+                {[data.briefing.position, data.briefing.employer]
+                  .filter(Boolean)
+                  .join(" · ")}
+                {data.briefing.seniority
+                  ? ` (${data.briefing.seniority})`
+                  : ""}
+              </span>
+            )}
+            {data.briefing.linkedin && (
+              <a
+                href={data.briefing.linkedin}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1 text-indigo-700 hover:underline"
+              >
+                LinkedIn <ExternalLink className="h-3 w-3" />
+              </a>
             )}
             {data.briefing.website && (
               <a

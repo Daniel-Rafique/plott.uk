@@ -8,6 +8,7 @@
  *
  * Tools available:
  *   - Companies House (search, profile, officers)
+ *   - Hunter Person Enrichment (when an email is provided)
  *   - Tavily web search (current information / website / recent news)
  *
  * Output is deliberately small — this is a briefing, not a biography.
@@ -23,6 +24,10 @@ import {
   getCompanyProfile,
   getCompanyOfficers,
 } from "@/lib/ai/tools/companies-house";
+import {
+  hunterPersonEnrichment,
+  type HunterPersonData,
+} from "@/lib/ai/tools/hunter";
 import { looksLikeCompany, pickBestCompany } from "@/lib/company-lookup";
 import { logger } from "@/lib/logger";
 
@@ -54,6 +59,10 @@ const briefingSchema = z.object({
     .default("unknown"),
   companyNumber: nullableString,
   website: nullableString,
+  position: nullableString,
+  seniority: nullableString,
+  employer: nullableString,
+  linkedin: nullableString,
   keyPeople: stringArray(120),
   recentActivity: stringArray(300),
   riskFlags: stringArray(200),
@@ -87,6 +96,22 @@ type PreResolvedCompany = {
   companyNumber: string | null;
 };
 
+type PreResolvedPerson = {
+  block: string;
+  person: HunterPersonData;
+};
+
+/**
+ * Broaden when we attempt a Companies House lookup: corporate suffixes, or any
+ * multi-word name that could be a trading style (confident matches only use
+ * score >= 1 when not suffix-gated).
+ */
+function shouldAttemptCompaniesHouse(displayName: string): boolean {
+  if (looksLikeCompany(displayName)) return true;
+  const tokens = displayName.trim().split(/\s+/).filter(Boolean);
+  return tokens.length >= 2;
+}
+
 /**
  * Deterministic Companies House lookup performed BEFORE the LLM runs.
  *
@@ -99,7 +124,7 @@ type PreResolvedCompany = {
 async function preresolveCompany(
   displayName: string,
 ): Promise<PreResolvedCompany | null> {
-  if (!isCompaniesHouseConfigured() || !looksLikeCompany(displayName)) {
+  if (!isCompaniesHouseConfigured() || !shouldAttemptCompaniesHouse(displayName)) {
     return null;
   }
   try {
@@ -107,8 +132,9 @@ async function preresolveCompany(
     if (candidates.length === 0) return null;
 
     const best = pickBestCompany(displayName, candidates);
-
-    if (!best || best.score === 0) {
+    const requireStrongMatch = !looksLikeCompany(displayName);
+    if (!best || best.score === 0 || (requireStrongMatch && best.score < 2)) {
+      if (requireStrongMatch) return null;
       // No confident match — still surface candidates so the model can decide.
       const list = candidates
         .map(
@@ -168,11 +194,55 @@ async function preresolveCompany(
   }
 }
 
+async function preresolvePerson(
+  email: string | null | undefined,
+): Promise<PreResolvedPerson | null> {
+  const cleaned = email?.trim();
+  if (!cleaned) return null;
+  try {
+    const result = await hunterPersonEnrichment({ email: cleaned });
+    if (!result.configured || !result.found || !result.person) return null;
+    const p = result.person;
+    const lines = [
+      `Hunter person data (verified from email ${p.email}):`,
+      p.position ? `- Position: ${p.position}` : null,
+      p.seniority ? `- Seniority: ${p.seniority}` : null,
+      p.employer ? `- Employer: ${p.employer}` : null,
+      p.department ? `- Department: ${p.department}` : null,
+      p.linkedin ? `- LinkedIn: ${p.linkedin}` : null,
+      p.location ? `- Location: ${p.location}` : null,
+    ].filter((line): line is string => Boolean(line));
+    return { person: p, block: lines.join("\n") };
+  } catch (err) {
+    logger.warn(
+      { err: err instanceof Error ? err.message : String(err), email: cleaned },
+      "hunter_person_preresolve_failed",
+    );
+    return null;
+  }
+}
+
+function applyPersonFields(
+  briefing: ResearchBriefing,
+  person: HunterPersonData | null | undefined,
+): ResearchBriefing {
+  if (!person) return briefing;
+  return {
+    ...briefing,
+    position: briefing.position ?? person.position,
+    seniority: briefing.seniority ?? person.seniority,
+    employer: briefing.employer ?? person.employer,
+    linkedin: briefing.linkedin ?? person.linkedin,
+  };
+}
+
 export async function researchApplicant(args: {
   ctx: { companyId: string; userId?: string };
   displayName: string;
   /** Optional hint e.g. "agent for application ABC/123" to focus the search. */
   hint?: string;
+  /** Known email — reused for Hunter Person Enrichment when available. */
+  email?: string | null;
   /** Skip cache (used by the refresh button). */
   force?: boolean;
 }): Promise<ResearchResult> {
@@ -201,21 +271,32 @@ export async function researchApplicant(args: {
     }
   }
 
-  const preResolved = await preresolveCompany(args.displayName);
+  const chConfigured = isCompaniesHouseConfigured();
+  const [preResolved, prePerson] = await Promise.all([
+    preresolveCompany(args.displayName),
+    preresolvePerson(args.email),
+  ]);
 
   const system = `You research UK applicants or agents ahead of planning outreach. Produce a concise briefing.
 
-You have live tools connected to real data sources (Companies House and web search). They ARE configured and working. NEVER claim you "lack access" to Companies House or the web — if you have not called a tool yet, call it. Only report "no records found" AFTER a tool returns empty.
+You have live tools connected to real data sources (Companies House, Hunter person enrichment, and web search). They ARE configured and working. NEVER claim you "lack access" to Companies House or the web — if you have not called a tool yet, call it. Only report "no records found" AFTER a tool returns empty.${
+    chConfigured
+      ? ""
+      : `
+
+IMPORTANT: The Companies House lookup is currently UNAVAILABLE for this run. Do NOT state that a company is unregistered or that "no Companies House registration was found" — you cannot verify that. Describe legal status as "could not be verified (registry lookup unavailable)" and set confidence to "low". Put that wording in riskFlags if needed — never invent a missing registration.`
+  }
 
 Rules:
-1. For anything that looks like a limited company (name contains Ltd/Limited/LLP/PLC/Group/Holdings etc.), you MUST use Companies House: call companiesHouseSearch, then fetch profile + officers for the best match. If a "Companies House data" block is provided below, treat it as already-verified fact and use it directly — do not contradict it or claim it is unavailable.
-2. Use webSearch for individuals, for general context, or to confirm the company's current website and recent activity.
-3. Keep "summary" under 200 words (minimum ~40 words). It should read like a 20-second briefing before sending outreach.
-4. "riskFlags" lists only verifiable concerns (dissolved company, open insolvency, sanctions, public disputes). Do not invent.
-5. "citations" must be real URLs you referenced. Empty array is acceptable.
-6. "confidence" reflects how certain you are the research is about the right entity.
-7. Output JSON only. No prose outside the JSON. Do not wrap in markdown fences.
-8. You MUST include EVERY key listed in the template below, even when the value is null or an empty array. Do not omit keys.
+1. For anything that looks like a limited company (name contains Ltd/Limited/LLP/PLC/Group/Holdings/Architecture etc.), you MUST use Companies House: call companiesHouseSearch, then fetch profile + officers for the best match. If a "Companies House data" block is provided below, treat it as already-verified fact and use it directly — do not contradict it or claim it is unavailable.
+2. If a "Hunter person data" block is provided, treat title/seniority/employer/LinkedIn as verified. Fill position, seniority, employer, linkedin from it.
+3. Use webSearch for individuals, for general context, or to confirm the company's current website and recent activity. Prefer hunterPersonEnrichment when you have an email and person fields are missing.
+4. Keep "summary" under 200 words (minimum ~40 words). It should read like a 20-second briefing before sending outreach.
+5. "riskFlags" lists only verifiable concerns (dissolved company, open insolvency, sanctions, public disputes). Do not invent. Never claim "no registration found" when Companies House was unavailable.
+6. "citations" must be real URLs you referenced. Empty array is acceptable.
+7. "confidence" reflects how certain you are the research is about the right entity.
+8. Output JSON only. No prose outside the JSON. Do not wrap in markdown fences.
+9. You MUST include EVERY key listed in the template below, even when the value is null or an empty array. Do not omit keys.
 
 Output template (all keys required, types must match):
 {
@@ -223,6 +304,10 @@ Output template (all keys required, types must match):
   "entityType": "individual" | "company" | "unknown",
   "companyNumber": "string or null (8-char Companies House number when entityType is company)",
   "website": "string URL or null (official site, https preferred)",
+  "position": "string or null (job title)",
+  "seniority": "string or null",
+  "employer": "string or null",
+  "linkedin": "string URL or null",
   "keyPeople": ["string", ...] (directors, partners or other named decision-makers; [] if none),
   "recentActivity": ["string", ...] (recent news, projects, filings; [] if none),
   "riskFlags": ["string", ...] (only verifiable concerns; [] if none),
@@ -232,9 +317,14 @@ Output template (all keys required, types must match):
 
   const prompt = `Subject: ${args.displayName}
 ${args.hint ? `Context: ${args.hint}` : ""}
+${args.email ? `Known email: ${args.email}` : ""}
 ${
   preResolved
     ? `\nCompanies House data (already verified — use directly):\n${preResolved.block}\n`
+    : ""
+}${
+  prePerson
+    ? `\nHunter person data (already verified — use directly):\n${prePerson.block}\n`
     : ""
 }
 Research this subject. Prefer UK sources. Use web search to add current website / recent activity where useful. When finished, output a single JSON object matching the template above — include every key, using null or [] for unknown values.${
@@ -256,32 +346,44 @@ Research this subject. Prefer UK sources. Use web search to add current website 
     });
     const now = new Date();
     const expiresAt = new Date(now.getTime() + CACHE_TTL_MS);
-    await prisma.applicantResearch.upsert({
-      where: {
-        companyId_normalisedName: {
+    const briefing = applyPersonFields(res.data, prePerson?.person);
+    // Never persist a 30-day briefing that was produced without Companies House
+    // access. A missing/misconfigured key otherwise poisons the cache with a
+    // false "not registered" result that survives for a month even after the
+    // key is restored (incident: "Wang Dao Architecture Ltd" cached as unknown).
+    if (chConfigured) {
+      await prisma.applicantResearch.upsert({
+        where: {
+          companyId_normalisedName: {
+            companyId: args.ctx.companyId,
+            normalisedName,
+          },
+        },
+        create: {
           companyId: args.ctx.companyId,
           normalisedName,
+          displayName: args.displayName,
+          briefingJson: briefing as unknown as object,
+          confidence: briefing.confidence,
+          fetchedAt: now,
+          expiresAt,
         },
-      },
-      create: {
-        companyId: args.ctx.companyId,
-        normalisedName,
-        displayName: args.displayName,
-        briefingJson: res.data as unknown as object,
-        confidence: res.data.confidence,
-        fetchedAt: now,
-        expiresAt,
-      },
-      update: {
-        displayName: args.displayName,
-        briefingJson: res.data as unknown as object,
-        confidence: res.data.confidence,
-        fetchedAt: now,
-        expiresAt,
-      },
-    });
+        update: {
+          displayName: args.displayName,
+          briefingJson: briefing as unknown as object,
+          confidence: briefing.confidence,
+          fetchedAt: now,
+          expiresAt,
+        },
+      });
+    } else {
+      logger.warn(
+        { normalisedName },
+        "research_briefing_not_cached_companies_house_unconfigured",
+      );
+    }
     return {
-      briefing: res.data,
+      briefing,
       displayName: args.displayName,
       cached: false,
       fetchedAt: now,

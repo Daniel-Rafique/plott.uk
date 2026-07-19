@@ -4,8 +4,8 @@ import { getTenantContext } from "@/lib/tenant";
 import { prisma } from "@/lib/prisma";
 import {
   PIPELINE_ASSIGNEE_SELECT,
-  serializePipelineLeadsWithEnrichment,
-  type SerializedPipelineLead,
+  fetchPipelinePage,
+  parsePipelineSearchParams,
 } from "@/lib/pipeline";
 import {
   PipelineBoard,
@@ -14,26 +14,28 @@ import {
 
 export const dynamic = "force-dynamic";
 
-export default async function PipelinePage() {
+export default async function PipelinePage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const ctx = await getTenantContext();
   if (!ctx) redirect("/auth/sign-in");
 
-  const [leads, memberships] = await Promise.all([
-    prisma.pipelineLead.findMany({
-      where: { companyId: ctx.company.id },
-      orderBy: [{ stageUpdatedAt: "desc" }, { createdAt: "desc" }],
-      take: 200,
-      include: { assignedUser: { select: PIPELINE_ASSIGNEE_SELECT } },
-    }),
+  const raw = (await searchParams) ?? {};
+  const query = parsePipelineSearchParams(raw, {
+    companyId: ctx.company.id,
+    currentUserId: ctx.user.id,
+  });
+
+  const [pageResult, memberships] = await Promise.all([
+    fetchPipelinePage(query),
     prisma.membership.findMany({
       where: { companyId: ctx.company.id },
       include: { user: { select: PIPELINE_ASSIGNEE_SELECT } },
       orderBy: { createdAt: "asc" },
     }),
   ]);
-
-  const serializedLeads: SerializedPipelineLead[] =
-    await serializePipelineLeadsWithEnrichment(leads);
 
   const teamMembers: PipelineTeamMember[] = memberships.map((membership) => ({
     id: membership.user.id,
@@ -52,8 +54,14 @@ export default async function PipelinePage() {
       <Suspense fallback={<p className="text-sm text-zinc-600">Loading pipeline…</p>}>
         <PipelineBoard
           currentUserId={ctx.user.id}
-          initialLeads={serializedLeads}
+          initialLeads={pageResult.leads}
           teamMembers={teamMembers}
+          total={pageResult.total}
+          page={pageResult.page}
+          pageSize={pageResult.pageSize}
+          stageFilter={pageResult.query.stage}
+          assigneeScope={pageResult.query.assignee}
+          stageCounts={pageResult.stageCounts}
         />
       </Suspense>
     </div>

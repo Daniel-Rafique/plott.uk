@@ -23,20 +23,40 @@ import {
   type OutreachDraftDisplay,
 } from "@/lib/outreach-draft-display";
 import { decodeHtmlEntities } from "@/lib/utils";
+import { parseEnrichmentPersonJson } from "@/lib/enrichment";
 import {
   isPipelineStage,
+  parsePipelinePage,
+  parsePipelinePageSize,
+  clampPipelinePage,
+  pipelineListSkip,
+  PIPELINE_STAGES,
+  type PipelineAssigneeScope,
+  type PipelinePageSize,
   type PipelineStage,
+  type PipelineStageFilter,
 } from "@/lib/pipeline-shared";
 
 export {
   BALLPARK_CONFIDENCE_THRESHOLD,
   BALLPARK_DISCLAIMER,
+  DEFAULT_PIPELINE_PAGE_SIZE,
+  PIPELINE_PAGE_SIZES,
   PIPELINE_STAGES,
   PIPELINE_STAGE_LABELS,
+  clampPipelinePage,
   formatBallparkRange,
   formatBallparkWeeks,
+  isPipelinePageSize,
   isPipelineStage,
+  parsePipelinePage,
+  parsePipelinePageSize,
+  pipelineListSkip,
+  pipelineTotalPages,
+  type PipelineAssigneeScope,
+  type PipelinePageSize,
   type PipelineStage,
+  type PipelineStageFilter,
 } from "@/lib/pipeline-shared";
 
 export type UpsertPipelineLeadInput = {
@@ -294,6 +314,132 @@ export type PipelineLeadWithAssignee = PipelineLead & {
   assignedUser?: PipelineAssigneeUser | null;
 };
 
+export type PipelineListQuery = {
+  companyId: string;
+  currentUserId: string;
+  page: number;
+  pageSize: PipelinePageSize;
+  stage: PipelineStageFilter;
+  assignee: PipelineAssigneeScope;
+};
+
+function firstSearchParam(
+  value: string | string[] | undefined,
+): string | undefined {
+  if (typeof value === "string") return value;
+  if (Array.isArray(value) && typeof value[0] === "string") return value[0];
+  return undefined;
+}
+
+export function parsePipelineSearchParams(
+  raw: Record<string, string | string[] | undefined>,
+  opts: { companyId: string; currentUserId: string },
+): PipelineListQuery {
+  const stageRaw = firstSearchParam(raw.stage);
+  const stage: PipelineStageFilter =
+    stageRaw && stageRaw !== "all" && isPipelineStage(stageRaw)
+      ? stageRaw
+      : "all";
+
+  const assigneeRaw = firstSearchParam(raw.assignee);
+  const assignee: PipelineAssigneeScope =
+    !assigneeRaw || assigneeRaw.trim() === "" ? "me" : assigneeRaw;
+
+  return {
+    companyId: opts.companyId,
+    currentUserId: opts.currentUserId,
+    page: parsePipelinePage(firstSearchParam(raw.page)),
+    pageSize: parsePipelinePageSize(firstSearchParam(raw.pageSize)),
+    stage,
+    assignee,
+  };
+}
+
+/** Assignee filter only — used for stage counts that ignore the stage filter. */
+export function buildPipelineAssigneeWhere(
+  query: Pick<PipelineListQuery, "currentUserId" | "assignee">,
+): Prisma.PipelineLeadWhereInput {
+  if (query.assignee === "all") return {};
+  if (query.assignee === "unassigned") return { assignedUserId: null };
+  if (query.assignee === "me") {
+    return { assignedUserId: query.currentUserId };
+  }
+  return { assignedUserId: query.assignee };
+}
+
+export function buildPipelineLeadWhere(
+  query: PipelineListQuery,
+): Prisma.PipelineLeadWhereInput {
+  const where: Prisma.PipelineLeadWhereInput = {
+    companyId: query.companyId,
+    ...buildPipelineAssigneeWhere(query),
+  };
+  if (query.stage !== "all") {
+    where.stage = query.stage;
+  }
+  return where;
+}
+
+export type PipelinePageResult = {
+  leads: SerializedPipelineLead[];
+  total: number;
+  page: number;
+  pageSize: PipelinePageSize;
+  stageCounts: Record<string, number>;
+  query: PipelineListQuery;
+};
+
+export async function fetchPipelinePage(
+  query: PipelineListQuery,
+): Promise<PipelinePageResult> {
+  const listWhere = buildPipelineLeadWhere(query);
+  const stageCountWhere: Prisma.PipelineLeadWhereInput = {
+    companyId: query.companyId,
+    ...buildPipelineAssigneeWhere(query),
+  };
+
+  const [total, stageGroups] = await Promise.all([
+    prisma.pipelineLead.count({ where: listWhere }),
+    prisma.pipelineLead.groupBy({
+      by: ["stage"],
+      where: stageCountWhere,
+      _count: { _all: true },
+    }),
+  ]);
+
+  const page = clampPipelinePage(query.page, total, query.pageSize);
+  const skip = pipelineListSkip(page, query.pageSize);
+
+  const leads = await prisma.pipelineLead.findMany({
+    where: listWhere,
+    orderBy: [{ stageUpdatedAt: "desc" }, { createdAt: "desc" }],
+    skip,
+    take: query.pageSize,
+    include: { assignedUser: { select: PIPELINE_ASSIGNEE_SELECT } },
+  });
+
+  const stageCounts: Record<string, number> = { all: 0 };
+  for (const stage of PIPELINE_STAGES) {
+    stageCounts[stage] = 0;
+  }
+  for (const group of stageGroups) {
+    const count = group._count._all;
+    stageCounts.all += count;
+    if (isPipelineStage(group.stage)) {
+      stageCounts[group.stage] = count;
+    }
+  }
+
+  return {
+    leads: await serializePipelineLeadsWithEnrichment(leads),
+    total,
+    page,
+    pageSize: query.pageSize,
+    stageCounts,
+    query: { ...query, page },
+  };
+}
+
 export function enrichmentFromApplicationEnrichment(
   row: ApplicationEnrichment | null | undefined,
 ): SerializePipelineLeadArgs["enrichment"] | null {
@@ -305,8 +451,10 @@ export function enrichmentFromApplicationEnrichment(
     applicantEmailSource: row.applicantEmailSource,
     applicantEmailConfidence: row.applicantEmailConfidence,
     applicantEmailStatus: row.applicantEmailStatus,
+    applicantPerson: parseEnrichmentPersonJson(row.applicantPersonJson),
     agentName: row.agentName,
     agentEmail: row.agentEmail,
+    agentPerson: parseEnrichmentPersonJson(row.agentPersonJson),
   };
 }
 
@@ -454,8 +602,20 @@ type SerializePipelineLeadArgs = {
     applicantEmailSource?: string | null;
     applicantEmailConfidence?: number | null;
     applicantEmailStatus?: string | null;
+    applicantPerson?: {
+      position?: string | null;
+      seniority?: string | null;
+      employer?: string | null;
+      linkedin?: string | null;
+    } | null;
     agentName?: string | null;
     agentEmail?: string | null;
+    agentPerson?: {
+      position?: string | null;
+      seniority?: string | null;
+      employer?: string | null;
+      linkedin?: string | null;
+    } | null;
   } | null;
   outreachSnippet?: string | null;
 };

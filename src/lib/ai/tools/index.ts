@@ -22,6 +22,7 @@ import {
   hunterDomainSearchTool,
   hunterEmailFinderTool,
   hunterEmailVerifierTool,
+  hunterPersonEnrichmentTool,
 } from "./hunter";
 import { makeBrandingTool } from "./branding";
 import { makeIcpTool } from "./icp";
@@ -41,6 +42,7 @@ export {
   hunterDomainSearchTool,
   hunterEmailFinderTool,
   hunterEmailVerifierTool,
+  hunterPersonEnrichmentTool,
   makeBrandingTool,
   makeIcpTool,
 };
@@ -60,6 +62,7 @@ export function enrichmentToolSet(): ToolSet {
     hunterCompanyEnrichment: hunterCompanyEnrichmentTool,
     hunterEmailFinder: hunterEmailFinderTool,
     hunterEmailVerifier: hunterEmailVerifierTool,
+    hunterPersonEnrichment: hunterPersonEnrichmentTool,
     webSearch: webSearchTool,
   };
 }
@@ -70,6 +73,7 @@ export function researchToolSet(): ToolSet {
     companiesHouseSearch: companiesHouseSearchTool,
     companiesHouseProfile: companiesHouseProfileTool,
     companiesHouseOfficers: companiesHouseOfficersTool,
+    hunterPersonEnrichment: hunterPersonEnrichmentTool,
     webSearch: webSearchTool,
   };
 }

@@ -473,6 +473,10 @@ model ApplicationEnrichment {
   agentEmailSource         String?   @map("agent_email_source")
   agentEmailConfidence     Int?      @map("agent_email_confidence")
   agentEmailStatus         String?   @map("agent_email_status")
+  /// Hunter Person Enrichment for the applicant email (title, seniority, employer, LinkedIn).
+  applicantPersonJson      Json?     @map("applicant_person_json")
+  /// Hunter Person Enrichment for the agent email.
+  agentPersonJson          Json?     @map("agent_person_json")
   caseOfficer              String?   @map("case_officer")
   ward                     String?   @map("ward")
   receivedDate             DateTime? @map("received_date")

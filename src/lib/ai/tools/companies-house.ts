@@ -6,6 +6,7 @@
 
 import { tool } from "ai";
 import { z } from "zod";
+import { logger } from "@/lib/logger";
 
 const BASE = "https://api.company-information.service.gov.uk";
 const REVALIDATE_SECONDS = 6 * 60 * 60;
@@ -29,18 +30,53 @@ function authHeader(): string | null {
   return `Basic ${Buffer.from(`${key}:`).toString("base64")}`;
 }
 
-async function chFetch<T>(path: string): Promise<T | null> {
+export type CompaniesHouseFetchError =
+  | "unconfigured"
+  | "auth"
+  | "rate_limited"
+  | "not_found"
+  | "network"
+  | "http_error";
+
+export function classifyCompaniesHouseHttpStatus(
+  status: number,
+): CompaniesHouseFetchError {
+  if (status === 401 || status === 403) return "auth";
+  if (status === 429) return "rate_limited";
+  if (status === 404) return "not_found";
+  return "http_error";
+}
+
+async function chFetch<T>(
+  path: string,
+): Promise<{ data: T | null; error: CompaniesHouseFetchError | null }> {
   const auth = authHeader();
-  if (!auth) return null;
+  if (!auth) return { data: null, error: "unconfigured" };
   try {
     const res = await fetch(`${BASE}${path}`, {
       headers: { Authorization: auth, Accept: "application/json" },
       next: { revalidate: REVALIDATE_SECONDS },
     });
-    if (!res.ok) return null;
-    return (await res.json()) as T;
-  } catch {
-    return null;
+    if (!res.ok) {
+      const error = classifyCompaniesHouseHttpStatus(res.status);
+      // 404 is an expected "not found"; anything else (401 bad key, 429 rate
+      // limit, 5xx) is a real failure we must surface rather than silently
+      // treat as "no records" — that mislabels registered companies as absent.
+      if (error !== "not_found") {
+        logger.warn(
+          { path, status: res.status, error },
+          "companies_house_http_error",
+        );
+      }
+      return { data: null, error };
+    }
+    return { data: (await res.json()) as T, error: null };
+  } catch (err) {
+    logger.warn(
+      { path, err: err instanceof Error ? err.message : String(err) },
+      "companies_house_fetch_failed",
+    );
+    return { data: null, error: "network" };
   }
 }
 
@@ -58,7 +94,7 @@ export async function searchCompanies(
   limit = 5,
 ): Promise<CompaniesHouseSearchResult[]> {
   if (!authHeader()) return [];
-  const data = await chFetch<{ items?: CompanySearchItem[] }>(
+  const { data } = await chFetch<{ items?: CompanySearchItem[] }>(
     `/search/companies?q=${encodeURIComponent(query)}&items_per_page=${limit}`,
   );
   return (data?.items ?? []).map((i) => ({
@@ -82,9 +118,9 @@ export const companiesHouseSearchTool = tool({
   execute: async ({ query }) => {
     const auth = authHeader();
     if (!auth) {
-      return { configured: false as const, results: [] };
+      return { configured: false as const, results: [], error: "unconfigured" as const };
     }
-    const data = await chFetch<{ items?: CompanySearchItem[] }>(
+    const { data, error } = await chFetch<{ items?: CompanySearchItem[] }>(
       `/search/companies?q=${encodeURIComponent(query)}&items_per_page=5`,
     );
     const items = data?.items ?? [];
@@ -97,6 +133,7 @@ export const companiesHouseSearchTool = tool({
         address: i.address_snippet ?? "",
         incorporatedOn: i.date_of_creation ?? null,
       })),
+      ...(error ? { error } : {}),
     };
   },
 });
@@ -133,7 +170,7 @@ export type CompaniesHouseProfile = {
 export async function getCompanyProfile(
   companyNumber: string,
 ): Promise<CompaniesHouseProfile | null> {
-  const data = await chFetch<CompanyProfile>(
+  const { data } = await chFetch<CompanyProfile>(
     `/company/${encodeURIComponent(companyNumber)}`,
   );
   if (!data) return null;
@@ -191,7 +228,7 @@ export type CompaniesHouseOfficer = {
 export async function getCompanyOfficers(
   companyNumber: string,
 ): Promise<CompaniesHouseOfficer[]> {
-  const data = await chFetch<{ items?: OfficerItem[] }>(
+  const { data } = await chFetch<{ items?: OfficerItem[] }>(
     `/company/${encodeURIComponent(companyNumber)}/officers?items_per_page=20`,
   );
   const items = data?.items ?? [];

@@ -25,8 +25,14 @@ import {
   resolveHunterEmail,
   type CompanyContact,
 } from "@/lib/company-lookup";
+import {
+  hunterPersonEnrichment,
+  type HunterPersonData,
+} from "@/lib/ai/tools/hunter";
 
 const DEFAULT_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+
+export type EnrichmentPersonData = HunterPersonData;
 
 export type ResolvedApplication = {
   applicationRef: string;
@@ -39,6 +45,7 @@ export type ResolvedApplication = {
   applicantEmailSource?: string | null;
   applicantEmailConfidence?: number | null;
   applicantEmailStatus?: string | null;
+  applicantPerson?: EnrichmentPersonData | null;
   companyName?: string | null;
   agentName?: string | null;
   agentAddress?: string | null;
@@ -47,6 +54,7 @@ export type ResolvedApplication = {
   agentEmailSource?: string | null;
   agentEmailConfidence?: number | null;
   agentEmailStatus?: string | null;
+  agentPerson?: EnrichmentPersonData | null;
   caseOfficer?: string | null;
   ward?: string | null;
   receivedDate?: string | null;
@@ -98,6 +106,63 @@ function pickAgentCompany(
 /** Strip ", Director" suffix so Hunter email finder gets a clean full name. */
 function personNameForHunter(name: string): string {
   return name.replace(/,\s*(director|secretary|member|partner).*$/i, "").trim();
+}
+
+export function parseEnrichmentPersonJson(
+  value: unknown,
+): EnrichmentPersonData | null {
+  if (!value || typeof value !== "object") return null;
+  const row = value as Record<string, unknown>;
+  const email = typeof row.email === "string" ? row.email : null;
+  if (!email) return null;
+  const str = (k: string) =>
+    typeof row[k] === "string" ? (row[k] as string) : null;
+  return {
+    email,
+    firstName: str("firstName"),
+    lastName: str("lastName"),
+    position: str("position"),
+    seniority: str("seniority"),
+    department: str("department"),
+    employer: str("employer"),
+    linkedin: str("linkedin"),
+    twitter: str("twitter"),
+    location: str("location"),
+  };
+}
+
+/**
+ * After emails are resolved, fetch Hunter Person Enrichment for any email that
+ * still lacks structured person data. Fail closed when Hunter is off or empty.
+ */
+export async function enrichPersonFromEmails(
+  r: ResolvedApplication,
+): Promise<ResolvedApplication> {
+  if (!process.env.HUNTER_API_KEY?.trim()) return r;
+
+  let out = r;
+  const sources = new Set(out.sources ?? [out.source]);
+
+  if (out.applicantEmail && !out.applicantPerson) {
+    const result = await hunterPersonEnrichment({ email: out.applicantEmail });
+    if (result.configured && result.found && result.person) {
+      out = { ...out, applicantPerson: result.person };
+      sources.add("hunter_person");
+    }
+  }
+
+  if (out.agentEmail && !out.agentPerson) {
+    const result = await hunterPersonEnrichment({ email: out.agentEmail });
+    if (result.configured && result.found && result.person) {
+      out = { ...out, agentPerson: result.person };
+      sources.add("hunter_person");
+    }
+  }
+
+  if (sources.size !== (out.sources?.length ?? 1)) {
+    out = { ...out, sources: Array.from(sources) };
+  }
+  return out;
 }
 
 function mergeApplicantCompanyContact(
@@ -282,7 +347,7 @@ export async function enrichFromCompanyLookup(
     }
   }
 
-  return out;
+  return enrichPersonFromEmails(out);
 }
 
 function fromPlanwire(
@@ -341,6 +406,7 @@ function mergeResolved(
     applicantEmailSource: pick("applicantEmailSource"),
     applicantEmailConfidence: pick("applicantEmailConfidence"),
     applicantEmailStatus: pick("applicantEmailStatus"),
+    applicantPerson: pick("applicantPerson"),
     companyName: pick("companyName"),
     agentName: pick("agentName"),
     agentAddress: pick("agentAddress"),
@@ -349,6 +415,7 @@ function mergeResolved(
     agentEmailSource: pick("agentEmailSource"),
     agentEmailConfidence: pick("agentEmailConfidence"),
     agentEmailStatus: pick("agentEmailStatus"),
+    agentPerson: pick("agentPerson"),
     caseOfficer: pick("caseOfficer"),
     ward: pick("ward"),
     receivedDate: pick("receivedDate"),
@@ -383,6 +450,7 @@ async function readFromCache(
         applicantEmailSource: row.applicantEmailSource,
         applicantEmailConfidence: row.applicantEmailConfidence,
         applicantEmailStatus: row.applicantEmailStatus,
+        applicantPerson: parseEnrichmentPersonJson(row.applicantPersonJson),
         agentName: row.agentName,
         agentAddress: row.agentAddress,
         agentPhone: row.agentPhone,
@@ -390,6 +458,7 @@ async function readFromCache(
         agentEmailSource: row.agentEmailSource,
         agentEmailConfidence: row.agentEmailConfidence,
         agentEmailStatus: row.agentEmailStatus,
+        agentPerson: parseEnrichmentPersonJson(row.agentPersonJson),
         caseOfficer: row.caseOfficer,
         ward: row.ward,
         receivedDate: row.receivedDate?.toISOString() ?? null,
@@ -428,6 +497,7 @@ export async function writeResolvedApplicationToCache(
         applicantEmailSource: r.applicantEmailSource ?? null,
         applicantEmailConfidence: r.applicantEmailConfidence ?? null,
         applicantEmailStatus: r.applicantEmailStatus ?? null,
+        applicantPersonJson: r.applicantPerson ?? undefined,
         agentName: r.agentName ?? null,
         agentAddress: r.agentAddress ?? null,
         agentPhone: r.agentPhone ?? null,
@@ -435,6 +505,7 @@ export async function writeResolvedApplicationToCache(
         agentEmailSource: r.agentEmailSource ?? null,
         agentEmailConfidence: r.agentEmailConfidence ?? null,
         agentEmailStatus: r.agentEmailStatus ?? null,
+        agentPersonJson: r.agentPerson ?? undefined,
         caseOfficer: r.caseOfficer ?? null,
         ward: r.ward ?? null,
         receivedDate: r.receivedDate ? new Date(r.receivedDate) : null,
@@ -451,6 +522,7 @@ export async function writeResolvedApplicationToCache(
         applicantEmailSource: r.applicantEmailSource ?? undefined,
         applicantEmailConfidence: r.applicantEmailConfidence ?? undefined,
         applicantEmailStatus: r.applicantEmailStatus ?? undefined,
+        applicantPersonJson: r.applicantPerson ?? undefined,
         agentName: r.agentName ?? undefined,
         agentAddress: r.agentAddress ?? undefined,
         agentPhone: r.agentPhone ?? undefined,
@@ -458,6 +530,7 @@ export async function writeResolvedApplicationToCache(
         agentEmailSource: r.agentEmailSource ?? undefined,
         agentEmailConfidence: r.agentEmailConfidence ?? undefined,
         agentEmailStatus: r.agentEmailStatus ?? undefined,
+        agentPersonJson: r.agentPerson ?? undefined,
         caseOfficer: r.caseOfficer ?? undefined,
         ward: r.ward ?? undefined,
         source: r.source,
@@ -484,7 +557,21 @@ export async function resolveApplication(
   if (cached?.applicantName) {
     const emailSatisfied =
       !hunterConfigured || Boolean(cached.applicantEmail || cached.agentEmail);
-    if (emailSatisfied) return cached;
+    if (emailSatisfied) {
+      const needsPerson =
+        hunterConfigured &&
+        ((Boolean(cached.applicantEmail) && !cached.applicantPerson) ||
+          (Boolean(cached.agentEmail) && !cached.agentPerson));
+      if (!needsPerson) return cached;
+      const withPerson = await enrichPersonFromEmails(cached);
+      if (
+        withPerson.applicantPerson !== cached.applicantPerson ||
+        withPerson.agentPerson !== cached.agentPerson
+      ) {
+        await writeResolvedApplicationToCache(withPerson);
+      }
+      return withPerson;
+    }
   } else if (cached) {
     // Partial cache (e.g. company name only) — fall through to enrich gaps.
   }

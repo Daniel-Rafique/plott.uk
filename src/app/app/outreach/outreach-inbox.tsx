@@ -824,6 +824,11 @@ export function OutreachInbox({
                         selectedDraft.enrichment.agentName ||
                         selectedDraft.enrichment.applicantName
                       }
+                      email={
+                        selectedDraft.enrichment.agentEmail ||
+                        selectedDraft.enrichment.applicantEmail ||
+                        null
+                      }
                       hint={
                         selected.subjectRef
                           ? `Planning application ${selected.subjectRef}`

@@ -3,14 +3,14 @@ import { z } from "zod";
 import { getTenantContext } from "@/lib/tenant";
 import { prisma } from "@/lib/prisma";
 import {
-  isPipelineStage,
   PIPELINE_STAGES,
   PIPELINE_ASSIGNEE_SELECT,
   serializePipelineLeadFromRecord,
-  serializePipelineLeadsWithEnrichment,
   serializePipelineLeadWithEnrichment,
   upsertPipelineLead,
   fetchEnrichmentMapForLeads,
+  fetchPipelinePage,
+  parsePipelineSearchParams,
 } from "@/lib/pipeline";
 import { planningEntityToDb } from "@/lib/planning-entity-bigint";
 
@@ -44,26 +44,33 @@ export async function GET(req: Request) {
   }
 
   const stage = url.searchParams.get("stage");
-  const where: { companyId: string; stage?: string } = {
-    companyId: ctx.company.id,
-  };
-  if (stage && stage !== "all") {
-    if (!isPipelineStage(stage)) {
-      return NextResponse.json({ error: "Invalid stage" }, { status: 400 });
-    }
-    where.stage = stage;
-  }
+  const assignee = url.searchParams.get("assignee");
+  const page = url.searchParams.get("page");
+  const pageSize = url.searchParams.get("pageSize");
 
-  const leads = await prisma.pipelineLead.findMany({
-    where,
-    orderBy: [{ stageUpdatedAt: "desc" }, { createdAt: "desc" }],
-    take: 200,
-    include: { assignedUser: { select: PIPELINE_ASSIGNEE_SELECT } },
-  });
+  const query = parsePipelineSearchParams(
+    {
+      stage: stage ?? undefined,
+      assignee: assignee ?? undefined,
+      page: page ?? undefined,
+      pageSize: pageSize ?? undefined,
+    },
+    { companyId: ctx.company.id, currentUserId: ctx.user.id },
+  );
+
+  const result = await fetchPipelinePage(query);
 
   return NextResponse.json({
     stages: PIPELINE_STAGES,
-    leads: await serializePipelineLeadsWithEnrichment(leads),
+    leads: result.leads,
+    meta: {
+      total: result.total,
+      page: result.page,
+      pageSize: result.pageSize,
+      stageCounts: result.stageCounts,
+      stage: result.query.stage,
+      assignee: result.query.assignee,
+    },
   });
 }
 

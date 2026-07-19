@@ -20,6 +20,7 @@ import { enrichmentToolSet } from "@/lib/ai/tools";
 import {
   resolveApplication,
   writeResolvedApplicationToCache,
+  type EnrichmentPersonData,
   type ResolvedApplication,
   type ResolveParams,
 } from "@/lib/enrichment";
@@ -60,12 +61,14 @@ export type EnrichedApplication = {
   applicantEmailSource: string | null;
   applicantEmailConfidence: number | null;
   applicantEmailStatus: string | null;
+  applicantPerson?: EnrichmentPersonData | null;
   agentName: string | null;
   agentAddress: string | null;
   agentEmail: string | null;
   agentEmailSource: string | null;
   agentEmailConfidence: number | null;
   agentEmailStatus: string | null;
+  agentPerson?: EnrichmentPersonData | null;
   agentPhone: string | null;
   caseOfficer: string | null;
   ward: string | null;
@@ -285,12 +288,14 @@ function preResolvedToEnriched(
       applicantEmailSource: null,
       applicantEmailConfidence: null,
       applicantEmailStatus: null,
+      applicantPerson: null,
       agentName: args.seedAgent ?? null,
       agentAddress: args.seedAgentAddress ?? null,
       agentEmail: null,
       agentEmailSource: null,
       agentEmailConfidence: null,
       agentEmailStatus: null,
+      agentPerson: null,
       agentPhone: null,
       caseOfficer: null,
       ward: null,
@@ -306,12 +311,14 @@ function preResolvedToEnriched(
     applicantEmailSource: pre.applicantEmailSource ?? null,
     applicantEmailConfidence: pre.applicantEmailConfidence ?? null,
     applicantEmailStatus: pre.applicantEmailStatus ?? null,
+    applicantPerson: pre.applicantPerson ?? null,
     agentName: pre.agentName ?? args.seedAgent ?? null,
     agentAddress: pre.agentAddress ?? args.seedAgentAddress ?? null,
     agentEmail: pre.agentEmail ?? null,
     agentEmailSource: pre.agentEmailSource ?? null,
     agentEmailConfidence: pre.agentEmailConfidence ?? null,
     agentEmailStatus: pre.agentEmailStatus ?? null,
+    agentPerson: pre.agentPerson ?? null,
     agentPhone: pre.agentPhone ?? null,
     caseOfficer: pre.caseOfficer ?? null,
     ward: pre.ward ?? null,
@@ -347,6 +354,7 @@ function mergePreResolved(
       agent.applicantEmailConfidence ?? pre?.applicantEmailConfidence ?? null,
     applicantEmailStatus:
       agent.applicantEmailStatus ?? pre?.applicantEmailStatus ?? null,
+    applicantPerson: agent.applicantPerson ?? pre?.applicantPerson ?? null,
     agentName: agent.agentName ?? pre?.agentName ?? args.seedAgent ?? null,
     agentAddress:
       agent.agentAddress ?? pre?.agentAddress ?? args.seedAgentAddress ?? null,
@@ -355,6 +363,7 @@ function mergePreResolved(
     agentEmailConfidence:
       agent.agentEmailConfidence ?? pre?.agentEmailConfidence ?? null,
     agentEmailStatus: agent.agentEmailStatus ?? pre?.agentEmailStatus ?? null,
+    agentPerson: agent.agentPerson ?? pre?.agentPerson ?? null,
     agentPhone: agent.agentPhone ?? pre?.agentPhone ?? null,
     caseOfficer: agent.caseOfficer ?? pre?.caseOfficer ?? null,
     ward: agent.ward ?? pre?.ward ?? null,

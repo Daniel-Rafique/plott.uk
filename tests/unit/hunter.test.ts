@@ -4,6 +4,7 @@ import {
   hunterDomainSearch,
   hunterEmailFinder,
   hunterEmailVerifier,
+  hunterPersonEnrichment,
 } from "@/lib/ai/tools/hunter";
 
 describe("Hunter enrichment helpers", () => {
@@ -31,6 +32,9 @@ describe("Hunter enrichment helpers", () => {
     await expect(
       hunterCompanyEnrichment({ company: "Example Ltd" }),
     ).resolves.toEqual({ configured: false, domain: null, name: null });
+    await expect(
+      hunterPersonEnrichment({ email: "jane@example.com" }),
+    ).resolves.toEqual({ configured: false, found: false, person: null });
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
@@ -166,5 +170,51 @@ describe("Hunter enrichment helpers", () => {
     expect(String((fetchMock.mock.calls[1]?.[0] as URL).pathname)).toContain(
       "/companies/find",
     );
+  });
+
+  it("maps person enrichment from /people/find", async () => {
+    vi.stubEnv("HUNTER_API_KEY", "hunter_test_key");
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        data: {
+          email: "jane@example.com",
+          first_name: "Jane",
+          last_name: "Smith",
+          location: "London",
+          employment: {
+            title: "Director",
+            seniority: "executive",
+            department: "leadership",
+            name: "Example Ltd",
+          },
+          linkedin: { handle: "janesmith" },
+        },
+      }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      hunterPersonEnrichment({ email: "Jane@Example.com" }),
+    ).resolves.toEqual({
+      configured: true,
+      found: true,
+      person: {
+        email: "jane@example.com",
+        firstName: "Jane",
+        lastName: "Smith",
+        position: "Director",
+        seniority: "executive",
+        department: "leadership",
+        employer: "Example Ltd",
+        linkedin: "https://linkedin.com/in/janesmith",
+        twitter: null,
+        location: "London",
+      },
+    });
+
+    const url = fetchMock.mock.calls[0]?.[0] as URL;
+    expect(String(url.pathname)).toContain("/people/find");
+    expect(url.searchParams.get("email")).toBe("jane@example.com");
   });
 });

@@ -125,6 +125,23 @@ ${args.enrichment?.caseOfficer ? `- Case officer: ${args.enrichment.caseOfficer}
 ${args.enrichment?.ward ? `- Ward: ${args.enrichment.ward}` : ""}
 
 ICP match rationale: ${args.icpReason}
+${
+  (() => {
+    const person =
+      args.contact.kind === "agent"
+        ? args.enrichment?.agentPerson
+        : args.enrichment?.applicantPerson ?? args.enrichment?.agentPerson;
+    if (!person) return "";
+    const bits = [
+      person.position ? `title ${person.position}` : null,
+      person.seniority ? `seniority ${person.seniority}` : null,
+      person.employer ? `employer ${person.employer}` : null,
+    ].filter(Boolean);
+    return bits.length
+      ? `\nRecipient role context (from Hunter Person Enrichment — reuse, do not invent): ${bits.join("; ")}.`
+      : "";
+  })()
+}
 ${emailBlock}
 ${ballparkBlock}
 

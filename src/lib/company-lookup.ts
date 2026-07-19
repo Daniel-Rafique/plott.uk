@@ -31,7 +31,7 @@ import {
 import { logger } from "@/lib/logger";
 
 const COMPANY_SUFFIX_RE =
-  /\b(ltd|limited|llp|plc|l\.?t\.?d\.?|c\.?i\.?c\.?|company|holdings|group|developments?|homes|properties|construction|builders?|associates|partnership|estates?|investments?|ventures?|studios?|architects?|surveyors?)\b/i;
+  /\b(ltd|limited|llp|plc|l\.?t\.?d\.?|c\.?i\.?c\.?|company|holdings|group|developments?|homes|properties|construction|builders?|associates|partnership|estates?|investments?|ventures?|studios?|architects?|architecture|surveyors?|consultants?|consultancy|services)\b/i;
 
 /**
  * Short ALL-CAPS trading names (e.g. "NLA") from planning feeds are companies,

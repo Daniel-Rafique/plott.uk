@@ -316,6 +316,27 @@ export function ApplicantModal({
                         <Mail className="h-3 w-3 text-zinc-400" />
                         {enrichment.applicantEmail}
                       </span>
+                      {enrichment.applicantPerson?.position ||
+                      enrichment.applicantPerson?.employer ? (
+                        <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-medium text-indigo-800">
+                          {[
+                            enrichment.applicantPerson.position,
+                            enrichment.applicantPerson.employer,
+                          ]
+                            .filter(Boolean)
+                            .join(" · ")}
+                        </span>
+                      ) : null}
+                      {enrichment.applicantPerson?.linkedin ? (
+                        <a
+                          href={enrichment.applicantPerson.linkedin}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-indigo-700 underline underline-offset-2"
+                        >
+                          LinkedIn
+                        </a>
+                      ) : null}
                       {enrichment.applicantEmailConfidence != null ||
                       enrichment.applicantEmailStatus ||
                       enrichment.applicantEmailSource ? (
@@ -435,6 +456,11 @@ export function ApplicantModal({
                       enrichment?.agentName ||
                       enrichment?.applicantName ||
                       undefined
+                    }
+                    email={
+                      enrichment?.agentEmail ||
+                      enrichment?.applicantEmail ||
+                      null
                     }
                     hint={
                       reference ? `Planning application ${reference}` : undefined

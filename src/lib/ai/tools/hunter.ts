@@ -1,6 +1,12 @@
 /**
  * Hunter.io enrichment tools. These are server-only helpers for structured
  * email discovery; they deliberately fail closed when the API key is absent.
+ *
+ * Architecture decision: Plott calls Hunter via this REST client only.
+ * Do not wire Hunter MCP (https://mcp.hunter.io/mcp) into enrichment,
+ * research, or outreach agents — extend this module for new endpoints.
+ * MCP remains fine for external assistants (Claude / ChatGPT / Cursor)
+ * on the same Hunter plan; see AGENTS.md “Hunter.io (enrichment)”.
  */
 
 import { tool } from "ai";
@@ -77,6 +83,33 @@ export type HunterCompanyEnrichmentResult =
       error?: string;
     };
 
+/** Business-relevant person fields from Hunter `/people/find`. */
+export type HunterPersonData = {
+  email: string;
+  firstName: string | null;
+  lastName: string | null;
+  position: string | null;
+  seniority: string | null;
+  department: string | null;
+  employer: string | null;
+  linkedin: string | null;
+  twitter: string | null;
+  location: string | null;
+};
+
+export type HunterPersonEnrichmentResult =
+  | {
+      configured: false;
+      found: false;
+      person: null;
+    }
+  | {
+      configured: true;
+      found: boolean;
+      person: HunterPersonData | null;
+      error?: string;
+    };
+
 type HunterDomainSearchResponse = {
   data?: {
     domain?: string | null;
@@ -120,6 +153,50 @@ type HunterCompanyEnrichmentResponse = {
     legalName?: string | null;
   };
 };
+
+type HunterPersonEnrichmentResponse = {
+  data?: {
+    email?: string | null;
+    first_name?: string | null;
+    last_name?: string | null;
+    location?: string | null;
+    employment?: {
+      title?: string | null;
+      role?: string | null;
+      seniority?: string | null;
+      department?: string | null;
+      name?: string | null;
+      domain?: string | null;
+    } | null;
+    linkedin?: { handle?: string | null } | null;
+    twitter?: string | null;
+  } | null;
+};
+
+function linkedinUrlFromHandle(handle: string | null | undefined): string | null {
+  const cleaned = handle?.trim().replace(/^@/, "") ?? "";
+  if (!cleaned) return null;
+  if (/^https?:\/\//i.test(cleaned)) return cleaned;
+  return `https://linkedin.com/in/${cleaned.replace(/^in\//i, "")}`;
+}
+
+function mapPersonData(
+  email: string,
+  data: NonNullable<HunterPersonEnrichmentResponse["data"]>,
+): HunterPersonData {
+  return {
+    email: data.email ?? email,
+    firstName: data.first_name ?? null,
+    lastName: data.last_name ?? null,
+    position: data.employment?.title ?? data.employment?.role ?? null,
+    seniority: data.employment?.seniority ?? null,
+    department: data.employment?.department ?? null,
+    employer: data.employment?.name ?? null,
+    linkedin: linkedinUrlFromHandle(data.linkedin?.handle),
+    twitter: data.twitter ?? null,
+    location: data.location ?? null,
+  };
+}
 
 function apiKey(): string | null {
   const key = process.env.HUNTER_API_KEY?.trim();
@@ -313,6 +390,43 @@ export async function hunterCompanyEnrichment(args: {
   };
 }
 
+/**
+ * Person Enrichment (`/people/find`) looks up title, seniority, employer and
+ * LinkedIn from a known email. Fail closed when the API key is absent.
+ */
+export async function hunterPersonEnrichment(args: {
+  email: string;
+}): Promise<HunterPersonEnrichmentResult> {
+  if (!apiKey()) return { configured: false, found: false, person: null };
+
+  const email = args.email.trim().toLowerCase();
+  if (!email.includes("@")) {
+    return { configured: true, found: false, person: null, error: "invalid_email" };
+  }
+
+  const { data, error } = await hunterFetch<HunterPersonEnrichmentResponse>(
+    "/people/find",
+    { email },
+  );
+
+  const payload = data?.data ?? null;
+  if (!payload) {
+    return {
+      configured: true,
+      found: false,
+      person: null,
+      ...(error ? { error } : {}),
+    };
+  }
+
+  return {
+    configured: true,
+    found: true,
+    person: mapPersonData(email, payload),
+    ...(error ? { error } : {}),
+  };
+}
+
 export const hunterDomainSearchTool = tool({
   description:
     "Search Hunter for email addresses associated with a company domain or company name. Prefer this before broad web search when an organisation email is missing.",
@@ -372,4 +486,13 @@ export const hunterCompanyEnrichmentTool = tool({
       .describe("Known company domain, e.g. example.com."),
   }),
   execute: hunterCompanyEnrichment,
+});
+
+export const hunterPersonEnrichmentTool = tool({
+  description:
+    "Enrich a person from a known email via Hunter Person Enrichment. Returns job title, seniority, employer, LinkedIn and location. Use when you already have a verified email and need role context for outreach or a research briefing.",
+  inputSchema: z.object({
+    email: z.string().email().describe("Email address to enrich."),
+  }),
+  execute: async ({ email }) => hunterPersonEnrichment({ email }),
 });

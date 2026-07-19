@@ -61,3 +61,15 @@ LANGFUSE_DISABLE=1                     # Opt out of Langfuse tracing
 - Do not add a fourth error-reporting path; Sentry already covers client, server, edge, and global errors.
 - PostHog has `capture_exceptions: true` on the client — that is fine, but treat Sentry as the canonical error tool for debugging and alerting.
 
+## Hunter.io (enrichment)
+
+Hunter is a first-party enrichment provider (email discovery / verification / company context). **Plott’s product runtime uses the typed REST client only** — [`src/lib/ai/tools/hunter.ts`](src/lib/ai/tools/hunter.ts) — wired into the deterministic cascade ([`src/lib/company-lookup.ts`](src/lib/company-lookup.ts), [`src/lib/enrichment.ts`](src/lib/enrichment.ts)) and the enrichment agent toolset.
+
+**Do not** route enrichment, research, or outreach agents through [Hunter MCP](https://hunter.io/mcp) (`https://mcp.hunter.io/mcp`). MCP is a valid Hunter product for external AI assistants (Claude, ChatGPT, Cursor) on the same plan/credits, but it is not part of Plott’s in-app pipeline:
+
+- Enrichment is deterministic-first under serverless time budgets; MCP re-centres “assistant decides when to call Hunter.”
+- Results must land in `ApplicationEnrichment` with provenance (`source`, confidence, verification) — not Hunter Leads lists.
+- There is no in-app MCP client; the vendor is already reachable via `fetch` with fail-closed behaviour when `HUNTER_API_KEY` is absent.
+
+If product needs more Hunter surface area (Discover, Person Enrichment, etc.), **extend the REST client** and call it from the existing cascade / agent tools — never by adding MCP to the Next.js runtime.
+

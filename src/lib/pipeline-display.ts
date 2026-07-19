@@ -20,8 +20,20 @@ export type PipelineEnrichmentInput = {
   applicantEmailSource?: string | null;
   applicantEmailConfidence?: number | null;
   applicantEmailStatus?: string | null;
+  applicantPerson?: {
+    position?: string | null;
+    seniority?: string | null;
+    employer?: string | null;
+    linkedin?: string | null;
+  } | null;
   agentName?: string | null;
   agentEmail?: string | null;
+  agentPerson?: {
+    position?: string | null;
+    seniority?: string | null;
+    employer?: string | null;
+    linkedin?: string | null;
+  } | null;
 };
 
 export type PipelineContactSummary = {
@@ -33,6 +45,9 @@ export type PipelineContactSummary = {
   agentEmail: string | null;
   primaryEmail: string | null;
   primaryEmailLabel: string | null;
+  /** Compact role chip e.g. "Director · Acme Ltd". */
+  personRole: string | null;
+  personLinkedin: string | null;
 };
 
 export type PipelineEstimateJson = {
@@ -252,6 +267,17 @@ export function buildPipelineContactSummary(
   const primaryEmail = agentEmail ?? applicantEmail;
   const primaryEmailLabel = agentEmail ? agentEmailLabel : applicantEmailLabel;
 
+  const person =
+    (agentEmail ? enrichment?.agentPerson : null) ??
+    enrichment?.applicantPerson ??
+    enrichment?.agentPerson ??
+    null;
+  const personRole = person
+    ? [person.position?.trim(), person.employer?.trim()]
+        .filter(Boolean)
+        .join(" · ") || null
+    : null;
+
   return {
     applicantName,
     applicantAddress,
@@ -261,6 +287,8 @@ export function buildPipelineContactSummary(
     agentEmail,
     primaryEmail,
     primaryEmailLabel,
+    personRole,
+    personLinkedin: person?.linkedin?.trim() || null,
   };
 }
 

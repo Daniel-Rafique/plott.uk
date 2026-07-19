@@ -2,14 +2,20 @@
 
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 import {
+  DEFAULT_PIPELINE_PAGE_SIZE,
+  PIPELINE_PAGE_SIZES,
   PIPELINE_STAGES,
   PIPELINE_STAGE_LABELS,
+  type PipelinePageSize,
   type PipelineStage,
+  type PipelineStageFilter,
   formatBallparkRange,
   formatBallparkWeeks,
+  pipelineTotalPages,
 } from "@/lib/pipeline-shared";
 import type { PipelineLeadRow, PipelineTeamMember } from "@/lib/pipeline-display";
 import { cn } from "@/lib/utils";
@@ -21,30 +27,43 @@ import {
 
 export type { PipelineTeamMember };
 
-type StageFilter = "all" | PipelineStage;
-
 export function PipelineBoard({
   currentUserId,
   initialLeads,
   teamMembers,
+  total,
+  page,
+  pageSize,
+  stageFilter,
+  assigneeScope,
+  stageCounts,
 }: {
   currentUserId: string;
   initialLeads: PipelineLeadRow[];
   teamMembers: PipelineTeamMember[];
+  total: number;
+  page: number;
+  pageSize: PipelinePageSize;
+  stageFilter: PipelineStageFilter;
+  assigneeScope: string;
+  stageCounts: Record<string, number>;
 }) {
+  const router = useRouter();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
   const highlightLeadId = searchParams.get("lead");
   const highlightRef = useRef<HTMLLIElement | null>(null);
 
   const [leads, setLeads] = useState(initialLeads);
-  const [stageFilter, setStageFilter] = useState<StageFilter>("all");
-  /** me | all | unassigned | <userId> */
-  const [assigneeScope, setAssigneeScope] = useState<string>("me");
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [estimatingId, setEstimatingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const didDefaultAssign = useRef(false);
+
+  useEffect(() => {
+    setLeads(initialLeads);
+  }, [initialLeads]);
 
   useEffect(() => {
     if (!highlightLeadId || !highlightRef.current) return;
@@ -57,6 +76,36 @@ export function PipelineBoard({
 
   function applyLeadUpdate(id: string, next: PipelineLeadRow) {
     setLeads((prev) => prev.map((lead) => (lead.id === id ? next : lead)));
+  }
+
+  function replaceQuery(updates: Record<string, string | null>) {
+    const params = new URLSearchParams(searchParams.toString());
+    for (const [key, value] of Object.entries(updates)) {
+      if (value == null || value === "") {
+        params.delete(key);
+        continue;
+      }
+      // Omit defaults to keep URLs clean.
+      if (key === "page" && value === "1") {
+        params.delete(key);
+        continue;
+      }
+      if (key === "pageSize" && value === String(DEFAULT_PIPELINE_PAGE_SIZE)) {
+        params.delete(key);
+        continue;
+      }
+      if (key === "stage" && value === "all") {
+        params.delete(key);
+        continue;
+      }
+      if (key === "assignee" && value === "me") {
+        params.delete(key);
+        continue;
+      }
+      params.set(key, value);
+    }
+    const qs = params.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname);
   }
 
   function patchLead(
@@ -126,34 +175,15 @@ export function PipelineBoard({
     })();
   }, [currentUserId, initialLeads, teamMembers]);
 
-  const visible = useMemo(() => {
-    let list = leads;
-    if (stageFilter !== "all") {
-      list = list.filter((lead) => lead.stage === stageFilter);
-    }
-    if (assigneeScope === "me") {
-      list = list.filter((lead) => lead.assignedUserId === currentUserId);
-    } else if (assigneeScope === "unassigned") {
-      list = list.filter((lead) => !lead.assignedUserId);
-    } else if (assigneeScope !== "all") {
-      list = list.filter((lead) => lead.assignedUserId === assigneeScope);
-    }
-    return list;
-  }, [leads, stageFilter, assigneeScope, currentUserId]);
-
   const sortedTeamMembers = useMemo(() => {
     const me = teamMembers.find((member) => member.id === currentUserId);
     const others = teamMembers.filter((member) => member.id !== currentUserId);
     return me ? [me, ...others] : others;
   }, [teamMembers, currentUserId]);
 
-  const stageCounts = useMemo(() => {
-    const counts: Record<string, number> = { all: leads.length };
-    for (const stage of PIPELINE_STAGES) {
-      counts[stage] = leads.filter((lead) => lead.stage === stage).length;
-    }
-    return counts;
-  }, [leads]);
+  const totalPages = pipelineTotalPages(total, pageSize);
+  const rangeStart = total === 0 ? 0 : (page - 1) * pageSize + 1;
+  const rangeEnd = Math.min(page * pageSize, total);
 
   const selectClassName =
     "rounded-md border border-zinc-300 bg-white px-2.5 py-1.5 text-sm text-zinc-900 shadow-sm focus:border-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-200";
@@ -168,10 +198,15 @@ export function PipelineBoard({
             </span>
             <select
               value={stageFilter}
-              onChange={(e) => setStageFilter(e.target.value as StageFilter)}
+              onChange={(e) =>
+                replaceQuery({
+                  stage: e.target.value,
+                  page: "1",
+                })
+              }
               className={cn(selectClassName, "min-w-[11rem]")}
             >
-              <option value="all">All stages ({stageCounts.all})</option>
+              <option value="all">All stages ({stageCounts.all ?? 0})</option>
               {PIPELINE_STAGES.map((stage) => (
                 <option key={stage} value={stage}>
                   {PIPELINE_STAGE_LABELS[stage]} ({stageCounts[stage] ?? 0})
@@ -186,7 +221,12 @@ export function PipelineBoard({
             </span>
             <select
               value={assigneeScope}
-              onChange={(e) => setAssigneeScope(e.target.value)}
+              onChange={(e) =>
+                replaceQuery({
+                  assignee: e.target.value,
+                  page: "1",
+                })
+              }
               className={cn(selectClassName, "min-w-[12rem]")}
             >
               <option value="me">Me</option>
@@ -204,9 +244,9 @@ export function PipelineBoard({
         </div>
 
         <p className="text-sm text-zinc-500">
-          {visible.length === leads.length
-            ? `${leads.length} lead${leads.length === 1 ? "" : "s"}`
-            : `${visible.length} of ${leads.length} leads`}
+          {total === 0
+            ? "0 leads"
+            : `${rangeStart}–${rangeEnd} of ${total} lead${total === 1 ? "" : "s"}`}
         </p>
       </div>
 
@@ -216,7 +256,7 @@ export function PipelineBoard({
         </p>
       ) : null}
 
-      {visible.length === 0 ? (
+      {leads.length === 0 ? (
         <div className="rounded-lg border border-dashed border-zinc-300 px-6 py-12 text-center">
           <p className="text-sm font-medium text-zinc-900">No leads match</p>
           <p className="mt-1 text-sm text-zinc-600">
@@ -229,7 +269,7 @@ export function PipelineBoard({
         </div>
       ) : (
         <ul className="divide-y divide-zinc-200 rounded-lg border border-zinc-200 bg-white">
-          {visible.map((lead) => {
+          {leads.map((lead) => {
             const busy = isPending && pendingId === lead.id;
             const estimating = estimatingId === lead.id;
             const ballpark =
@@ -260,6 +300,11 @@ export function PipelineBoard({
                       {lead.assignedUser ? (
                         <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-[11px] font-medium text-indigo-800">
                           {assigneeLabel(lead.assignedUser)}
+                        </span>
+                      ) : null}
+                      {lead.contact.personRole ? (
+                        <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-900">
+                          {lead.contact.personRole}
                         </span>
                       ) : null}
                     </div>
@@ -521,6 +566,55 @@ export function PipelineBoard({
           })}
         </ul>
       )}
+
+      {total > 0 ? (
+        <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-zinc-600">
+          <div className="flex items-center gap-2">
+            <span>
+              {rangeStart}–{rangeEnd} of {total}
+            </span>
+            <select
+              value={pageSize}
+              onChange={(e) =>
+                replaceQuery({
+                  pageSize: e.target.value,
+                  page: "1",
+                })
+              }
+              className="rounded-md border border-zinc-200 bg-white px-2 py-1 text-xs"
+            >
+              {PIPELINE_PAGE_SIZES.map((size) => (
+                <option key={size} value={size}>
+                  {size} per page
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              disabled={page <= 1}
+              onClick={() => replaceQuery({ page: String(page - 1) })}
+              className="rounded-md border border-zinc-200 p-1.5 hover:bg-zinc-50 disabled:opacity-40"
+              aria-label="Previous page"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+            <span className="px-2 text-xs font-medium">
+              Page {page} of {totalPages}
+            </span>
+            <button
+              type="button"
+              disabled={page >= totalPages}
+              onClick={() => replaceQuery({ page: String(page + 1) })}
+              className="rounded-md border border-zinc-200 p-1.5 hover:bg-zinc-50 disabled:opacity-40"
+              aria-label="Next page"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

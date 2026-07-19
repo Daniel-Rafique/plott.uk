@@ -7,6 +7,7 @@
 import { tool } from "ai";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
+import { parseEnrichmentPersonJson } from "@/lib/enrichment";
 
 export const readEnrichmentCacheTool = tool({
   description:
@@ -31,6 +32,7 @@ export const readEnrichmentCacheTool = tool({
       applicantEmailSource: row.applicantEmailSource,
       applicantEmailConfidence: row.applicantEmailConfidence,
       applicantEmailStatus: row.applicantEmailStatus,
+      applicantPerson: parseEnrichmentPersonJson(row.applicantPersonJson),
       agentName: row.agentName,
       agentAddress: row.agentAddress,
       agentPhone: row.agentPhone,
@@ -38,6 +40,7 @@ export const readEnrichmentCacheTool = tool({
       agentEmailSource: row.agentEmailSource,
       agentEmailConfidence: row.agentEmailConfidence,
       agentEmailStatus: row.agentEmailStatus,
+      agentPerson: parseEnrichmentPersonJson(row.agentPersonJson),
       caseOfficer: row.caseOfficer,
       ward: row.ward,
       source: row.source,

@@ -24,6 +24,7 @@ export const maxDuration = 60;
 const querySchema = z.object({
   name: z.string().min(2).max(200),
   hint: z.string().max(400).optional(),
+  email: z.union([z.string().email(), z.literal("")]).optional(),
   force: z.coerce.boolean().optional(),
 });
 
@@ -33,6 +34,7 @@ async function handle(params: z.infer<typeof querySchema>, ctx: { company: { id:
       ctx: { companyId: ctx.company.id, userId: ctx.user.id },
       displayName: params.name,
       hint: params.hint,
+      email: params.email?.trim() || null,
       force: params.force,
     });
     return NextResponse.json(result);
@@ -75,6 +77,7 @@ export async function GET(req: Request) {
   const parsed = querySchema.safeParse({
     name: url.searchParams.get("name"),
     hint: url.searchParams.get("hint") ?? undefined,
+    email: url.searchParams.get("email") ?? undefined,
     force: url.searchParams.get("refresh") ?? undefined,
   });
   if (!parsed.success) {
