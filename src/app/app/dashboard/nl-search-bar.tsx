@@ -21,7 +21,13 @@
  * knowing about the transport.
  */
 
-import { useCallback, useRef, useState, type FormEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type FormEvent,
+} from "react";
 import { Sparkles, X } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -67,6 +73,8 @@ export type NlSearchBarProps = {
   /** Provide the current map bounds for prompts without a location hint. */
   getCurrentBounds: () => Bounds | null;
   chips: NlFilterChip[];
+  /** Run a dashboard deep-link query once after mount. */
+  initialPrompt?: string;
   className?: string;
 };
 
@@ -83,6 +91,7 @@ export function NlSearchBar({
   onStreamEnd,
   getCurrentBounds,
   chips,
+  initialPrompt,
   className,
 }: NlSearchBarProps) {
   const [prompt, setPrompt] = useState("");
@@ -90,6 +99,7 @@ export function NlSearchBar({
   const [statusLine, setStatusLine] = useState<string | null>(null);
   const [vagueHint, setVagueHint] = useState<VagueHint | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+  const processedInitialPromptRef = useRef<string | null>(null);
 
   const runDeepSearch = useCallback(
     async (
@@ -202,6 +212,22 @@ export function NlSearchBar({
     },
     [loading, onStreamEnd, onStreamStart, runDeepSearch],
   );
+
+  useEffect(() => {
+    const trimmed = initialPrompt?.trim();
+    if (!trimmed || processedInitialPromptRef.current === trimmed) return;
+    processedInitialPromptRef.current = trimmed;
+    setPrompt(trimmed);
+
+    const url = new URL(window.location.href);
+    url.searchParams.delete("q");
+    window.history.replaceState(
+      null,
+      "",
+      `${url.pathname}${url.search}${url.hash}`,
+    );
+    void executeSearch(trimmed);
+  }, [executeSearch, initialPrompt]);
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();

@@ -104,9 +104,31 @@ async function handle(request: Request) {
   }
 }
 
-export const GET = handle;
 export const POST = handle;
 export const DELETE = handle;
+
+export function GET() {
+  // This deployment uses a fresh, stateless transport per invocation and JSON
+  // POST responses. An SSE GET could never receive messages from later POSTs,
+  // so reject it immediately instead of holding a Vercel function open.
+  return Response.json(
+    {
+      jsonrpc: "2.0",
+      error: {
+        code: -32000,
+        message: "SSE streams are not supported; use MCP over HTTP POST",
+      },
+      id: null,
+    },
+    {
+      status: 405,
+      headers: {
+        allow: "POST, OPTIONS",
+        "cache-control": "no-store",
+      },
+    },
+  );
+}
 
 export function OPTIONS() {
   return new Response(null, {

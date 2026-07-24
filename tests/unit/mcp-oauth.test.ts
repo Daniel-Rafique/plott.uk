@@ -14,6 +14,7 @@ import {
   verifyAccessToken,
   verifyPkce,
 } from "@/lib/mcp/oauth/tokens";
+import { effectiveMcpScopes } from "@/lib/mcp/auth-context";
 
 describe("MCP OAuth redirect validation", () => {
   it("allows HTTPS, loopback HTTP, and Cursor's registered callback", () => {
@@ -46,6 +47,40 @@ describe("MCP OAuth scopes and PKCE", () => {
       "planning:read",
     ]);
     expect(() => normalizeScopes("mcp admin:write")).toThrow("Unsupported scope");
+  });
+
+  it("adds read-only defaults to ChatGPT identity-only requests", () => {
+    expect(normalizeScopes("openid profile email offline_access")).toEqual([
+      "mcp",
+      "openid",
+      "profile",
+      "email",
+      "offline_access",
+      "planning:read",
+      "workspace:read",
+      "pipeline:read",
+      "letters:read",
+    ]);
+  });
+
+  it("adds only the MCP marker when explicit product scopes are requested", () => {
+    expect(normalizeScopes("planning:read")).toEqual([
+      "mcp",
+      "planning:read",
+    ]);
+    expect(normalizeScopes("workspace:write")).toEqual([
+      "mcp",
+      "workspace:write",
+    ]);
+  });
+
+  it("restores the legacy marker without widening product access", () => {
+    const scopes = effectiveMcpScopes(
+      "planning:read workspace:write",
+      ["planning:read"],
+    );
+    expect([...scopes]).toEqual(["planning:read", "mcp"]);
+    expect(scopes.has("workspace:write")).toBe(false);
   });
 
   it("verifies an RFC 7636 S256 challenge", () => {

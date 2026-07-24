@@ -22,6 +22,16 @@ export class PlanwireRateLimitedError extends Error {
   }
 }
 
+export class PlanwireTimeoutError extends Error {
+  readonly context: string;
+
+  constructor(context: string) {
+    super("Planning search timed out. Please retry in a moment.");
+    this.name = "PlanwireTimeoutError";
+    this.context = context;
+  }
+}
+
 /**
  * Approximate bbox diagonal in km using Haversine. Inlined here rather than
  * imported from planning-data to avoid a circular module reference that
@@ -880,6 +890,7 @@ export async function fetchPlanwireApplicationsByQuery(
         Authorization: `Bearer ${apiKey}`,
         Accept: "application/json",
       },
+      signal: AbortSignal.timeout(15_000),
       next: { revalidate: 300 },
     });
 
@@ -908,6 +919,12 @@ export async function fetchPlanwireApplicationsByQuery(
     return apps;
   } catch (error) {
     if (error instanceof PlanwireRateLimitedError) throw error;
+    if (
+      error instanceof Error &&
+      (error.name === "TimeoutError" || error.name === "AbortError")
+    ) {
+      throw new PlanwireTimeoutError("applications?search");
+    }
     logger.warn(
       { err: error instanceof Error ? error.message : String(error) },
       "planwire_query_search_error",

@@ -32,6 +32,14 @@ export const DEFAULT_SCOPES: OAuthScope[] = [
   "letters:read",
 ];
 
+const NON_PRODUCT_SCOPES = new Set<OAuthScope>([
+  "openid",
+  "profile",
+  "email",
+  "mcp",
+  "offline_access",
+]);
+
 export function isDynamicClientRegistrationEnabled(): boolean {
   return process.env.MCP_OAUTH_DCR_ENABLED === "true";
 }
@@ -71,12 +79,28 @@ export function normalizeScopes(value: string | null | undefined): OAuthScope[] 
     .split(/\s+/)
     .map((scope) => scope.trim())
     .filter(Boolean);
-  const scopes = requested.length ? requested : DEFAULT_SCOPES;
-  const invalid = scopes.filter(
+  const invalid = requested.filter(
     (scope): scope is string => !ALLOWED_SCOPES.has(scope as OAuthScope),
   );
   if (invalid.length) {
     throw new Error(`Unsupported scope: ${invalid.join(", ")}`);
   }
-  return [...new Set(scopes)] as OAuthScope[];
+
+  const typedRequested = requested as OAuthScope[];
+  const hasProductScope = typedRequested.some(
+    (scope) => !NON_PRODUCT_SCOPES.has(scope),
+  );
+  const scopes =
+    typedRequested.length === 0
+      ? DEFAULT_SCOPES
+      : hasProductScope
+        ? typedRequested
+        : [...typedRequested, ...DEFAULT_SCOPES];
+
+  // The resource is an MCP endpoint, so every authorization must carry the
+  // connection marker. This marker grants no product data access by itself.
+  return [
+    "mcp",
+    ...new Set(scopes.filter((scope) => scope !== "mcp")),
+  ] as OAuthScope[];
 }

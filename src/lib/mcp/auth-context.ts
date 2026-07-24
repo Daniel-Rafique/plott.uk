@@ -31,6 +31,20 @@ export function bearerToken(request: Request): string | null {
   return header.slice(7).trim() || null;
 }
 
+export function effectiveMcpScopes(
+  tokenScope: string,
+  grantedScopes: string[],
+): Set<string> {
+  const granted = new Set(grantedScopes);
+  const scopes = new Set(
+    tokenScope.split(/\s+/).filter((scope) => granted.has(scope)),
+  );
+  // A successfully verified audience already binds the token to /api/mcp.
+  // Restore only this non-data-bearing marker for legacy client grants.
+  scopes.add("mcp");
+  return scopes;
+}
+
 export async function requireMcpContext(
   request: Request,
 ): Promise<McpAuthContext> {
@@ -74,13 +88,8 @@ export async function requireMcpContext(
       "subscription_required",
     );
   }
-  const granted = new Set(grant.scopes);
-  const scopes = new Set(
-    claims.scope.split(/\s+/).filter((scope) => granted.has(scope)),
-  );
-  if (!scopes.has("mcp")) {
-    throw new McpAuthError("MCP scope is required", 403, "insufficient_scope");
-  }
+  // Product permissions remain the intersection of token and live grant.
+  const scopes = effectiveMcpScopes(claims.scope, grant.scopes);
   return {
     user,
     company,

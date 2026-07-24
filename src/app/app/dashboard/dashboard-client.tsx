@@ -1218,11 +1218,12 @@ export function DashboardClient({ features }: { features: PlanFeatures }) {
   // where returning to the tab brings you back exactly where you left off.
   useEffect(() => {
     if (restoreAttemptedRef.current) return;
-    if (
-      typeof window !== "undefined" &&
-      new URLSearchParams(window.location.search).get("savedSearch")
-    ) {
-      // Digest deep link: dedicated effect applies GET /api/saved-searches/:id
+    const deepLinkParams =
+      typeof window !== "undefined"
+        ? new URLSearchParams(window.location.search)
+        : null;
+    if (deepLinkParams?.get("savedSearch") || deepLinkParams?.get("q")) {
+      // Dedicated effects apply saved-search and transient MCP deep links.
       hasHydratedRef.current = true;
       restoreAttemptedRef.current = true;
       return;
@@ -1621,6 +1622,7 @@ export function DashboardClient({ features }: { features: PlanFeatures }) {
               onStreamEnd={handleStreamEnd}
               getCurrentBounds={getCurrentBounds}
               chips={nlChips}
+              initialPrompt={searchParams.get("q") ?? undefined}
             />
             {nlSummary && (
               <p className="mt-1 text-[11px] text-zinc-500 italic">

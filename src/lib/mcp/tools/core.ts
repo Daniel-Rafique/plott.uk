@@ -13,6 +13,7 @@ import {
 import { checkRateLimit } from "@/lib/rate-limit";
 import { getCompanyPlanFeatures } from "@/lib/plan-features";
 import { getCompanyPlan } from "@/lib/pricing";
+import { oauthConfig } from "@/lib/mcp/oauth/config";
 
 const readOnly = {
   readOnlyHint: true,
@@ -20,6 +21,42 @@ const readOnly = {
   idempotentHint: true,
   openWorldHint: false,
 };
+
+type PlanningSearchLinkInput = {
+  query?: string;
+  council?: string;
+  postcode?: string;
+  status?: string;
+  type?: string;
+  dateFrom?: string;
+  dateTo?: string;
+};
+
+export function planningDashboardUrl(
+  input: PlanningSearchLinkInput,
+  origin = oauthConfig().origin,
+): string {
+  const subject = [
+    input.status,
+    input.type,
+    "planning applications",
+  ]
+    .filter(Boolean)
+    .join(" ");
+  const prompt = [
+    subject,
+    input.query ? `matching ${input.query}` : null,
+    input.council ? `in ${input.council}` : null,
+    input.postcode ? `near ${input.postcode}` : null,
+    input.dateFrom ? `from ${input.dateFrom}` : null,
+    input.dateTo ? `to ${input.dateTo}` : null,
+  ]
+    .filter(Boolean)
+    .join(" ");
+  const url = new URL("/app/dashboard", origin);
+  url.searchParams.set("q", prompt);
+  return url.toString();
+}
 
 export function registerCoreTools(
   server: McpServer,
@@ -117,6 +154,7 @@ export function registerCoreTools(
       });
       return toolResult({
         applications: applications.map(mapPlanwireToPlanningEntity),
+        dashboard_url: planningDashboardUrl(input),
       });
     },
   );

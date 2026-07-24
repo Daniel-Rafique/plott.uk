@@ -1,5 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { fetchPlanwireApplicationsByQuery } from "@/lib/planwire";
+import {
+  fetchPlanwireApplicationsByQuery,
+  PlanwireTimeoutError,
+} from "@/lib/planwire";
 
 describe("fetchPlanwireApplicationsByQuery", () => {
   afterEach(() => {
@@ -60,6 +63,7 @@ describe("fetchPlanwireApplicationsByQuery", () => {
     const calledUrl = new URL(fetchMock.mock.calls[0]?.[0] as string);
     const options = fetchMock.mock.calls[0]?.[1] as {
       headers?: Record<string, string>;
+      signal?: AbortSignal;
     };
 
     expect(calledUrl.pathname).toBe("/v1/applications");
@@ -73,6 +77,7 @@ describe("fetchPlanwireApplicationsByQuery", () => {
     expect(calledUrl.searchParams.get("page")).toBe("2");
     expect(calledUrl.searchParams.get("limit")).toBe("100");
     expect(options.headers?.Authorization).toBe("Bearer pw_test_key");
+    expect(options.signal).toBeInstanceOf(AbortSignal);
 
     expect(results).toHaveLength(1);
     expect(results[0]).toMatchObject({
@@ -189,5 +194,26 @@ describe("fetchPlanwireApplicationsByQuery", () => {
     expect(calledUrl.searchParams.has("type")).toBe(false);
     expect(calledUrl.searchParams.has("date_from")).toBe(false);
     expect(calledUrl.searchParams.has("date_to")).toBe(false);
+  });
+
+  it("surfaces an upstream timeout as a controlled error", async () => {
+    vi.stubEnv("PLANWIRE_API_KEY", "pw_test_key");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockRejectedValue(new DOMException("Timed out", "TimeoutError")),
+    );
+
+    const error = await fetchPlanwireApplicationsByQuery({
+      council: "wandsworth",
+    }).catch((caught: unknown) => caught);
+
+    expect(error).toBeInstanceOf(PlanwireTimeoutError);
+    expect(error).toEqual(
+      expect.objectContaining({
+        name: "PlanwireTimeoutError",
+        message: "Planning search timed out. Please retry in a moment.",
+        context: "applications?search",
+      }),
+    );
   });
 });
