@@ -19,7 +19,24 @@ export default async function OAuthAuthorizePage({
   searchParams: Search;
 }) {
   const params = await searchParams;
-  const request = await validateAuthorizationRequest(params);
+  let request: Awaited<ReturnType<typeof validateAuthorizationRequest>>;
+  try {
+    request = await validateAuthorizationRequest(params);
+  } catch {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-zinc-50 px-4 py-12">
+        <section className="w-full max-w-lg rounded-2xl border border-zinc-200 bg-white p-8 text-center shadow-sm">
+          <h1 className="text-2xl font-semibold text-zinc-950">
+            Invalid authorization request
+          </h1>
+          <p className="mt-3 text-sm text-zinc-600">
+            This MCP connection request is invalid or has expired. Return to
+            your MCP client and start the connection again.
+          </p>
+        </section>
+      </main>
+    );
+  }
   const session = await getSessionUser();
   const returnPath = `/oauth/authorize?${new URLSearchParams(
     Object.entries(params).flatMap(([key, value]) =>

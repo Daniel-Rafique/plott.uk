@@ -51,10 +51,6 @@ export async function validateAuthorizationRequest(
     throw new Error("Unknown client or redirect URI");
   }
   const scopes = normalizeScopes(one(params.scope));
-  if (client.scopes.length) {
-    const disallowed = scopes.filter((scope) => !client.scopes.includes(scope));
-    if (disallowed.length) throw new Error("Client requested unregistered scopes");
-  }
   return {
     clientId,
     clientName: client.clientName,
