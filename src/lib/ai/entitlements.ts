@@ -23,11 +23,17 @@ import {
   type Tier,
 } from "@/lib/ai/tiers";
 import { repairSubscriptionStateForEntitlements } from "@/lib/stripe/subscription-repair";
+import { hasSubscriptionAccess } from "@/lib/subscription-entitlement";
 
 type Ctx = {
   company: Pick<
     Company,
-    "id" | "subscriptionStatus" | "subscriptionPriceId" | "aiEnabled"
+    | "id"
+    | "subscriptionStatus"
+    | "subscriptionPriceId"
+    | "subscriptionCurrentPeriodEnd"
+    | "trialEndsAt"
+    | "aiEnabled"
   >;
 };
 
@@ -39,6 +45,18 @@ export async function requireAiEntitlement(
   ctx: Ctx,
   kind: AgentKind,
 ): Promise<EntitlementResult> {
+  if (!hasSubscriptionAccess(ctx.company)) {
+    return {
+      ok: false,
+      response: NextResponse.json(
+        {
+          error: "An active subscription is required for AI features.",
+          code: "subscription_required",
+        },
+        { status: 403 },
+      ),
+    };
+  }
   if (!ctx.company.aiEnabled) {
     return {
       ok: false,

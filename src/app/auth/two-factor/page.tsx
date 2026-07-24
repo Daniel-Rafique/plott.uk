@@ -13,14 +13,26 @@ export const metadata = privatePageMetadata({
 
 export const dynamic = "force-dynamic";
 
-export default async function TwoFactorPage() {
+export default async function TwoFactorPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ next?: string | string[] }>;
+}) {
+  const rawNext = (await searchParams)?.next;
+  const next =
+    typeof rawNext === "string" &&
+    rawNext.startsWith("/") &&
+    !rawNext.startsWith("//") &&
+    !rawNext.startsWith("/auth/")
+      ? rawNext
+      : "/app/dashboard";
   const sessionUser = await getSessionUser();
-  if (!sessionUser) redirect("/auth/sign-in");
+  if (!sessionUser) redirect(`/auth/sign-in?next=${encodeURIComponent(next)}`);
   if (!sessionUser.emailVerified) redirect("/auth/verify-email");
   const user = await upsertUserFromSession(sessionUser);
-  if (!user.twoFactorEmailEnabled) redirect("/app/dashboard");
+  if (!user.twoFactorEmailEnabled) redirect(next);
   if (await hasValidSecondFactorVerification(user.id)) {
-    redirect("/app/dashboard");
+    redirect(next);
   }
 
   return (
@@ -47,7 +59,7 @@ export default async function TwoFactorPage() {
                 We need one more email code before opening your workspace.
               </p>
             </div>
-            <TwoFactorForm />
+            <TwoFactorForm next={next} />
           </div>
         </div>
       </div>

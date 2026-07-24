@@ -5,7 +5,7 @@ import { authClient } from "@/lib/auth/client";
 
 const RESEND_COOLDOWN_S = 30;
 
-export function TwoFactorForm() {
+export function TwoFactorForm({ next = "/app/dashboard" }: { next?: string }) {
   const [code, setCode] = useState("");
   const [pending, setPending] = useState(false);
   const [sending, setSending] = useState(false);
@@ -28,12 +28,12 @@ export function TwoFactorForm() {
       return;
     }
     if (data.required === false) {
-      window.location.href = "/app/dashboard";
+      window.location.href = next;
       return;
     }
     setCooldown(RESEND_COOLDOWN_S);
     setNotice("We sent a 6-digit sign-in code to your email.");
-  }, [cooldown, sending]);
+  }, [cooldown, next, sending]);
 
   useEffect(() => {
     inputRef.current?.focus();
@@ -72,7 +72,7 @@ export function TwoFactorForm() {
       setError(data.error ?? "That code did not work.");
       return;
     }
-    window.location.href = "/app/dashboard";
+    window.location.href = next;
   }
 
   async function signOut() {

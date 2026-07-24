@@ -27,6 +27,10 @@ export const LIMITS = {
   aiChat: { limit: 40, window: "1 m" },
   aiResearch: { limit: 20, window: "1 h" },
   outreachContact: { limit: 20, window: "1 h" },
+  oauthRegister: { limit: 20, window: "1 h" },
+  oauthAuthorize: { limit: 30, window: "1 m" },
+  oauthToken: { limit: 60, window: "1 m" },
+  mcpInvoke: { limit: 120, window: "1 m" },
   contact: { limit: 5, window: "1 h" },
   marketingSubscribe: { limit: 6, window: "1 h" },
 } as const satisfies Record<string, LimitDef>;
