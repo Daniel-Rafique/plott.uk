@@ -10,6 +10,7 @@ const columns: { title: string; links: LinkItem[] }[] = [
     title: "Product",
     links: [
       { href: "/how-it-works", label: "How it works" },
+      { href: "/mcp", label: "Plott MCP" },
       { href: "/resources", label: "Resources" },
       { href: "#features", label: "Features" },
       { href: "/continue", label: "Open app" },

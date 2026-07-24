@@ -9,6 +9,7 @@ import { HowItWorks } from "./how-it-works";
 import { FeaturesGrid } from "./features-grid";
 import { Testimonials } from "./testimonials";
 import { ProjectsGallery } from "./projects-gallery";
+import { McpSection } from "./mcp-section";
 import { useTextReveal } from "@/lib/animation/use-text-reveal";
 import { useGsapReveal } from "@/lib/animation/use-gsap-reveal";
 import { StackingSections } from "@/lib/animation/stacking-sections";
@@ -169,6 +170,8 @@ export function HomePageContent({ heroFontClassName }: Props) {
       <HowItWorks />
 
       <FeaturesGrid />
+
+      <McpSection />
 
       <Testimonials />
 

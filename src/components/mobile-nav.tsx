@@ -13,8 +13,10 @@ import { cn } from "@/lib/utils";
 
 const NAV_LINKS = [
   { href: "/how-it-works", label: "How it works" },
+  { href: "/mcp", label: "MCP" },
   { href: "/about", label: "About" },
   { href: "/pricing", label: "Pricing" },
+  { href: "/resources", label: "Resources" },
   { href: "/privacy", label: "Privacy" },
 ];
 

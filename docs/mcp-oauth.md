@@ -15,7 +15,7 @@ MCP_OAUTH_PUBLIC_ORIGIN=https://plott.uk
 MCP_OAUTH_SIGNING_SECRET=<dedicated random secret>
 MCP_OAUTH_ACCESS_TOKEN_TTL=600
 MCP_OAUTH_REFRESH_TOKEN_TTL=2592000
-MCP_OAUTH_DCR_ENABLED=false
+MCP_OAUTH_DCR_ENABLED=true
 ```
 
 Generate the signing secret with `openssl rand -base64 48`. Do not reuse the
@@ -23,9 +23,10 @@ Neon cookie, cron, workflow, or webhook secrets. Apply the Prisma migration
 before enabling the endpoint. Production also requires Upstash Redis because
 OAuth and MCP rate limits fail closed without it.
 
-Dynamic client registration is omitted from discovery and returns 404 unless
-`MCP_OAUTH_DCR_ENABLED=true`. Keep it disabled while provisioning/testing, then
-enable it only when public MCP client onboarding has been approved.
+Dynamic client registration is enabled in production so compatible external MCP
+clients can register automatically. Setting `MCP_OAUTH_DCR_ENABLED=false`
+removes registration from discovery and makes the registration endpoint return
+404.
 
 ## Discovery and endpoints
 
@@ -73,6 +74,11 @@ grant therefore takes effect without waiting for token expiry.
    ID, redirect URI, and resource.
 5. Send the access token as `Authorization: Bearer ...` to `/api/mcp`.
 
+For clients with built-in remote MCP and OAuth support, add
+`https://plott.uk/api/mcp` as the server URL. The client handles discovery,
+registration, PKCE and token exchange, while the user signs in to Plott,
+selects a workspace and approves the requested permissions.
+
 ## Release checklist
 
 1. Run `npx prisma migrate deploy`, `npm test`, `npm run lint`, and `npm run build`.
@@ -83,8 +89,8 @@ grant therefore takes effect without waiting for token expiry.
    token.
 5. Confirm Sentry errors and PostHog/OAuth audit events contain no token or raw
    enrichment values.
-6. Keep `MCP_OAUTH_DCR_ENABLED=false` until the security review has been
-   accepted; enable it deliberately when public registration is required.
+6. Confirm DCR remains enabled only while public external-client connections
+   are supported.
 
 ## Deliberate exclusions
 

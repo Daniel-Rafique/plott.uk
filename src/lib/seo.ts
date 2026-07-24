@@ -69,6 +69,11 @@ export const publicSitemapRoutes = [
     priority: 0.85,
   },
   {
+    path: "/mcp",
+    changeFrequency: "monthly",
+    priority: 0.85,
+  },
+  {
     path: "/resources",
     changeFrequency: "weekly",
     priority: 0.8,

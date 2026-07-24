@@ -12,6 +12,7 @@ const PUBLIC_SHELL_EXACT_PATHS = new Set([
   "/about",
   "/contact",
   "/how-it-works",
+  "/mcp",
   "/pricing",
   "/privacy",
   "/resources",

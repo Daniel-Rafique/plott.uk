@@ -47,6 +47,13 @@ export function SiteHeader() {
           How it works
         </Link>
         <Link
+          href="/mcp"
+          className="inline-flex items-center gap-2 text-brand-dark transition-colors hover:text-zinc-950"
+        >
+          <span className="h-1.5 w-1.5 rounded-full bg-brand" />
+          MCP
+        </Link>
+        <Link
           href="/about"
           className="transition-colors hover:text-zinc-950"
         >
