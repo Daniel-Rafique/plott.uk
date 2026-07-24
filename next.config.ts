@@ -20,7 +20,7 @@ const CSP = [
   "worker-src 'self' blob:",
   "object-src 'none'",
   "base-uri 'self'",
-  "form-action 'self'",
+  "form-action 'self' https://plott.uk https://www.plott.uk",
   "frame-ancestors 'self'",
   "upgrade-insecure-requests",
 ].join("; ");
