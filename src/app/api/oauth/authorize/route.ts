@@ -18,7 +18,7 @@ function redirectWith(
 ): NextResponse {
   const url = new URL(redirectUri);
   for (const [key, value] of Object.entries(values)) url.searchParams.set(key, value);
-  return NextResponse.redirect(url);
+  return NextResponse.redirect(url, { status: 303 });
 }
 
 export async function POST(request: Request) {
