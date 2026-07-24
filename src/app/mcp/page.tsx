@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import {
   ArrowRight,
   Bot,
@@ -14,6 +15,7 @@ import {
   jsonLdScriptProps,
   publicPageMetadata,
 } from "@/lib/seo";
+import { MCP_HERO } from "@/lib/marketing/images";
 
 const MCP_URL = "https://plott.uk/api/mcp";
 
@@ -77,15 +79,24 @@ export default function McpPage() {
         dangerouslySetInnerHTML={jsonLdScriptProps(mcpJsonLd)}
       />
       <main className="flex-1 bg-white">
-        <section className="relative overflow-hidden bg-zinc-950 px-6 py-28 text-white md:py-36">
-          <div
-            className="pointer-events-none absolute inset-0 opacity-50"
-            style={{
-              backgroundImage:
-                "radial-gradient(circle at 75% 25%, rgba(63, 141, 111, 0.38), transparent 38%)",
-            }}
+        <section className="relative flex min-h-[min(100dvh,56rem)] items-center overflow-hidden bg-zinc-950 px-6 py-28 text-white md:py-36">
+          <Image
+            src={MCP_HERO.src}
+            alt={MCP_HERO.alt}
+            fill
+            priority
+            sizes="100vw"
+            className="object-cover object-center"
           />
-          <div className="relative mx-auto max-w-6xl">
+          <div
+            aria-hidden
+            className="absolute inset-0 bg-gradient-to-r from-zinc-950/95 via-zinc-950/80 to-zinc-950/35"
+          />
+          <div
+            aria-hidden
+            className="absolute inset-0 bg-gradient-to-t from-zinc-950/70 via-transparent to-zinc-950/25"
+          />
+          <div className="relative z-10 mx-auto w-full max-w-6xl">
             <p className="inline-flex items-center gap-2 rounded-full border border-brand-light/30 bg-brand/15 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-brand-light">
               <span className="h-2 w-2 rounded-full bg-brand-light" />
               Live remote MCP
@@ -113,6 +124,14 @@ export default function McpPage() {
               </code>
             </div>
           </div>
+          <a
+            href={MCP_HERO.credit.url}
+            target="_blank"
+            rel="noreferrer"
+            className="absolute right-6 bottom-6 z-10 text-[10px] uppercase tracking-[0.25em] text-zinc-400 transition hover:text-white"
+          >
+            Photo: {MCP_HERO.credit.name}
+          </a>
         </section>
 
         <section className="px-6 py-24 md:py-32">

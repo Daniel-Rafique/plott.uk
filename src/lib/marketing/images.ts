@@ -76,6 +76,15 @@ export const PRICING_HERO: MarketingImage = {
   },
 };
 
+export const MCP_HERO: MarketingImage = {
+  src: unsplash("1516321318423-f06f85e504b3"),
+  alt: "A developer workspace with code open on a laptop — connecting Plott planning intelligence to AI tools through MCP.",
+  credit: {
+    name: "Christopher Gower",
+    url: "https://unsplash.com/@cgower",
+  },
+};
+
 export const RESOURCES_HERO: MarketingImage = {
   src: unsplash("1450101499163-c8848c66ca85"),
   alt: "A desk covered with paper notes, maps and planning research — practical answers for construction growth teams.",
