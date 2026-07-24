@@ -127,7 +127,7 @@ export function SignInForm({
     try {
       const res = await authClient.signIn.social({
         provider: "google",
-        callbackURL: googleTarget,
+        callbackURL: new URL(googleTarget, window.location.origin).toString(),
       });
       if (res.error) {
         setError(res.error.message ?? "Google sign-in failed. Try again.");
