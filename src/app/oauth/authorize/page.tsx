@@ -8,6 +8,7 @@ import {
   type OAuthScope,
 } from "@/lib/mcp/oauth/config";
 import { validateAuthorizationRequest } from "@/lib/mcp/oauth/authorization-request";
+import { AuthorizeActions } from "./authorize-actions";
 
 export const dynamic = "force-dynamic";
 
@@ -113,24 +114,7 @@ export default async function OAuthAuthorizePage({
             </ul>
           </div>
 
-          <div className="mt-6 flex gap-3">
-            <button
-              type="submit"
-              name="decision"
-              value="approve"
-              className="flex-1 rounded-full bg-zinc-950 px-4 py-2.5 text-sm font-semibold text-white"
-            >
-              Authorize
-            </button>
-            <button
-              type="submit"
-              name="decision"
-              value="deny"
-              className="rounded-full border border-zinc-300 px-4 py-2.5 text-sm font-semibold text-zinc-700"
-            >
-              Deny
-            </button>
-          </div>
+          <AuthorizeActions />
         </form>
       </section>
     </main>
