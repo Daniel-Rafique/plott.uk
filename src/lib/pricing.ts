@@ -135,10 +135,13 @@ function aiBudgetLine(plan: Plan): string {
   return `£${plan.aiBudgetGbp}/month included AI credit. Overage is metered and billed on your next invoice; optional daily cap in Settings → AI.`;
 }
 
+const MCP_FEATURE = "Plott MCP access for Claude, ChatGPT and Cursor";
+
 export function buildPlanFeatures(plan: Plan): string[] {
   if (plan.id === "starter") {
     return [
       `${plan.seatLimit} user seat${plan.seatLimit === 1 ? "" : "s"} included`,
+      MCP_FEATURE,
       "25 map searches per day",
       "Photorealistic 3D map view",
       "CSV export of results",
@@ -155,6 +158,7 @@ export function buildPlanFeatures(plan: Plan): string[] {
     const pinned = pinnedApplicationFeatureLine(plan);
     return [
       `${plan.seatLimit} team seats included`,
+      MCP_FEATURE,
       ...(extra ? [extra] : []),
       "Unlimited map searches",
       "Everything in Starter, plus:",
@@ -172,6 +176,7 @@ export function buildPlanFeatures(plan: Plan): string[] {
   const pinned = pinnedApplicationFeatureLine(plan);
   return [
     `${plan.seatLimit} team seats included`,
+    MCP_FEATURE,
     ...(extra ? [extra] : []),
     "Unlimited map searches",
     "Everything in Pro, plus:",
