@@ -46,6 +46,9 @@ const uploadSentrySourceMaps =
 
 const nextConfig: NextConfig = {
   skipTrailingSlashRedirect: true,
+  outputFileTracingIncludes: {
+    "/api/mcp": ["./src/lib/mcp/skills/**/*.md"],
+  },
   images: {
     remotePatterns: [
       {

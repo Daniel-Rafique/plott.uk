@@ -63,6 +63,25 @@ authorization re-checks the current membership, subscription, grant, token
 audience, revocation state, and tool scope. Removing a membership or revoking a
 grant therefore takes effect without waiting for token expiry.
 
+## Agent Skills
+
+Plott publishes three progressively disclosed workflow skills through the
+authenticated MCP Resources capability:
+
+- `skill://research-planning-opportunity/SKILL.md`
+- `skill://qualify-planning-lead/SKILL.md`
+- `skill://prepare-compliant-outreach/SKILL.md`
+
+Compatible clients can discover them from `skill://index.json`. Each skill
+teaches the client how to sequence existing Plott tools while preserving
+workspace boundaries, provenance, idempotency, paid-operation warnings and
+explicit outreach confirmation. Skills provide instructions only; tools remain
+the authorization and execution boundary.
+
+Skills-over-MCP support varies by client. The existing tools and the
+`planning_research` and `compliant_outreach_letter` prompts remain available as
+fallbacks, so clients are not required to understand the `skill://` convention.
+
 ## Client flow
 
 1. Read protected-resource and authorization-server metadata.

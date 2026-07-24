@@ -3,6 +3,7 @@ import type { McpAuthContext } from "@/lib/mcp/auth-context";
 import { registerCoreTools } from "@/lib/mcp/tools/core";
 import { registerWorkspaceTools } from "@/lib/mcp/tools/workspace";
 import { registerAiTools } from "@/lib/mcp/tools/ai";
+import { registerSkillResources } from "@/lib/mcp/skills";
 
 export function createPlottMcpServer(context: McpAuthContext) {
   const server = new McpServer(
@@ -14,9 +15,10 @@ export function createPlottMcpServer(context: McpAuthContext) {
         prompts: { listChanged: false },
       },
       instructions:
-        "Use Plott tools only within the authorized workspace. Never send outreach without explicit user confirmation.",
+        "Use Plott tools only within the authorized workspace. Workflow skills are discoverable at skill://index.json. Never send outreach without explicit user confirmation.",
     },
   );
+  registerSkillResources(server, context);
   registerCoreTools(server, context);
   registerWorkspaceTools(server, context);
   registerAiTools(server, context);

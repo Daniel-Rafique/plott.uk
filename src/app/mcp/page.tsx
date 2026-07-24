@@ -65,8 +65,8 @@ const capabilities = [
   },
   {
     icon: Bot,
-    title: "AI and outreach",
-    copy: "Run plan-gated research and compliance tools, with explicit approval required before outreach is sent.",
+    title: "Guided AI workflows",
+    copy: "Compatible clients discover Plott skills for research, lead qualification and compliant outreach. Tools and prompts remain available everywhere.",
   },
 ];
 
