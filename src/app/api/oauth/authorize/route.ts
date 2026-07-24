@@ -12,12 +12,19 @@ import { recordOAuthAudit } from "@/lib/mcp/oauth/audit";
 
 export const runtime = "nodejs";
 
-function redirectWith(
+function authorizationResponse(
+  request: Request,
   redirectUri: string,
   values: Record<string, string>,
 ): NextResponse {
   const url = new URL(redirectUri);
   for (const [key, value] of Object.entries(values)) url.searchParams.set(key, value);
+  if (request.headers.get("accept")?.includes("application/json")) {
+    return NextResponse.json(
+      { redirect_to: url.toString() },
+      { headers: { "Cache-Control": "no-store" } },
+    );
+  }
   return NextResponse.redirect(url, { status: 303 });
 }
 
@@ -35,7 +42,7 @@ export async function POST(request: Request) {
     response_type: "code",
   });
   if (params.decision === "deny") {
-    return redirectWith(authRequest.redirectUri, {
+    return authorizationResponse(request, authRequest.redirectUri, {
       error: "access_denied",
       state: authRequest.state,
     });
@@ -106,7 +113,7 @@ export async function POST(request: Request) {
     companyId,
     metadata: { scopes: authRequest.scopes },
   });
-  return redirectWith(authRequest.redirectUri, {
+  return authorizationResponse(request, authRequest.redirectUri, {
     code,
     state: authRequest.state,
   });

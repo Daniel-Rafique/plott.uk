@@ -8,7 +8,7 @@ import {
   type OAuthScope,
 } from "@/lib/mcp/oauth/config";
 import { validateAuthorizationRequest } from "@/lib/mcp/oauth/authorization-request";
-import { AuthorizeActions } from "./authorize-actions";
+import { AuthorizationForm } from "./authorize-actions";
 
 export const dynamic = "force-dynamic";
 
@@ -73,7 +73,7 @@ export default async function OAuthAuthorizePage({
           from Plott settings at any time.
         </p>
 
-        <form action="/api/oauth/authorize" method="post" className="mt-6">
+        <AuthorizationForm>
           {[
             ["client_id", request.clientId],
             ["redirect_uri", request.redirectUri],
@@ -114,8 +114,7 @@ export default async function OAuthAuthorizePage({
             </ul>
           </div>
 
-          <AuthorizeActions />
-        </form>
+        </AuthorizationForm>
       </section>
     </main>
   );
