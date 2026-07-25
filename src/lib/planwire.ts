@@ -415,6 +415,12 @@ export function matchPlanwireCouncilId(
 ): string | null {
   const trimmed = planningOrganisationName.trim();
   if (!trimmed) return null;
+
+  // Exact PlanWire slug (e.g. pinned deep links pass `councilId` as the area).
+  const slug = trimmed.toLowerCase().replace(/\s+/g, "-");
+  const byId = councils.find((c) => c.id === trimmed || c.id === slug);
+  if (byId) return byId.id;
+
   const p = normalizeLpaName(trimmed);
 
   let best: { id: string; score: number } | null = null;

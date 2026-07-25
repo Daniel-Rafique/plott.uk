@@ -82,6 +82,18 @@ function pinnedKey(reference: string | null | undefined, councilId: string | nul
   return `${reference ?? ""}::${councilId ?? ""}`;
 }
 
+/** NL prompt for a pinned deep link — area (council) + reference so deep search can resolve the LPA. */
+function pinnedDeepLinkSearchPrompt(
+  reference: string,
+  councilId: string | null | undefined,
+): string {
+  const ref = reference.trim();
+  const area = councilId?.trim();
+  // Keep the PlanWire council slug (e.g. `camden`) so deep search can resolve
+  // the LPA path; reference alone has no location hint.
+  return area ? `${ref} in ${area}` : ref;
+}
+
 function TrackingPulse({ className }: { className?: string }) {
   const ref = useRef<HTMLSpanElement | null>(null);
 
@@ -217,8 +229,8 @@ export function DashboardClient({ features }: { features: PlanFeatures }) {
   const [selectedEntityId, setSelectedEntityId] = useState<number | null>(null);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [nlSummary, setNlSummary] = useState<string | null>(null);
-  // Reference of a `?pinned=<id>` deep link, resolved async from the pinned
-  // application record and fed into the NL search bar to surface it on the map.
+  // Area + reference prompt for a `?pinned=<id>` deep link, resolved async
+  // from the pinned application record and fed into the NL search bar.
   const [pinnedDeepLinkPrompt, setPinnedDeepLinkPrompt] = useState<string | null>(null);
   const [nlLocationHint, setNlLocationHint] = useState<string | null>(null);
   const [nlKeywords, setNlKeywords] = useState<string[]>([]);
@@ -1484,10 +1496,11 @@ export function DashboardClient({ features }: { features: PlanFeatures }) {
   }, [searchParams, results]);
 
   // MCP / email deep link to a pinned application: `?pinned=<id>`. Load the
-  // tenant-scoped pinned record, then feed its reference to the NL search bar
-  // (which runs the deep search and pans the map). Once results arrive, the
-  // pending-entity effect below selects the exact application when we know its
-  // planning entity. Clears the param when done so a refresh won't re-run it.
+  // tenant-scoped pinned record, then feed area + reference to the NL search
+  // bar (deep search needs a location hint — ref alone like `2026/2156` is not
+  // enough). Once results arrive, the pending-entity effect below selects the
+  // exact application when we know its planning entity. Clears the param when
+  // done so a refresh won't re-run it.
   useEffect(() => {
     const id = searchParams.get("pinned");
     if (!id) {
@@ -1517,7 +1530,11 @@ export function DashboardClient({ features }: { features: PlanFeatures }) {
           return;
         }
         const payload = (await res.json()) as {
-          pinnedApplication: { reference: string; planningEntity: number | null };
+          pinnedApplication: {
+            reference: string;
+            councilId: string | null;
+            planningEntity: number | null;
+          };
         };
         const reference = payload.pinnedApplication.reference?.trim();
         if (!reference) {
@@ -1528,9 +1545,14 @@ export function DashboardClient({ features }: { features: PlanFeatures }) {
         }
         pendingPinnedEntityRef.current =
           payload.pinnedApplication.planningEntity ?? null;
-        // Feeding the reference as the NL prompt runs the deep search that
-        // surfaces the application and pans the map.
-        setPinnedDeepLinkPrompt(reference);
+        // Area + reference so NL parse gets a locationHint and deep search
+        // can use the council path (reference alone has no map area).
+        setPinnedDeepLinkPrompt(
+          pinnedDeepLinkSearchPrompt(
+            reference,
+            payload.pinnedApplication.councilId,
+          ),
+        );
         window.history.replaceState(null, "", "/app/dashboard");
       } catch {
         toast.error("Could not open this pinned application from the link.");
