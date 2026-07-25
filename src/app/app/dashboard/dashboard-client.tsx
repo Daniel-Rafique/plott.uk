@@ -217,6 +217,9 @@ export function DashboardClient({ features }: { features: PlanFeatures }) {
   const [selectedEntityId, setSelectedEntityId] = useState<number | null>(null);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [nlSummary, setNlSummary] = useState<string | null>(null);
+  // Reference of a `?pinned=<id>` deep link, resolved async from the pinned
+  // application record and fed into the NL search bar to surface it on the map.
+  const [pinnedDeepLinkPrompt, setPinnedDeepLinkPrompt] = useState<string | null>(null);
   const [nlLocationHint, setNlLocationHint] = useState<string | null>(null);
   const [nlKeywords, setNlKeywords] = useState<string[]>([]);
 
@@ -225,6 +228,12 @@ export function DashboardClient({ features }: { features: PlanFeatures }) {
   // Which `?savedSearch=` id we already applied (avoids duplicate work in React
   // Strict Mode; reset when the param is absent so another saved search can load).
   const digestProcessedSavedSearchIdRef = useRef<string | null>(null);
+  // Which `?pinned=<id>` deep link we already resolved (avoids duplicate
+  // fetches in React Strict Mode / on param clears).
+  const processedPinnedIdRef = useRef<string | null>(null);
+  // Planning entity of a pending pinned deep link, selected once the deep
+  // search that surfaces it returns matching results.
+  const pendingPinnedEntityRef = useRef<number | null>(null);
   // Guards the mount-restore effect from re-running and avoids persisting
   // the hydration itself back to the server.
   const restoreAttemptedRef = useRef(false);
@@ -1222,7 +1231,11 @@ export function DashboardClient({ features }: { features: PlanFeatures }) {
       typeof window !== "undefined"
         ? new URLSearchParams(window.location.search)
         : null;
-    if (deepLinkParams?.get("savedSearch") || deepLinkParams?.get("q")) {
+    if (
+      deepLinkParams?.get("savedSearch") ||
+      deepLinkParams?.get("q") ||
+      deepLinkParams?.get("pinned")
+    ) {
       // Dedicated effects apply saved-search and transient MCP deep links.
       hasHydratedRef.current = true;
       restoreAttemptedRef.current = true;
@@ -1470,6 +1483,73 @@ export function DashboardClient({ features }: { features: PlanFeatures }) {
     window.history.replaceState(null, "", "/app/dashboard");
   }, [searchParams, results]);
 
+  // MCP / email deep link to a pinned application: `?pinned=<id>`. Load the
+  // tenant-scoped pinned record, then feed its reference to the NL search bar
+  // (which runs the deep search and pans the map). Once results arrive, the
+  // pending-entity effect below selects the exact application when we know its
+  // planning entity. Clears the param when done so a refresh won't re-run it.
+  useEffect(() => {
+    const id = searchParams.get("pinned");
+    if (!id) {
+      processedPinnedIdRef.current = null;
+      return;
+    }
+    if (processedPinnedIdRef.current === id) return;
+    processedPinnedIdRef.current = id;
+
+    void (async () => {
+      try {
+        const res = await fetch(
+          `/api/pinned-applications/${encodeURIComponent(id)}`,
+          { cache: "no-store" },
+        );
+        if (!res.ok) {
+          const payload = (await res.json().catch(() => null)) as {
+            upgrade?: boolean;
+          } | null;
+          toast.error(
+            payload?.upgrade
+              ? "Tracking pinned applications requires the Pro plan or higher."
+              : "Could not open this pinned application from the link.",
+          );
+          processedPinnedIdRef.current = null;
+          window.history.replaceState(null, "", "/app/dashboard");
+          return;
+        }
+        const payload = (await res.json()) as {
+          pinnedApplication: { reference: string; planningEntity: number | null };
+        };
+        const reference = payload.pinnedApplication.reference?.trim();
+        if (!reference) {
+          toast.error("This pinned application has no reference to open.");
+          processedPinnedIdRef.current = null;
+          window.history.replaceState(null, "", "/app/dashboard");
+          return;
+        }
+        pendingPinnedEntityRef.current =
+          payload.pinnedApplication.planningEntity ?? null;
+        // Feeding the reference as the NL prompt runs the deep search that
+        // surfaces the application and pans the map.
+        setPinnedDeepLinkPrompt(reference);
+        window.history.replaceState(null, "", "/app/dashboard");
+      } catch {
+        toast.error("Could not open this pinned application from the link.");
+        processedPinnedIdRef.current = null;
+        window.history.replaceState(null, "", "/app/dashboard");
+      }
+    })();
+  }, [searchParams]);
+
+  // Select the pinned application's planning entity once the deep search
+  // triggered above has returned matching results.
+  useEffect(() => {
+    const target = pendingPinnedEntityRef.current;
+    if (target == null) return;
+    if (!results.some((r) => r.entity === target)) return;
+    pendingPinnedEntityRef.current = null;
+    queueMicrotask(() => setSelectedEntityId(target));
+  }, [results]);
+
   const pageNum = Math.floor(offset / PAGE_SIZE) + 1;
   const showPagination =
     lastBounds != null &&
@@ -1622,7 +1702,9 @@ export function DashboardClient({ features }: { features: PlanFeatures }) {
               onStreamEnd={handleStreamEnd}
               getCurrentBounds={getCurrentBounds}
               chips={nlChips}
-              initialPrompt={searchParams.get("q") ?? undefined}
+              initialPrompt={
+                searchParams.get("q") ?? pinnedDeepLinkPrompt ?? undefined
+              }
             />
             {nlSummary && (
               <p className="mt-1 text-[11px] text-zinc-500 italic">

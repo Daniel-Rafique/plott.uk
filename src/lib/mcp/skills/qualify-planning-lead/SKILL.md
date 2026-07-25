@@ -20,6 +20,7 @@ Separate observed planning data from Plott AI estimates and recommendations. Rea
    - indicative value and assumptions;
    - evidence, confidence, risks, and recommended next action.
 6. Only when requested, call `upsert_pipeline_lead` to create or advance the lead, or `pin_application` to track planning changes. Use a stable unique `idempotencyKey` for each intended write.
+   - After `pin_application` (and when listing pins via `list_pinned_applications`), surface the returned `dashboardUrl` as a clickable link so the user can open the pinned application in their Dashboard. The link loads the Dashboard, surfaces that pinned application on the map, and selects it. Only present a `dashboardUrl` the tool returned; never construct one yourself.
 
 ## Guardrails
 

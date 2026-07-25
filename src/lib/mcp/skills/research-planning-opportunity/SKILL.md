@@ -15,6 +15,7 @@ Work only in the authorized Plott workspace. Keep application references and sou
 4. Call `get_planning_application` before making detailed claims about a shortlisted result.
 5. When applicant context is relevant, call `research_applicant` using only names and hints returned by Plott. Preserve sources, confidence, and uncertainty.
 6. Present a concise shortlist with application reference, site, status, proposal, workspace fit, evidence, and unresolved questions.
+7. Only when the user asks to save the search, call `create_saved_search`, then surface the returned `dashboardUrl` as a clickable link so they can re-run the search in their Dashboard. The same `dashboardUrl` is returned per search by `list_saved_searches`. Only present a `dashboardUrl` the tool returned; never construct one yourself.
 
 ## Guardrails
 

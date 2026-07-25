@@ -28,6 +28,36 @@ function requireFeature(value: boolean, message: string) {
   if (!value) throw new Error(message);
 }
 
+/**
+ * Build a clickable Dashboard deep link that opens a specific pinned
+ * application. The dashboard reads the `pinned` query param on mount, loads the
+ * tenant-scoped pinned record, surfaces it on the map, and then clears the
+ * param. Returns `null` when there is no pinned application id.
+ */
+function dashboardDeepLink(pinnedApplicationId: string | null | undefined): string | null {
+  const trimmed = pinnedApplicationId?.trim();
+  if (!trimmed) return null;
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://plott.uk";
+  const sp = new URLSearchParams();
+  sp.set("pinned", trimmed);
+  return `${baseUrl}/app/dashboard?${sp.toString()}`;
+}
+
+/**
+ * Build a clickable Dashboard deep link that re-runs a saved search. The
+ * dashboard reads the `savedSearch` query param on mount, applies the saved
+ * bbox and filters, runs the search, and then clears the param. Returns `null`
+ * when there is no saved search id.
+ */
+function savedSearchDeepLink(savedSearchId: string | null | undefined): string | null {
+  const trimmed = savedSearchId?.trim();
+  if (!trimmed) return null;
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://plott.uk";
+  const sp = new URLSearchParams();
+  sp.set("savedSearch", trimmed);
+  return `${baseUrl}/app/dashboard?${sp.toString()}`;
+}
+
 export function registerWorkspaceTools(
   server: McpServer,
   context: McpAuthContext,
@@ -219,11 +249,15 @@ export function registerWorkspaceTools(
       requireScope(context, "workspace:read");
       const features = getCompanyPlanFeatures(context.company);
       requireFeature(features.canPinApplications, "Pinned applications require Pro or higher");
+      const pinnedApplications = await prisma.pinnedApplication.findMany({
+        where: { companyId: context.company.id },
+        orderBy: { createdAt: "desc" },
+      });
       return toolResult({
-        pinnedApplications: await prisma.pinnedApplication.findMany({
-          where: { companyId: context.company.id },
-          orderBy: { createdAt: "desc" },
-        }),
+        pinnedApplications: pinnedApplications.map((application) => ({
+          ...application,
+          dashboardUrl: dashboardDeepLink(application.id),
+        })),
       });
     },
   );
@@ -294,7 +328,10 @@ export function registerWorkspaceTools(
           });
         }),
       );
-      return toolResult({ pinnedApplication: pinned });
+      return toolResult({
+        pinnedApplication: pinned,
+        dashboardUrl: dashboardDeepLink(pinned.id),
+      });
     },
   );
 
@@ -309,11 +346,15 @@ export function registerWorkspaceTools(
       requireScope(context, "workspace:read");
       const features = getCompanyPlanFeatures(context.company);
       requireFeature(features.canSaveSearches, "Saved searches require Pro or higher");
+      const searches = await prisma.savedSearch.findMany({
+        where: { companyId: context.company.id },
+        orderBy: { createdAt: "desc" },
+      });
       return toolResult({
-        searches: await prisma.savedSearch.findMany({
-          where: { companyId: context.company.id },
-          orderBy: { createdAt: "desc" },
-        }),
+        searches: searches.map((search) => ({
+          ...search,
+          dashboardUrl: savedSearchDeepLink(search.id),
+        })),
       });
     },
   );
@@ -366,7 +407,10 @@ export function registerWorkspaceTools(
           });
         }),
       );
-      return toolResult({ search });
+      return toolResult({
+        search,
+        dashboardUrl: savedSearchDeepLink(search.id),
+      });
     },
   );
 
