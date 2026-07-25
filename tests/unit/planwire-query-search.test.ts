@@ -70,11 +70,13 @@ describe("fetchPlanwireApplicationsByQuery", () => {
     expect(calledUrl.searchParams.get("q")).toBe("extension");
     expect(calledUrl.searchParams.get("council")).toBe("camden");
     expect(calledUrl.searchParams.get("postcode")).toBe("NW1");
-    expect(calledUrl.searchParams.get("status")).toBe("Refused");
+    // Status is filtered locally — PlanWire's status param misses LPA labels.
+    expect(calledUrl.searchParams.has("status")).toBe(false);
     expect(calledUrl.searchParams.get("type")).toBe("Householder");
     expect(calledUrl.searchParams.get("date_from")).toBe("2026-01-01");
     expect(calledUrl.searchParams.get("date_to")).toBe("2026-06-30");
     expect(calledUrl.searchParams.get("page")).toBe("2");
+    // Status requests over-fetch upstream, then slice to the caller limit.
     expect(calledUrl.searchParams.get("limit")).toBe("100");
     expect(options.headers?.Authorization).toBe("Bearer pw_test_key");
     expect(options.signal).toBeInstanceOf(AbortSignal);
@@ -87,6 +89,110 @@ describe("fetchPlanwireApplicationsByQuery", () => {
       status: "Refused",
       decisionDate: "2026-01-15",
     });
+  });
+
+  it("filters Approved and Pending locally against Wandsworth-style labels", async () => {
+    vi.stubEnv("PLANWIRE_API_KEY", "pw_test_key");
+    const rows = [
+      {
+        id: "approved-1",
+        councilId: "wandsworth",
+        reference: "2026/1131",
+        address: "149-151 Wandsworth High Street SW18 4JB",
+        postcode: "SW18 4JB",
+        lat: 51.45,
+        lng: -0.19,
+        description: "Replacement roof and windows",
+        status: "FINAL DECISION",
+        decision: "Approve No Conditions",
+        decision_date: "2026-05-11",
+        url: "https://example.com/1131",
+      },
+      {
+        id: "refused-final",
+        councilId: "wandsworth",
+        reference: "2026/9999",
+        address: "1 Example Road",
+        postcode: "SW18 1AA",
+        lat: 51.45,
+        lng: -0.19,
+        description: "Roof terrace",
+        status: "FINAL DECISION",
+        decision: "Refuse",
+        decision_date: "2026-04-01",
+        url: "https://example.com/9999",
+      },
+      {
+        id: "pending-registered",
+        councilId: "wandsworth",
+        reference: "2026/1923",
+        address: "113 Roehampton Vale",
+        postcode: "SW15 3PG",
+        lat: 51.43,
+        lng: -0.24,
+        description: "Dormer roof extension",
+        status: "REGISTERED",
+        decision: "",
+        decision_date: "2026-05-20",
+        url: "https://example.com/1923",
+      },
+      {
+        id: "pending-new",
+        councilId: "wandsworth",
+        reference: "2026/2597",
+        address: "2A Chartfield Avenue",
+        postcode: "SW15 6HD",
+        lat: 51.45,
+        lng: -0.22,
+        description: "Roof extension to main rear roof",
+        status: "NEW",
+        decision: "",
+        decision_date: "2026-07-17",
+        url: "https://example.com/2597",
+      },
+      {
+        id: "pending-online",
+        councilId: "wandsworth",
+        reference: "2026/2611",
+        address: "Wildcroft Manor",
+        postcode: "SW15 3TS",
+        lat: 51.44,
+        lng: -0.22,
+        description: "Front and rear dormer roof extensions",
+        status: "On-line",
+        decision: "",
+        decision_date: "2026-07-20",
+        url: "https://example.com/2611",
+      },
+    ];
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ data: rows }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const approved = await fetchPlanwireApplicationsByQuery({
+      council: "wandsworth",
+      q: "roof",
+      status: "Approved",
+      limit: 20,
+    });
+    expect(approved.map((a) => a.reference)).toEqual(["2026/1131"]);
+    expect(new URL(fetchMock.mock.calls[0]?.[0] as string).searchParams.has("status")).toBe(
+      false,
+    );
+
+    const pending = await fetchPlanwireApplicationsByQuery({
+      council: "wandsworth",
+      q: "roof",
+      status: "Pending",
+      limit: 20,
+    });
+    expect(pending.map((a) => a.reference).sort()).toEqual([
+      "2026/1923",
+      "2026/2597",
+      "2026/2611",
+    ]);
   });
 
   it("backfills coordinates from postcodes.io when the row has no lat/lng", async () => {

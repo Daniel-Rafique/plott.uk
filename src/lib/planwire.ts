@@ -231,6 +231,8 @@ function matchesStatus(
 ): boolean {
   if (!statuses?.length) return true;
   const text = normaliseForMatch(`${app.status} ${app.decision}`);
+  // Do not treat bare "FINAL DECISION" as approved — refused finals also use
+  // that label. Approve/grant language in status or decision is required.
   return matchSelectedTextGroup(statuses, text, {
     approved: [
       "approved",
@@ -238,7 +240,6 @@ function matchesStatus(
       "approval",
       "granted",
       "grant",
-      "final decision",
       "permitted",
     ],
     granted: [
@@ -247,7 +248,6 @@ function matchesStatus(
       "approved",
       "approve",
       "approval",
-      "final decision",
       "permitted",
     ],
     refused: ["refused", "refuse", "rejected", "reject", "declined"],
@@ -259,6 +259,11 @@ function matchesStatus(
       "received",
       "under consideration",
       "undecided",
+      // Wandsworth / Northgate-style live labels
+      "new",
+      "on line",
+      "online",
+      "noninvalid",
     ],
   });
 }
@@ -867,6 +872,10 @@ export type PlanwireSearchQuery = {
  * Mirrors PlanWire's `search_planning_applications` MCP tool so the in-app
  * agent can answer area and keyword queries without a map bbox.
  *
+ * Status is filtered locally: PlanWire's `status=Approved|Pending` param often
+ * returns empty for LPAs that use labels like `FINAL DECISION` +
+ * `Approve No Conditions` (or `NEW` / `On-line` for live cases).
+ *
  * Returns lightweight rows only — no per-row enrichApplicationRecord fan-out.
  */
 export async function fetchPlanwireApplicationsByQuery(
@@ -879,16 +888,21 @@ export async function fetchPlanwireApplicationsByQuery(
   }
   if (planwireInCooldown()) return [];
 
+  const requestedLimit = Math.min(query.limit ?? 20, 100);
+  // When status is requested, over-fetch then match council status/decision
+  // text locally (see matchesStatus).
+  const upstreamLimit = query.status ? 100 : requestedLimit;
+
   const url = new URL("https://api.planwire.io/v1/applications");
   if (query.q) url.searchParams.set("q", query.q);
   if (query.council) url.searchParams.set("council", query.council);
   if (query.postcode) url.searchParams.set("postcode", query.postcode);
-  if (query.status) url.searchParams.set("status", query.status);
+  // Intentionally omit PlanWire `status` — see docstring above.
   if (query.type) url.searchParams.set("type", query.type);
   if (query.dateFrom) url.searchParams.set("date_from", query.dateFrom);
   if (query.dateTo) url.searchParams.set("date_to", query.dateTo);
   url.searchParams.set("page", String(query.page ?? 1));
-  url.searchParams.set("limit", String(Math.min(query.limit ?? 20, 100)));
+  url.searchParams.set("limit", String(upstreamLimit));
 
   try {
     const res = await fetch(url.toString(), {
@@ -922,7 +936,12 @@ export async function fetchPlanwireApplicationsByQuery(
     // and backfill lat/lng so search results appear live on the map.
     await backfillCoordsFromPostcodes(apps);
 
-    return apps;
+    if (!query.status) return apps;
+
+    const filtered = filterPlanwireApplications(apps, {
+      statuses: [query.status],
+    });
+    return filtered.slice(0, requestedLimit);
   } catch (error) {
     if (error instanceof PlanwireRateLimitedError) throw error;
     if (

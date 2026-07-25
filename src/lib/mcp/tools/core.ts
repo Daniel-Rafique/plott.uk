@@ -122,7 +122,8 @@ export function registerCoreTools(
   server.registerTool(
     "search_planning_applications",
     {
-      description: "Search UK planning applications by text, council, postcode, status, type, or date.",
+      description:
+        "Search UK planning applications by text, council, postcode, status, type, or date. Status is matched against council status and decision text (e.g. FINAL DECISION + Approve counts as Approved; NEW / On-line / REGISTERED count as Pending).",
       inputSchema: {
         query: z.string().max(300).optional(),
         council: z.string().max(120).optional(),
