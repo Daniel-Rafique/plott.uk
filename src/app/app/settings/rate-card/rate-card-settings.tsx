@@ -30,6 +30,37 @@ const EMPTY: RateCardForm = {
   vatInclusive: false,
 };
 
+const FIELD_LABELS: Record<string, string> = {
+  dayRateGbp: "Day rate",
+  crewSizeDefault: "Default crew size",
+  unitRates: "Unit rates",
+  typicalWeeks: "Typical weeks",
+  contingencyPercent: "Contingency",
+  vatInclusive: "VAT inclusive",
+};
+
+type ZodFlattenIssues = {
+  formErrors?: string[];
+  fieldErrors?: Record<string, string[] | undefined>;
+};
+
+function messageFromSaveError(data: {
+  error?: string;
+  issues?: ZodFlattenIssues;
+}): string {
+  const formErrors = data.issues?.formErrors?.filter(Boolean) ?? [];
+  const fieldMessages = Object.entries(data.issues?.fieldErrors ?? {}).flatMap(
+    ([field, msgs]) =>
+      (msgs ?? []).map((msg) => {
+        const label = FIELD_LABELS[field] ?? field;
+        return `${label}: ${msg}`;
+      }),
+  );
+  const details = [...formErrors, ...fieldMessages];
+  if (details.length > 0) return details.join(" · ");
+  return data.error ?? "Could not save rate card";
+}
+
 export function RateCardSettings({
   initial,
 }: {
@@ -69,9 +100,12 @@ export function RateCardSettings({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(form),
       });
-      const data = (await res.json().catch(() => ({}))) as { error?: string };
+      const data = (await res.json().catch(() => ({}))) as {
+        error?: string;
+        issues?: ZodFlattenIssues;
+      };
       if (!res.ok) {
-        setError(data.error ?? "Could not save rate card");
+        setError(messageFromSaveError(data));
         return;
       }
       setMessage("Rate card saved. New estimates will use these rates.");
