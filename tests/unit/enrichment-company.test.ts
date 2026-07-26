@@ -61,6 +61,7 @@ describe("enrichFromCompanyLookup", () => {
     expect(resolveCompanyContact).toHaveBeenCalledWith("Star Plans Ltd", {
       needEmail: true,
       personName: null,
+      address: null,
     });
     expect(result).toMatchObject({
       companyName: "STAR PLANS LTD",
@@ -97,6 +98,7 @@ describe("enrichFromCompanyLookup", () => {
     expect(resolveCompanyContact).toHaveBeenCalledWith("ABC Developments Ltd", {
       needEmail: false,
       personName: null,
+      address: null,
     });
     expect(result.applicantName).toBe("John Smith, Director");
   });
@@ -127,6 +129,7 @@ describe("enrichFromCompanyLookup", () => {
     expect(resolveCompanyContact).toHaveBeenCalledWith("Star Plans Ltd", {
       needEmail: true,
       personName: "Robert Jones",
+      address: "Site address from LPA",
     });
     expect(result.applicantName).toBe("Robert Jones");
     expect(result.applicantEmail).toBe("jane@starplans.co.uk");
@@ -159,6 +162,7 @@ describe("enrichFromCompanyLookup", () => {
       {
         needEmail: false,
         personName: null,
+        address: null,
       },
     );
     expect(result.applicantName).toBe("Alex Mercer, Director");
@@ -187,6 +191,7 @@ describe("enrichFromCompanyLookup", () => {
     expect(resolveCompanyContact).toHaveBeenCalledWith("NLA", {
       needEmail: false,
       personName: null,
+      address: null,
     });
     expect(result.applicantName).toBe("Alex Mercer, Director");
   });
@@ -215,6 +220,60 @@ describe("enrichFromCompanyLookup", () => {
       applicantEmailConfidence: 72,
       applicantEmailStatus: "valid",
       sources: ["planwire", "hunter"],
+    });
+  });
+
+  it("does not call Hunter for a bare acronym when Companies House misses", async () => {
+    vi.stubEnv("HUNTER_API_KEY", "hunter_test");
+    resolveCompanyContact.mockResolvedValue(null);
+
+    const result = await enrichFromCompanyLookup(
+      baseResolved({
+        applicantName: "Mr A Dhami",
+        agentName: "NLA",
+      }),
+    );
+
+    expect(resolveCompanyContact).toHaveBeenCalledWith("NLA", {
+      needEmail: true,
+      address: null,
+    });
+    expect(resolveHunterEmail).not.toHaveBeenCalled();
+    expect(result.agentEmail).toBeUndefined();
+  });
+
+  it("passes agent address into Companies House resolution", async () => {
+    vi.stubEnv("HUNTER_API_KEY", "hunter_test");
+    resolveCompanyContact.mockResolvedValue({
+      companyName: "NLA ARCHITECTS LTD",
+      companyNumber: "11223344",
+      status: "active",
+      contactName: "Pat Lee, Director",
+      address: "NLA ARCHITECTS LTD, 12 Studio Road, London, SW18 1AA",
+      email: "pat@nla-architects.co.uk",
+      emailSource: "hunter",
+      emailConfidence: 91,
+      emailStatus: "valid",
+      sources: ["companies_house", "hunter"],
+    });
+
+    const result = await enrichFromCompanyLookup(
+      baseResolved({
+        applicantName: "Mr A Dhami",
+        agentName: "NLA",
+        agentAddress: "12 Studio Road, London, SW18 1AA",
+      }),
+    );
+
+    expect(resolveCompanyContact).toHaveBeenCalledWith("NLA", {
+      needEmail: true,
+      address: "12 Studio Road, London, SW18 1AA",
+    });
+    expect(resolveHunterEmail).not.toHaveBeenCalled();
+    expect(result).toMatchObject({
+      agentEmail: "pat@nla-architects.co.uk",
+      agentEmailSource: "hunter",
+      agentEmailConfidence: 91,
     });
   });
 

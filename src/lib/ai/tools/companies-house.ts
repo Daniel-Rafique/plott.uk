@@ -88,6 +88,59 @@ export type CompaniesHouseSearchResult = {
   incorporatedOn: string | null;
 };
 
+function mapSearchItem(i: CompanySearchItem): CompaniesHouseSearchResult {
+  return {
+    name: i.company_name ?? "",
+    number: i.company_number ?? "",
+    status: i.company_status ?? "",
+    address: i.address_snippet ?? "",
+    incorporatedOn: i.date_of_creation ?? null,
+  };
+}
+
+type AdvancedCompanySearchItem = {
+  company_name?: string;
+  company_number?: string;
+  company_status?: string;
+  date_of_creation?: string;
+  registered_office_address?: {
+    address_line_1?: string;
+    address_line_2?: string;
+    locality?: string;
+    region?: string;
+    postal_code?: string;
+    country?: string;
+  };
+};
+
+function formatRegisteredOffice(
+  addr: AdvancedCompanySearchItem["registered_office_address"],
+): string {
+  if (!addr) return "";
+  return [
+    addr.address_line_1,
+    addr.address_line_2,
+    addr.locality,
+    addr.region,
+    addr.postal_code,
+    addr.country,
+  ]
+    .filter((s): s is string => typeof s === "string" && s.length > 0)
+    .join(", ");
+}
+
+function mapAdvancedSearchItem(
+  i: AdvancedCompanySearchItem,
+): CompaniesHouseSearchResult {
+  return {
+    name: i.company_name ?? "",
+    number: i.company_number ?? "",
+    status: i.company_status ?? "",
+    address: formatRegisteredOffice(i.registered_office_address),
+    incorporatedOn: i.date_of_creation ?? null,
+  };
+}
+
 /** Plain helper: search Companies House by name. Empty array when unconfigured. */
 export async function searchCompanies(
   query: string,
@@ -97,13 +150,41 @@ export async function searchCompanies(
   const { data } = await chFetch<{ items?: CompanySearchItem[] }>(
     `/search/companies?q=${encodeURIComponent(query)}&items_per_page=${limit}`,
   );
-  return (data?.items ?? []).map((i) => ({
-    name: i.company_name ?? "",
-    number: i.company_number ?? "",
-    status: i.company_status ?? "",
-    address: i.address_snippet ?? "",
-    incorporatedOn: i.date_of_creation ?? null,
-  }));
+  return (data?.items ?? []).map(mapSearchItem);
+}
+
+export type AdvancedCompanySearchArgs = {
+  /** Registered-office location filter (postcode or place fragment). */
+  location?: string;
+  /** Substring that must appear in the company name. */
+  companyNameIncludes?: string;
+  /** Defaults to active when omitted. */
+  status?: string;
+  size?: number;
+};
+
+/**
+ * Advanced Companies House search — supports location (registered office) and
+ * name substring filters. Empty array when unconfigured or nothing matched.
+ */
+export async function advancedSearchCompanies(
+  args: AdvancedCompanySearchArgs,
+): Promise<CompaniesHouseSearchResult[]> {
+  if (!authHeader()) return [];
+  const params = new URLSearchParams();
+  const location = args.location?.trim();
+  const nameIncludes = args.companyNameIncludes?.trim();
+  if (location) params.set("location", location);
+  if (nameIncludes) params.set("company_name_includes", nameIncludes);
+  params.set("company_status", args.status?.trim() || "active");
+  const size = Math.min(Math.max(args.size ?? 20, 1), 100);
+  params.set("size", String(size));
+  if (!location && !nameIncludes) return [];
+
+  const { data } = await chFetch<{ items?: AdvancedCompanySearchItem[] }>(
+    `/advanced-search/companies?${params.toString()}`,
+  );
+  return (data?.items ?? []).map(mapAdvancedSearchItem);
 }
 
 export const companiesHouseSearchTool = tool({

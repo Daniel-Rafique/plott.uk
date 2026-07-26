@@ -20,6 +20,7 @@ import {
 import { scrapeLpaPortal, type LpaPortalResult } from "@/lib/lpa-portal";
 import type { PlanningApplicationEntity } from "@/lib/planning-data";
 import {
+  looksLikeAcronymCompany,
   looksLikeCompany,
   resolveCompanyContact,
   resolveHunterEmail,
@@ -298,6 +299,8 @@ export async function enrichFromCompanyLookup(
       applicantContact = await resolveCompanyContact(applicantCompany, {
         needEmail: fillEmail,
         personName,
+        // Party address only — never the planning site for disambiguation.
+        address: out.applicantAddress ?? null,
       });
       if (applicantContact) {
         out = mergeApplicantCompanyContact(out, applicantContact, {
@@ -307,9 +310,14 @@ export async function enrichFromCompanyLookup(
         });
       }
     }
-    // Companies House miss — still try Hunter from the raw company name.
-    // (When CH matched with needEmail, Hunter was already attempted inside.)
-    if (hunterConfigured && !out.applicantEmail && !applicantContact) {
+    // Companies House miss — Hunter only for strong corporate names, never
+    // bare acronyms (those produce global false positives like nla.or.jp).
+    if (
+      hunterConfigured &&
+      !out.applicantEmail &&
+      !applicantContact &&
+      !looksLikeAcronymCompany(applicantCompany)
+    ) {
       const hunter = await resolveHunterEmail({
         company: applicantCompany,
         personName,
@@ -328,6 +336,8 @@ export async function enrichFromCompanyLookup(
     if (fillAddress || fillEmail) {
       agentContact = await resolveCompanyContact(agentCompany, {
         needEmail: fillEmail,
+        // Agent correspondence address only — do not pass siteAddress.
+        address: out.agentAddress ?? null,
       });
       if (agentContact) {
         out = mergeAgentCompanyContact(out, agentContact, {
@@ -336,7 +346,12 @@ export async function enrichFromCompanyLookup(
         });
       }
     }
-    if (hunterConfigured && !out.agentEmail && !agentContact) {
+    if (
+      hunterConfigured &&
+      !out.agentEmail &&
+      !agentContact &&
+      !looksLikeAcronymCompany(agentCompany)
+    ) {
       const hunter = await resolveHunterEmail({
         company: agentCompany,
         personName: null,

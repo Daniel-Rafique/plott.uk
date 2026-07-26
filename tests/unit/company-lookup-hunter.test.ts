@@ -60,7 +60,6 @@ describe("resolveHunterEmail", () => {
       confidence: 88,
       status: "valid",
     });
-    expect(hunterEmailVerifier).not.toHaveBeenCalled();
   });
 
   it("tries Email Finder with company alone when domain cannot be resolved", async () => {
@@ -96,5 +95,55 @@ describe("resolveHunterEmail", () => {
       fullName: "Pat Lee",
     });
     expect(result?.email).toBe("director@obscureholdings.co.uk");
+  });
+
+  it("rejects Email Finder hits below the confidence floor", async () => {
+    hunterDomainSearch.mockResolvedValue({
+      configured: true,
+      domain: "example.co.uk",
+      organization: "Example",
+      results: [],
+    });
+    hunterEmailFinder.mockResolvedValue({
+      configured: true,
+      found: true,
+      email: "low@example.co.uk",
+      score: 40,
+      status: "valid",
+      sources: [],
+    });
+
+    const result = await resolveHunterEmail({
+      company: "Example Ltd",
+      personName: "Pat Lee",
+    });
+
+    expect(result).toBeNull();
+  });
+
+  it("rejects domain-search hits with weak verifier status", async () => {
+    hunterDomainSearch.mockResolvedValue({
+      configured: true,
+      domain: "example.co.uk",
+      organization: "Example",
+      results: [
+        {
+          email: "info@example.co.uk",
+          type: "generic",
+          confidence: 80,
+        },
+      ],
+    });
+    hunterEmailVerifier.mockResolvedValue({
+      configured: true,
+      status: "invalid",
+    });
+
+    const result = await resolveHunterEmail({
+      company: "Example Ltd",
+      personName: null,
+    });
+
+    expect(result).toBeNull();
   });
 });
