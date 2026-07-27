@@ -72,14 +72,6 @@ export function HomePageContent({ heroFontClassName }: Props) {
               },
             }}
           >
-            <motion.div
-              variants={{
-                hidden: { opacity: 0, y: 14 },
-                visible: { opacity: 1, y: 0, transition: { duration: 0.5 } },
-              }}
-              className="inline-flex items-center gap-2 rounded-full border border-brand-light/30 bg-brand/20 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.22em] text-brand-light backdrop-blur-md"
-            >
-            </motion.div>
             <motion.h1
               variants={{
                 hidden: { opacity: 0, y: 24 },
