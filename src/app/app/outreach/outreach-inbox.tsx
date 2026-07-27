@@ -44,6 +44,7 @@ import {
   type PreviewChannel,
 } from "@/lib/outreach-draft-display";
 import { BallparkPanel } from "@/components/ballpark-panel";
+import { ApplicantModal } from "@/components/applicant-modal";
 import {
   replaceBallparkInHtml,
   stripBallparkFromHtml,
@@ -123,6 +124,7 @@ export function OutreachInbox({
   );
   const [contactGate, setContactGate] = useState<ContactGateState>(null);
   const [refreshingContact, setRefreshingContact] = useState(false);
+  const [applicantModalOpen, setApplicantModalOpen] = useState(false);
 
   useEffect(() => {
     try {
@@ -385,10 +387,8 @@ export function OutreachInbox({
     setPreviewChannel(next);
   }
 
-  const mapHref =
-    selected?.planningEntity != null
-      ? `/app/dashboard?entity=${selected.planningEntity}`
-      : "/app/dashboard";
+  const canViewApplicant =
+    Boolean(selected?.subjectRef) && selected?.planningEntity != null;
 
   return (
     <>
@@ -677,12 +677,15 @@ export function OutreachInbox({
                     onDismiss={() => dismissBanner(`${selected.id}:no-email`)}
                   >
                     No email found — approve as a postal letter only.{" "}
-                    <Link
-                      href={mapHref}
-                      className="font-medium text-amber-950 underline underline-offset-2 hover:text-amber-800"
-                    >
-                      View applicant on map
-                    </Link>
+                    {canViewApplicant ? (
+                      <button
+                        type="button"
+                        onClick={() => setApplicantModalOpen(true)}
+                        className="font-medium text-amber-950 underline underline-offset-2 hover:text-amber-800"
+                      >
+                        View applicant details
+                      </button>
+                    ) : null}
                   </DismissibleBanner>
                 )}
 
@@ -908,6 +911,14 @@ export function OutreachInbox({
           )}
         </section>
       </div>
+
+      <ApplicantModal
+        isOpen={applicantModalOpen}
+        onClose={() => setApplicantModalOpen(false)}
+        reference={selected?.subjectRef ?? null}
+        planningEntity={selected?.planningEntity ?? null}
+        siteAddress={selectedDraft?.siteAddress ?? null}
+      />
     </>
   );
 }
