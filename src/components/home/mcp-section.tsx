@@ -1,97 +1,128 @@
-import Link from "next/link";
-import {
-  ArrowRight,
-  Bot,
-  Cable,
-  Search,
-  ShieldCheck,
-} from "lucide-react";
+"use client";
 
-const capabilities = [
+import Image from "next/image";
+import Link from "next/link";
+import { ArrowRight } from "lucide-react";
+import { useGsapReveal } from "@/lib/animation/use-gsap-reveal";
+import { useTextReveal } from "@/lib/animation/use-text-reveal";
+import { MCP_HERO } from "@/lib/marketing/images";
+
+const CAPABILITIES = [
   {
-    icon: Search,
-    title: "Search planning data",
+    number: "01",
+    title: "Search live applications",
     description:
-      "Find applications, inspect sites and research applicants from your AI workspace.",
+      "Nearby cases, site context, and applicant details from Claude, ChatGPT, or Cursor.",
   },
   {
-    icon: Bot,
-    title: "Run Plott workflows",
+    number: "02",
+    title: "Drive the same workspace",
     description:
-      "Manage leads, saved searches, reminders, letters and approved outreach.",
+      "Saved searches, pipeline leads, reminders, and letter drafts stay in sync.",
   },
   {
-    icon: ShieldCheck,
-    title: "OAuth-secured",
+    number: "03",
+    title: "Scoped OAuth access",
     description:
-      "Every connection is scoped to one workspace, with explicit permissions and revocable access.",
+      "One workspace at a time. Explicit permissions, revocable whenever you need.",
   },
-];
+] as const;
 
 export function McpSection() {
+  const ref = useGsapReveal<HTMLDivElement>({ stagger: 0.07, start: "top 85%" });
+  const headingRef = useTextReveal<HTMLHeadingElement>();
+
   return (
     <section
       data-stack
       data-bg="#0a0a0a"
-      className="relative flex min-h-[100svh] items-center overflow-hidden bg-zinc-950 py-28 text-white md:py-36"
+      className="relative flex min-h-[100svh] items-end overflow-hidden bg-zinc-950 text-white"
     >
+      <div className="absolute inset-0">
+        <Image
+          src={MCP_HERO.src}
+          alt={MCP_HERO.alt}
+          fill
+          sizes="100vw"
+          className="object-cover object-center"
+          priority={false}
+        />
+        <div
+          aria-hidden
+          className="absolute inset-0 bg-gradient-to-t from-black via-black/75 to-black/35"
+        />
+        <div
+          aria-hidden
+          className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/25 to-transparent"
+        />
+      </div>
+
       <div
-        className="pointer-events-none absolute inset-0 opacity-40"
-        style={{
-          backgroundImage:
-            "radial-gradient(circle at 70% 30%, rgba(63, 141, 111, 0.32), transparent 38%)",
-        }}
-      />
-      <div className="relative mx-auto grid w-full max-w-7xl gap-16 px-6 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
-        <div>
-          <div className="inline-flex items-center gap-2 rounded-full border border-brand-light/30 bg-brand/15 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-brand-light">
-            <Cable className="h-4 w-4" aria-hidden />
-            Remote MCP now available
-          </div>
-          <h2 className="mt-8 max-w-3xl font-[family-name:var(--font-display)] text-[clamp(42px,6vw,78px)] font-normal leading-[1.02] tracking-tight">
-            Bring Plott into your AI workspace.
-          </h2>
-          <p className="mt-7 max-w-2xl text-base leading-relaxed text-zinc-300 md:text-lg">
-            Connect Claude, ChatGPT, Cursor and other compatible MCP clients to
-            live UK planning intelligence and your Plott workflows, without
-            keeping the dashboard open.
+        ref={ref}
+        className="relative z-10 mx-auto w-full max-w-7xl px-6 pb-16 pt-32 md:pb-20 md:pt-40"
+      >
+        <div className="max-w-3xl">
+          <p data-reveal className="editorial-chapter-label text-brand-light/80">
+            MCP
           </p>
-          <div className="mt-10 flex flex-wrap gap-4">
+          <h2
+            ref={headingRef}
+            className="mt-6 font-[family-name:var(--font-display)] text-[clamp(36px,5vw,68px)] font-normal leading-[1.08] tracking-tight text-white drop-shadow-[0_2px_24px_rgba(0,0,0,0.45)]"
+          >
+            Use Plott from the tools you already open.
+          </h2>
+          <p
+            data-reveal
+            className="mt-6 max-w-xl text-[15px] leading-relaxed text-zinc-200/90"
+          >
+            Connect Claude, ChatGPT, or Cursor to live UK planning data and your
+            team workspace over remote MCP.
+          </p>
+        </div>
+
+        <ul className="mt-14 grid grid-cols-1 gap-0 border-t border-white/15 md:grid-cols-3">
+          {CAPABILITIES.map((item) => (
+            <li
+              key={item.number}
+              data-reveal
+              className="border-b border-white/15 py-7 md:border-b-0 md:border-r md:px-8 md:py-9 md:first:pl-0 md:last:border-r-0 md:last:pr-0"
+            >
+              <p className="editorial-chapter-label text-brand-light/70">
+                {item.number}
+              </p>
+              <h3 className="mt-4 font-[family-name:var(--font-display)] text-[22px] font-normal leading-tight tracking-tight text-white md:text-[24px]">
+                {item.title}
+              </h3>
+              <p className="mt-3 text-[14px] leading-relaxed text-zinc-300">
+                {item.description}
+              </p>
+            </li>
+          ))}
+        </ul>
+
+        <div
+          data-reveal
+          className="mt-12 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"
+        >
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:gap-8">
             <Link
               href="/mcp"
-              className="group inline-flex items-center gap-2 rounded-full bg-white px-7 py-3.5 text-sm font-semibold text-zinc-950 transition hover:bg-brand-light"
+              className="group inline-flex items-center gap-2 self-start rounded-full border border-white bg-white px-7 py-3.5 text-[13px] font-medium text-zinc-950 transition hover:border-brand-light hover:bg-brand-light"
             >
               Connect Plott MCP
               <ArrowRight
                 className="h-4 w-4 transition-transform group-hover:translate-x-0.5"
+                strokeWidth={1.5}
                 aria-hidden
               />
             </Link>
-            <code className="inline-flex items-center rounded-full border border-white/15 bg-white/5 px-5 py-3 text-xs text-zinc-300">
+            <code className="text-[12px] tracking-wide text-zinc-400">
               https://plott.uk/api/mcp
             </code>
           </div>
-        </div>
-
-        <div className="grid gap-4">
-          {capabilities.map(({ icon: Icon, title, description }) => (
-            <article
-              key={title}
-              className="rounded-2xl border border-white/10 bg-white/[0.055] p-6 backdrop-blur-sm"
-            >
-              <div className="flex gap-4">
-                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand/25 text-brand-light">
-                  <Icon className="h-5 w-5" aria-hidden />
-                </span>
-                <div>
-                  <h3 className="text-base font-semibold text-white">{title}</h3>
-                  <p className="mt-2 text-sm leading-relaxed text-zinc-400">
-                    {description}
-                  </p>
-                </div>
-              </div>
-            </article>
-          ))}
+          <p className="text-[10px] uppercase tracking-[0.28em] text-zinc-500">
+            Photo: {MCP_HERO.credit.name}
+          </p>
         </div>
       </div>
     </section>
