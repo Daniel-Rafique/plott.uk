@@ -86,7 +86,7 @@ export function ByTheNumbers() {
             data-reveal
             className="editorial-chapter-label text-brand-dark"
           >
-            01 — By the numbers
+            01 · By the numbers
           </p>
           <h2
             ref={headingRef}

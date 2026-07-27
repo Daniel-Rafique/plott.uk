@@ -25,7 +25,7 @@ export function ArcadeDemoSection() {
               className="mt-6 text-[15px] leading-relaxed text-zinc-300"
             >
               Follow the flow from planning application to human-approved letter
-              and into Pipeline — with each step shown in the product instead of
+              and into Pipeline, with each step shown in the product instead of
               a static screenshot.
             </p>
           </div>

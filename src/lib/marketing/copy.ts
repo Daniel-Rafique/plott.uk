@@ -45,11 +45,11 @@ export const MARKETING_STATS = {
   },
 } as const;
 
-/** Public-facing enrichment copy — no vendor names or pipeline order. */
+/** Public-facing enrichment copy. No vendor names or pipeline order. */
 export const ENRICHMENT_MARKETING = {
   stepSubtitle: "Multi-source enrichment",
   stepDescription:
-    "Raw planning data rarely includes contact details. Plott enriches each application from authoritative UK sources to surface applicant, agent, and return address — automatically.",
+    "Raw planning data rarely includes contact details. Plott enriches each application from authoritative UK sources to surface the applicant, agent, and return address automatically.",
   detailBullets: [
     MARKETING_STATS.applicantMatchRate.bullet,
     "Multiple authoritative sources cross-referenced in seconds",
@@ -57,7 +57,7 @@ export const ENRICHMENT_MARKETING = {
   ],
 } as const;
 
-export const SEO_TITLE = "Plott — Win every planning application in the UK";
+export const SEO_TITLE = "Plott | Win every planning application in the UK";
 
 export const PRODUCT_TAGLINE = "Live planning intelligence for the UK";
 
@@ -67,7 +67,7 @@ export const PRODUCT_SIGNIN_HEADLINE =
   "Win every planning application in your patch.";
 
 export const PRODUCT_DESCRIPTION =
-  "Map-first planning-application search with photorealistic 3D, applicant enrichment and branded letter + email outreach — one workspace for UK construction, property and planning teams.";
+  "Map-first planning search with photorealistic 3D, applicant enrichment, and branded letter and email outreach for UK construction, property, and planning teams.";
 
 export const PRODUCT_DESCRIPTION_SHORT =
   "Turn open UK planning applications into signed contracts with map-first planning intelligence.";
@@ -89,7 +89,7 @@ export const AUTH_BENEFITS = [
   {
     title: "Branded outreach",
     description:
-      "AI-drafted print letters and emails — reviewed and sent from one workspace.",
+      "AI-drafted print letters and emails, reviewed and sent from one place.",
   },
 ] as const;
 
@@ -153,7 +153,7 @@ export const HOMEPAGE_FEATURES = [
   },
   {
     title: "Saved searches, delivered",
-    body: "Pin a patch. We'll email you a digest of new applications every 48 hours — no manual re-running, no duplicates.",
+    body: "Pin a patch. We'll email you a digest of new applications every 48 hours, without manual re-runs or duplicates.",
   },
   {
     title: "Letter + email outreach",
@@ -165,7 +165,7 @@ export const HOMEPAGE_FEATURES = [
   },
   {
     title: "Built for construction teams",
-    body: "Teams, roles and seat-level billing. Bring BD, QS and ops into one workspace without juggling spreadsheets.",
+    body: "Teams, roles and seat-level billing. Bring BD, QS and ops into one place without juggling spreadsheets.",
   },
 ] as const;
 
@@ -186,7 +186,7 @@ export function faqUkCoverage(): string {
 }
 
 export function faqDataSources(): string {
-  return `We aggregate data from official UK government registers and commercial planning databases, covering ${lpaCoverageFull()} with continuous refresh. Applicant enrichment combines multiple authoritative sources including property ownership records and corporate filings. Coverage varies by council — we're transparent about this in the app.`;
+  return `We aggregate data from official UK government registers and commercial planning databases, covering ${lpaCoverageFull()} with continuous refresh. Applicant enrichment combines multiple authoritative sources including property ownership records and corporate filings. Coverage varies by council, and we show that clearly in the app.`;
 }
 
 export function faqGdpr(): string {

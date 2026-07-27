@@ -11,7 +11,7 @@ export const metadata = publicPageMetadata({
   description:
     "Plott is a map-first planning-intelligence platform for UK construction, property and planning teams. Built in Britain, covering all 337 local planning authorities.",
   path: "/about",
-  openGraphTitle: "About Plott — Map-first planning intelligence",
+  openGraphTitle: "About Plott | Map-first planning intelligence",
   openGraphDescription:
     "Built in Britain for UK construction, property and planning teams. Covering all 337 local planning authorities.",
   twitterTitle: "About Plott",

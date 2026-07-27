@@ -24,7 +24,7 @@ export function AboutContent() {
           >
             <div data-reveal>
               <p className="editorial-chapter-label text-brand-dark">
-                01 — Mission
+                01 · Mission
               </p>
               <p className="mt-4 font-[family-name:var(--font-display)] text-[32px] leading-none text-brand-light/40">
                 01
@@ -35,22 +35,21 @@ export function AboutContent() {
                 as="h2"
                 className="font-[family-name:var(--font-display)] text-[clamp(32px,4vw,56px)] font-normal leading-[1.12] tracking-tight text-zinc-950"
               >
-                Make winning work in the UK construction sector feel
-                inevitable.
+                Help UK construction teams win work earlier.
               </RevealHeading>
               <p data-reveal className="mt-6 text-[15px] leading-relaxed text-zinc-600">
                 Every new building in the UK starts with a planning
-                application. The data is public, the addresses are known, the
-                intent is declared — yet most construction firms still find
+                application. The data is public, the addresses are known, and the
+                intent is declared. Most construction firms still find
                 out about projects too late to win them. Plott
-                collapses the week-long research cycle into a thirty-second
+                turns a week of research into a thirty-second
                 workflow: see the site, know the applicant, approve the
                 outreach.
               </p>
               <p data-reveal className="mt-5 text-[15px] leading-relaxed text-zinc-600">
-                Our north star is simple — if your team can&apos;t get from
-                an interesting polygon on a map to a branded letter or reviewed
-                email draft in under five minutes, we&apos;re not done yet.
+                If your team can&apos;t get from an interesting polygon on a map
+                to a branded letter or reviewed email draft in under five
+                minutes, we&apos;re not done yet.
               </p>
             </div>
           </RevealGroup>
@@ -69,7 +68,7 @@ export function AboutContent() {
           >
             <div data-reveal>
               <p className="editorial-chapter-label text-brand-dark">
-                02 — How we built it
+                02 · How we built it
               </p>
               <p className="mt-4 font-[family-name:var(--font-display)] text-[32px] leading-none text-brand-light/40">
                 02
@@ -128,7 +127,7 @@ export function AboutContent() {
           >
             <div data-reveal>
               <p className="editorial-chapter-label text-brand-dark">
-                03 — Who it&apos;s for
+                03 · Who it&apos;s for
               </p>
               <p className="mt-4 font-[family-name:var(--font-display)] text-[32px] leading-none text-brand-light/40">
                 03
@@ -145,7 +144,7 @@ export function AboutContent() {
                 {[
                   {
                     k: "Business development teams",
-                    v: "At SME construction firms, roofing contractors, modular housing suppliers and subcontractors — teams whose pipeline depends on being first to a live site.",
+                    v: "At SME construction firms, roofing contractors, modular housing suppliers and subcontractors. Teams whose pipeline depends on being first to a live site.",
                   },
                   {
                     k: "Planning consultants",

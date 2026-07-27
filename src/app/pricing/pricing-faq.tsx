@@ -18,7 +18,7 @@ const FAQ: Item[] = [
   { q: trialFaq.question, a: trialFaq.answer },
   {
     q: "Can I switch plans later?",
-    a: "Yes — upgrades are prorated and take effect immediately. Downgrades take effect at the end of your current billing period so you don't lose access you've already paid for.",
+    a: "Yes. Upgrades are prorated and take effect immediately. Downgrades take effect at the end of your current billing period so you don't lose access you've already paid for.",
   },
   {
     q: "What happens if I exceed my AI budget?",

@@ -53,7 +53,7 @@ export function McpSection() {
           </h2>
           <p className="mt-7 max-w-2xl text-base leading-relaxed text-zinc-300 md:text-lg">
             Connect Claude, ChatGPT, Cursor and other compatible MCP clients to
-            live UK planning intelligence and your Plott workflows—without
+            live UK planning intelligence and your Plott workflows, without
             keeping the dashboard open.
           </p>
           <div className="mt-10 flex flex-wrap gap-4">

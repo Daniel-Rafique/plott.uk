@@ -230,7 +230,7 @@ export function AboutHero() {
             ref={kickerRef}
             className="editorial-chapter-label text-brand-light/80"
           >
-            About — Plott
+            About · Plott
           </p>
           <h1
             ref={headlineRef}

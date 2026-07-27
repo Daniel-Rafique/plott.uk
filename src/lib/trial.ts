@@ -8,7 +8,7 @@ export function freeTrialEyebrow(): string {
 }
 
 export function trialChargeCopy(): string {
-  return "Create your account free. Card required when you choose a plan — billed at checkout. Cancel any time.";
+  return "Create your account free. Card required when you choose a plan, billed at checkout. Cancel any time.";
 }
 
 export function trialNoChargeDuringCopy(): string {

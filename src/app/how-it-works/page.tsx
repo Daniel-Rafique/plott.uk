@@ -11,7 +11,7 @@ export const metadata = publicPageMetadata({
   description:
     "From map to approved outreach and a live sales pipeline. Draw your patch, resolve the people, review branded letters or email drafts, then track and assign every lead.",
   path: "/how-it-works",
-  openGraphTitle: "How Plott works — Map to outreach, then Pipeline",
+  openGraphTitle: "How Plott works | Map to outreach, then Pipeline",
   openGraphDescription:
     "Draw your patch, enrich applicants, approve branded letters or email drafts with optional ballparks, track leads in Pipeline, and let saved searches run themselves.",
 });

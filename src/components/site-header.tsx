@@ -12,7 +12,7 @@ import { SiteHeaderShell } from "./site-header-shell";
  * nameplate rather than a logo.
  * Nav: sans in editorial-chapter-label style (tracked 0.22em, uppercase,
  * small caps) so it reads as section labels — consistent with the
- * "01 — By the numbers" eyebrow treatment used throughout the site.
+ * "01 · By the numbers" eyebrow treatment used throughout the site.
  *
  * The sticky glass behaviour and scroll-compress live in the client shell;
  * session-dependent actions resolve on the client via useSession() so the

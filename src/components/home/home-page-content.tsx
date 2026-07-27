@@ -52,7 +52,7 @@ export function HomePageContent({ heroFontClassName }: Props) {
 
   return (
     <StackingSections>
-      {/* HERO — ambient Mapbox scene for a smooth marketing-page card. */}
+      {/* HERO: ambient Mapbox scene for a smooth marketing-page card. */}
       <section
         data-stack
         data-bg="#0a0a0a"
@@ -177,7 +177,7 @@ export function HomePageContent({ heroFontClassName }: Props) {
 
       <ProjectsGallery />
 
-      {/* 06 — CTA. Editorial block, no gradient. */}
+      {/* 06 · CTA. Editorial block, no gradient. */}
       <section
         data-stack
         data-bg="#fafaf9"
@@ -195,7 +195,7 @@ export function HomePageContent({ heroFontClassName }: Props) {
             ref={ctaHeadingRef}
             className="mt-6 font-[family-name:var(--font-display)] text-[clamp(36px,5.5vw,80px)] font-normal leading-[1.08] tracking-tight text-zinc-950"
           >
-            Ready to win the next site?
+            Win the next site.
           </h2>
           <p
             data-reveal

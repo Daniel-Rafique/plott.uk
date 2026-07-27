@@ -13,7 +13,7 @@ import { PRIVACY_HERO } from "@/lib/marketing/images";
 export const metadata: Metadata = publicPageMetadata({
   title: "Privacy Notice",
   description:
-    "Plott privacy notice — how we collect, use, and protect your personal data under UK GDPR.",
+    "Plott privacy notice: how we collect, use, and protect your personal data under UK GDPR.",
   path: "/privacy",
 });
 
@@ -135,7 +135,7 @@ export default function PrivacyPage() {
                   <div>
                     <strong className="font-semibold text-zinc-900">Contract</strong>{" "}
                     <span className="text-zinc-700">
-                      — for operating your account and providing the service you subscribe to.
+                      for operating your account and providing the service you subscribe to.
                     </span>
                   </div>
                 </li>
@@ -144,7 +144,7 @@ export default function PrivacyPage() {
                   <div>
                     <strong className="font-semibold text-zinc-900">Legitimate interests</strong>{" "}
                     <span className="text-zinc-700">
-                      — for security, anti-abuse, analytics, and product improvement.
+                      for security, anti-abuse, analytics, and product improvement.
                     </span>
                   </div>
                 </li>
@@ -153,7 +153,7 @@ export default function PrivacyPage() {
                   <div>
                     <strong className="font-semibold text-zinc-900">Legal obligation</strong>{" "}
                     <span className="text-zinc-700">
-                      — for statutory accounting, anti-money-laundering and tax records.
+                      for statutory accounting, anti-money-laundering and tax records.
                     </span>
                   </div>
                 </li>
@@ -162,7 +162,7 @@ export default function PrivacyPage() {
                   <div>
                     <strong className="font-semibold text-zinc-900">Consent</strong>{" "}
                     <span className="text-zinc-700">
-                      — for optional analytics cookies and marketing emails, where applicable.
+                      for optional analytics cookies and marketing emails, where applicable.
                     </span>
                   </div>
                 </li>

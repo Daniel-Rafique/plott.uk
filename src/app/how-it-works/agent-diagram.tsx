@@ -29,7 +29,7 @@ export const AGENT_STEPS = [
     number: "05",
     title: "Land in Pipeline",
     description:
-      "Track each lead by stage, work type, and assignee — with teammate notifications",
+      "Track each lead by stage, work type, and assignee, with teammate notifications",
   },
   {
     number: "06",

@@ -27,7 +27,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     title: resource.title,
     description: resource.description,
     path: `/resources/${resource.slug}`,
-    openGraphTitle: `${resource.title} — Plott`,
+    openGraphTitle: `${resource.title} | Plott`,
     openGraphDescription: resource.directAnswer,
   });
 }

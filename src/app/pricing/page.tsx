@@ -32,9 +32,9 @@ export async function generateMetadata(): Promise<Metadata> {
     title: "Pricing",
     description: `Simple, transparent pricing for Plott. ${priceCopy}. Annual billing saves two months. ${cancelPhrase.charAt(0).toUpperCase()}${cancelPhrase.slice(1)}, VAT may apply.`,
     path: "/pricing",
-    openGraphTitle: "Pricing — Plott",
+    openGraphTitle: "Pricing | Plott",
     openGraphDescription: `Simple, transparent pricing. ${priceCopy}.`,
-    twitterTitle: "Pricing — Plott",
+    twitterTitle: "Pricing | Plott",
     twitterDescription: `Simple, transparent pricing. ${priceCopy}.`,
   });
 }

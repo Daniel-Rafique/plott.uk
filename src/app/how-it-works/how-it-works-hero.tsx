@@ -235,7 +235,7 @@ export function HowItWorksHero() {
           ref={ledeRef}
           className="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-zinc-200/90"
         >
-          Three steps to a personalised letter or reviewed email draft — then
+          Three steps to a personalised letter or reviewed email draft, then
           track every lead in Pipeline, assign teammates, and let an autonomous
           agent keep monitoring your saved searches around the clock.
         </p>

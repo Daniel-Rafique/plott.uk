@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * "03 — Capabilities" section. Monochrome editorial grid with hairline dividers.
+ * "03 · Capabilities" section. Monochrome editorial grid with hairline dividers.
  * Entrance uses the shared useGsapReveal hook for a staggered fade-up.
  */
 
@@ -43,7 +43,7 @@ export function FeaturesGrid() {
             data-reveal
             className="editorial-chapter-label text-brand-dark"
           >
-            03 — Capabilities
+            03 · Capabilities
           </p>
           <h2
             ref={headingRef}

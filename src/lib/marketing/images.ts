@@ -2,7 +2,7 @@
  * Central registry of marketing imagery sourced from Unsplash.
  *
  * All photos are licensed under the Unsplash License (free for commercial
- * and editorial use, no attribution required — but we credit photographers
+ * and editorial use, no attribution required, but we credit photographers
  * in the site footer / data-source line where appropriate).
  *
  * We keep the full CDN URLs here so Next/Image can optimise responsively,
@@ -12,7 +12,7 @@
  */
 
 export type MarketingImage = {
-  /** Unsplash CDN URL (no transform params — Next/Image adds its own). */
+  /** Unsplash CDN URL (no transform params; Next/Image adds its own). */
   src: string;
   /** Descriptive alt text for accessibility. */
   alt: string;
@@ -25,7 +25,7 @@ const unsplash = (id: string) => `https://images.unsplash.com/photo-${id}`;
 export const HOME_CHAPTERS = {
   map: {
     src: unsplash("1513635269975-59663e0ac1ad"),
-    alt: "Aerial view of Tower Bridge, the River Thames and Canary Wharf at dawn — the kind of patch a BD team draws over in Plott.",
+    alt: "Aerial view of Tower Bridge, the River Thames and Canary Wharf at dawn.",
     credit: {
       name: "Benjamin Davies",
       url: "https://unsplash.com/@bendavisual",
@@ -33,7 +33,7 @@ export const HOME_CHAPTERS = {
   },
   enrichment: {
     src: unsplash("1569235186275-626cb53b83ce"),
-    alt: "Vintage library card catalogue drawer, an editorial metaphor for applicant enrichment — matching the right person to every planning record.",
+    alt: "Vintage library card catalogue drawer.",
     credit: {
       name: "Maksym Kaharlytskyi",
       url: "https://unsplash.com/@qwitka",
@@ -41,7 +41,7 @@ export const HOME_CHAPTERS = {
   },
   letter: {
     src: unsplash("1446688568582-55ddb4b37cad"),
-    alt: "Antique letterpress type blocks arranged in a case — evoking the craft of a printed, branded outreach letter.",
+    alt: "Antique letterpress type blocks arranged in a case.",
     credit: {
       name: "Bank Phrom",
       url: "https://unsplash.com/@bank_phrom",
@@ -51,7 +51,7 @@ export const HOME_CHAPTERS = {
 
 export const ABOUT_HERO: MarketingImage = {
   src: unsplash("1513026705753-bc3fffca8bf4"),
-  alt: "Aerial view of central London at dawn — the living planning record Plott turns into a competitive advantage.",
+  alt: "Aerial view of central London at dawn.",
   credit: {
     name: "Giammarco Boscaro",
     url: "https://unsplash.com/@giamboscaro",
@@ -60,7 +60,7 @@ export const ABOUT_HERO: MarketingImage = {
 
 export const HOW_IT_WORKS_HERO: MarketingImage = {
   src: unsplash("1523461308130-ee3bdfb7aff8"),
-  alt: "Tower Bridge rising through morning mist over the Thames — map-first planning intelligence, end to end.",
+  alt: "Tower Bridge rising through morning mist over the Thames.",
   credit: {
     name: "Charles Postiaux",
     url: "https://unsplash.com/@charlycharly",
@@ -69,7 +69,7 @@ export const HOW_IT_WORKS_HERO: MarketingImage = {
 
 export const PRICING_HERO: MarketingImage = {
   src: unsplash("1497366811353-6870744d04b2"),
-  alt: "A polished workspace overlooking a city skyline — clear pricing for teams turning planning data into pipeline.",
+  alt: "A workspace overlooking a city skyline.",
   credit: {
     name: "S O C I A L . C U T",
     url: "https://unsplash.com/@socialcut",
@@ -78,7 +78,7 @@ export const PRICING_HERO: MarketingImage = {
 
 export const MCP_HERO: MarketingImage = {
   src: unsplash("1516321318423-f06f85e504b3"),
-  alt: "A developer workspace with code open on a laptop — connecting Plott planning intelligence to AI tools through MCP.",
+  alt: "A developer workspace with code open on a laptop.",
   credit: {
     name: "Christopher Gower",
     url: "https://unsplash.com/@cgower",
@@ -87,7 +87,7 @@ export const MCP_HERO: MarketingImage = {
 
 export const RESOURCES_HERO: MarketingImage = {
   src: unsplash("1450101499163-c8848c66ca85"),
-  alt: "A desk covered with paper notes, maps and planning research — practical answers for construction growth teams.",
+  alt: "A desk covered with paper notes, maps and planning research.",
   credit: {
     name: "Kelly Sikkema",
     url: "https://unsplash.com/@kellysikkema",
@@ -96,7 +96,7 @@ export const RESOURCES_HERO: MarketingImage = {
 
 export const PRIVACY_HERO: MarketingImage = {
   src: unsplash("1554224155-6726b3ff858f"),
-  alt: "A neat legal desk with documents and a pen — Plott's privacy and data protection commitments.",
+  alt: "A legal desk with documents and a pen.",
   credit: {
     name: "Scott Graham",
     url: "https://unsplash.com/@homajob",
@@ -105,7 +105,7 @@ export const PRIVACY_HERO: MarketingImage = {
 
 export const HOW_IT_WORKS_AGENT_SECTION: MarketingImage = {
   src: unsplash("1454537468202-b7ff71d51c2e"),
-  alt: "Tower Bridge and the City of London at dusk — pipelines that keep running after you have gone home.",
+  alt: "Tower Bridge and the City of London at dusk.",
   credit: {
     name: "Luca Micheli",
     url: "https://unsplash.com/@lucamicheli",

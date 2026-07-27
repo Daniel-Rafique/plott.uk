@@ -10,7 +10,7 @@ import {
 export const metadata: Metadata = publicPageMetadata({
   title: "Contact",
   description:
-    "Get in touch with Plott — product questions, partnerships, or anything we can help with.",
+    "Get in touch with Plott for product questions, partnerships, or anything we can help with.",
   path: "/contact",
   openGraphTitle: "Contact Plott",
   openGraphDescription:

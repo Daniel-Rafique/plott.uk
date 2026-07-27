@@ -15,7 +15,7 @@ export const metadata: Metadata = publicPageMetadata({
   description:
     "Answer-led guides for finding UK planning leads, contacting applicants lawfully, and winning more local construction work.",
   path: "/resources",
-  openGraphTitle: "Planning Lead Resources — Plott",
+  openGraphTitle: "Planning Lead Resources | Plott",
   openGraphDescription:
     "Practical guides for turning planning applications into compliant outreach and new work.",
 });

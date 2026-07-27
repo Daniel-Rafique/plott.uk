@@ -29,11 +29,11 @@ const STEPS = [
     title: "Draw the patch",
     subtitle: "Define your territory in seconds",
     description:
-      `Zoom to any part of the UK on our photorealistic 3D map. Draw a polygon around the area you care about — a postcode, a borough, an entire county. We query ${lpaCoverageFull()} and surface every live application inside your boundary in under two seconds.`,
+      `Zoom to any part of the UK on our photorealistic 3D map. Draw a polygon around the area you care about: a postcode, a borough, or an entire county. We query ${lpaCoverageFull()} and surface every live application inside your boundary in under two seconds.`,
     details: [
       "Photorealistic 3D maps powered by Google's aerial imagery",
       "Filter by application status, decision window, or use class",
-      "Ask the planning Q&A agent in natural language — refused householder extensions near NW1, and similar prompts",
+      "Ask the planning Q&A agent in natural language, for example refused householder extensions near NW1",
       "Save any polygon as a standing search for continuous monitoring",
     ],
   },
@@ -54,7 +54,7 @@ const STEPS = [
       "Generate a personalised A4 letter or review an email draft for a publicly available business address. Optional ballpark estimates give a rough sense of cost and programme when your rate card supports it. Email sending is opt-in at workspace level, checked for compliance, routed through a human approval queue, and synced through Resend with audit details recorded.",
     details: [
       "Customisable letterhead and email templates with merge fields",
-      "Indicative ballpark ranges from your rate card — include or omit per lead",
+      "Indicative ballpark ranges from your rate card, included or omitted per lead",
       "Single-click PDFs, bulk letter export, or approve-and-send email",
       "Compliance guardrails, suppression checks, and sent audit trail",
     ],
@@ -69,7 +69,7 @@ const STEPS = [
     details: [
       "Stages from new through contacted, quoted, won, and lost",
       "Applicant name, email, and work type on every lead card",
-      "Assign a teammate — they get notified and can update progress",
+      "Assign a teammate; they get notified and can update progress",
       "Filter by stage or assignee so each person sees their patch",
     ],
   },
@@ -396,7 +396,7 @@ export function HowItWorksContent() {
               as="h2"
               className="font-[family-name:var(--font-display)] text-[clamp(32px,5vw,64px)] font-normal leading-[1.08] tracking-tight text-zinc-950"
             >
-              Ready to see it in action?
+              See it in action.
             </RevealHeading>
             <p
               data-reveal

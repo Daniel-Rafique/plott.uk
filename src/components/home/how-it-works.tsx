@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * "02 — How it works" editorial section.
+ * "02 · How it works" editorial section.
  *
  * Image-first workflow card. Each chapter is now static inside the global
  * card stack so the page has one clear scroll choreography.
@@ -31,7 +31,7 @@ const CHAPTERS: ChapterData[] = [
     number: "01",
     kicker: "Draw the patch",
     title: "Find every site before your competitors.",
-    body: `Zoom to any part of the UK, draw the polygon you care about, and we surface every live planning application inside it across ${lpaCoverageFull()} — in around two seconds.`,
+    body: `Zoom to any part of the UK, draw the polygon you care about, and we surface every live planning application inside it across ${lpaCoverageFull()}, usually in around two seconds.`,
     bullets: [
       "Photorealistic 3D maps via Google's aerial imagery",
       "Save any polygon as a standing search",
@@ -44,7 +44,7 @@ const CHAPTERS: ChapterData[] = [
     number: "02",
     kicker: "We resolve the people",
     title: "The right name on the envelope, every time.",
-    body: "Applicant, agent and return address are enriched from authoritative government and commercial sources automatically — no manual cross-referencing, no mismatched records.",
+    body: "Applicant, agent and return address are enriched automatically from authoritative government and commercial sources, so you skip the manual cross-referencing.",
     bullets: [
       MARKETING_STATS.applicantMatchRate.bullet,
       "Multi-source enrichment in seconds",
@@ -177,20 +177,21 @@ export function HowItWorks() {
             data-reveal
             className="editorial-chapter-label text-brand-dark"
           >
-            02 — How it works
+            02 · How it works
           </p>
           <h2
             ref={headingRef}
             className="mt-6 font-[family-name:var(--font-display)] text-[clamp(36px,5vw,68px)] font-normal leading-[1.1] tracking-tight text-zinc-950"
           >
-            From patch to approved outreach in three unhurried steps.
+            From patch to approved outreach in three steps.
           </h2>
           <p
             data-reveal
             className="mt-6 max-w-xl text-[15px] leading-relaxed text-zinc-600"
           >
-            No exports, no spreadsheet gymnastics, no six-tab research. Every
-            step from lead discovery to letter or email review now takes seconds.
+            Discovery, enrichment, and outreach review stay in one flow. Each
+            step from lead to letter or email draft takes seconds, not a
+            research afternoon.
           </p>
         </div>
 

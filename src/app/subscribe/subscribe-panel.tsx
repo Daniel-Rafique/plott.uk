@@ -188,7 +188,7 @@ export function SubscribePanel({
         <p className="mx-auto mt-3 max-w-xl text-sm text-zinc-600">
           {isReturningSubscriber
             ? "Stripe will restart billing for the plan you choose. Enter a promo code at checkout if you have one."
-            : "Enter your billing details in Stripe Checkout. You are billed when you subscribe — enter a promo code if you have one."}
+            : "Enter your billing details in Stripe Checkout. You are billed when you subscribe. Enter a promo code if you have one."}
         </p>
         {!selectedPlan ? (
           <div className="mt-6 flex justify-center">

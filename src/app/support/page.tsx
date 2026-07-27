@@ -9,7 +9,7 @@ import {
 export const metadata = publicPageMetadata({
   title: "Support",
   description:
-    "Product support for Plott — send us a message and we'll help you get unblocked.",
+    "Product support for Plott. Send us a message and we'll help you get unblocked.",
   path: "/support",
 });
 
@@ -70,7 +70,7 @@ export default function SupportPage() {
                     Response
                   </dt>
                   <dd className="mt-2 text-zinc-900">
-                    hi@plott.uk — replies within one working
+                    hi@plott.uk. Replies within one working
                     day.
                   </dd>
                 </div>

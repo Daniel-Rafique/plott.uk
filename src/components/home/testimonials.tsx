@@ -93,7 +93,7 @@ export function Testimonials() {
             data-reveal
             className="editorial-chapter-label text-brand-dark"
           >
-            04 — Client stories
+            04 · Client stories
           </p>
           <h2
             ref={headingRef}

@@ -11,7 +11,7 @@ import { termsTrialSentence } from "@/lib/marketing/copy";
 export const metadata: Metadata = publicPageMetadata({
   title: "Terms of Service",
   description:
-    "Plott terms of service — the legal agreement governing your use of the platform.",
+    "Plott terms of service: the legal agreement governing your use of the platform.",
   path: "/terms",
 });
 

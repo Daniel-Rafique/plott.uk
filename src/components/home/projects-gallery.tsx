@@ -185,13 +185,13 @@ export function ProjectsGallery() {
             data-reveal
             className="editorial-chapter-label text-brand-light/70"
           >
-            05 — Featured vignettes
+            05 · Featured vignettes
           </p>
           <h2
             ref={headingRef}
             className="mt-6 font-[family-name:var(--font-display)] text-[clamp(36px,5vw,68px)] font-normal leading-[1.1] tracking-tight text-white"
           >
-            Where <span className="text-brand-light">Plott</span> earns its keep.
+            Where <span className="text-brand-light">Plott</span> fits in the workday.
           </h2>
           <p
             data-reveal
@@ -202,7 +202,7 @@ export function ProjectsGallery() {
               Tap a row to preview the photo, then tap again to open pricing.
             </span>
             <span className="hidden md:inline">
-              Hover a row — the backdrop tells the story.
+              Hover a row to change the backdrop.
             </span>
           </p>
         </div>

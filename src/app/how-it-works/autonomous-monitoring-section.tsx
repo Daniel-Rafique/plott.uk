@@ -270,7 +270,7 @@ export function AutonomousMonitoringSection() {
                 ref={kickerRef}
                 className="editorial-chapter-label text-brand-light/75"
               >
-                05 — Autonomous monitoring
+                05 · Autonomous monitoring
               </p>
               <h2
                 ref={headlineRef}
@@ -306,8 +306,8 @@ export function AutonomousMonitoringSection() {
                         {feature.title}
                       </span>
                       <span className="text-[14px] text-zinc-300">
-                        {" "}
-                        — {feature.description}
+                        {": "}
+                        {feature.description}
                       </span>
                     </div>
                   </li>

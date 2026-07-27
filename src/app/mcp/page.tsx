@@ -19,7 +19,7 @@ import { McpHero } from "./mcp-hero";
 const MCP_URL = "https://plott.uk/api/mcp";
 
 export const metadata = publicPageMetadata({
-  title: "Plott MCP — UK planning intelligence for AI assistants",
+  title: "Plott MCP | UK planning intelligence for AI assistants",
   description:
     "Connect Plott to Claude, ChatGPT, Cursor and compatible MCP clients. Search UK planning applications and run workspace workflows through secure OAuth.",
   path: "/mcp",

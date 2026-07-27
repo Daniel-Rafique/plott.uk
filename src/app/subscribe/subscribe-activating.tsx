@@ -72,7 +72,7 @@ export function SubscribeActivating({
         </div>
       ) : (
         <p className="mt-6 text-xs text-zinc-400">
-          This page refreshes automatically — no action needed.
+          This page refreshes automatically. No action needed.
         </p>
       )}
     </section>

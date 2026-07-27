@@ -105,7 +105,7 @@ export function PricingGrid({ plans }: { plans: Plan[] }) {
         window.location.assign(data.url);
       } else {
         const base = data.hint
-          ? `${data.error ?? "Unable to start checkout"} — ${data.hint}`
+          ? `${data.error ?? "Unable to start checkout"}${data.hint ? `: ${data.hint}` : ""}`
           : (data.error ?? "Unable to start checkout");
         const extra =
           data.usedEnv && data.priceId
@@ -191,7 +191,7 @@ export function PricingGrid({ plans }: { plans: Plan[] }) {
                       : "Contact sales"}
                 </button>
                 <p className="mt-3 text-center text-[12px] leading-relaxed text-zinc-500">
-                  Create your account to start — then choose billing.
+                  Create your account to start, then choose billing.
                 </p>
 
                 <p className="editorial-chapter-label mt-12 text-zinc-500">Includes</p>
