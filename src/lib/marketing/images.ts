@@ -85,6 +85,13 @@ export const MCP_HERO: MarketingImage = {
   },
 };
 
+/** Image-first capability panels on /mcp — same photographic language as home chapters. */
+export const MCP_CAPABILITIES = {
+  planning: HOME_CHAPTERS.map,
+  workspace: HOME_CHAPTERS.enrichment,
+  guided: HOME_CHAPTERS.letter,
+} satisfies Record<string, MarketingImage>;
+
 export const RESOURCES_HERO: MarketingImage = {
   src: unsplash("1450101499163-c8848c66ca85"),
   alt: "A desk covered with paper notes, maps and planning research.",
