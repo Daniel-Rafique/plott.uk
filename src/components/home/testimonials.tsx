@@ -106,17 +106,23 @@ export function Testimonials() {
         <div className="mt-20 grid min-w-0 grid-cols-1 gap-14 md:grid-cols-[1fr_auto] md:items-end md:gap-20">
           <div
             ref={quoteRef}
-            className="relative min-w-0 overflow-x-clip pl-1 sm:pl-0"
+            className="relative min-w-0 overflow-x-clip"
           >
-            <span
-              aria-hidden
-              className="absolute -left-1 -top-10 font-[family-name:var(--font-display)] text-[100px] leading-none text-brand-light/40 sm:-left-4 sm:-top-10 sm:text-[160px] md:-left-6"
-            >
-              &ldquo;
-            </span>
-            <blockquote className="relative max-w-2xl">
+            <blockquote className="relative max-w-2xl pl-11 sm:pl-14 md:pl-16">
+              <span
+                aria-hidden
+                className="pointer-events-none absolute left-0 top-[-0.12em] font-[family-name:var(--font-display)] text-[4.5rem] leading-none text-brand-light/60 sm:text-[5.5rem] md:text-[6.5rem]"
+              >
+                &ldquo;
+              </span>
               <p className="font-[family-name:var(--font-display)] text-[clamp(24px,2.8vw,38px)] font-normal leading-[1.25] tracking-tight text-zinc-950">
                 {current.quote}
+                <span
+                  aria-hidden
+                  className="ml-0.5 inline-block translate-y-[0.05em] text-brand-light/70"
+                >
+                  &rdquo;
+                </span>
               </p>
               <footer className="mt-8 text-[13px] text-zinc-600">
                 <span className="font-medium text-zinc-900">
