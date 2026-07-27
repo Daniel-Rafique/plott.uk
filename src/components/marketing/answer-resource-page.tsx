@@ -1,34 +1,30 @@
 import Link from "next/link";
 import type { ResourcePage } from "@/lib/resources";
 import { EmailCapture } from "@/components/marketing/email-capture";
+import { AnimatedMarketingHero } from "@/components/marketing/animated-marketing-hero";
+import { resourceArticleHero } from "@/lib/marketing/images";
 import { startFreeTrialLabel } from "@/lib/trial";
 import { FunnelCtaButton } from "@/components/auth/funnel-cta-button";
+
+function formatResourceMeta(resource: ResourcePage) {
+  const updated = new Date(resource.updatedAt).toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+  return `Updated ${updated} · ${resource.readTime}`;
+}
 
 export function AnswerResourcePage({ resource }: { resource: ResourcePage }) {
   return (
     <article className="bg-white">
-      <section className="relative overflow-hidden bg-zinc-950 px-6 py-28 text-white md:py-36">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(176,158,126,0.28),transparent_42%)]" />
-        <div className="relative mx-auto max-w-5xl">
-          <p className="editorial-chapter-label text-brand-light">
-            {resource.eyebrow}
-          </p>
-          <h1 className="mt-6 max-w-4xl font-[family-name:var(--font-display)] text-[clamp(42px,6vw,82px)] font-normal leading-[1.04] tracking-tight">
-            {resource.title}
-          </h1>
-          <p className="mt-6 max-w-2xl text-[15px] leading-relaxed text-zinc-300">
-            {resource.description}
-          </p>
-          <p className="mt-8 text-[11px] uppercase tracking-[0.22em] text-zinc-500">
-            Updated {new Date(resource.updatedAt).toLocaleDateString("en-GB", {
-              day: "numeric",
-              month: "long",
-              year: "numeric",
-            })}{" "}
-            · {resource.readTime}
-          </p>
-        </div>
-      </section>
+      <AnimatedMarketingHero
+        eyebrow={resource.eyebrow}
+        title={resource.title}
+        description={resource.description}
+        image={resourceArticleHero(resource.slug)}
+        meta={formatResourceMeta(resource)}
+      />
 
       <section className="px-6 py-16 md:py-24">
         <div className="mx-auto grid max-w-6xl gap-12 lg:grid-cols-[0.8fr_2fr]">

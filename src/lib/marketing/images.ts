@@ -146,3 +146,25 @@ export const GALLERY_BACKDROPS = [
     credit: { name: "Giammarco", url: "https://unsplash.com/@giamboscaro" },
   },
 ] satisfies MarketingImage[];
+
+/** Per-article heroes for /resources/[slug] — thematic, not a flat black band. */
+export const RESOURCE_ARTICLE_HEROES = {
+  "find-uk-planning-application-leads": HOME_CHAPTERS.map,
+  "contact-planning-applicants-legally": PRIVACY_HERO,
+  "win-extension-work": {
+    src: unsplash("1600585154340-be6161a56a0c"),
+    alt: "A contemporary brick house with large windows and a landscaped garden.",
+    credit: {
+      name: "R Architecture",
+      url: "https://unsplash.com/@rarchitecture_melbourne",
+    },
+  },
+} satisfies Record<string, MarketingImage>;
+
+export function resourceArticleHero(slug: string): MarketingImage {
+  return (
+    RESOURCE_ARTICLE_HEROES[
+      slug as keyof typeof RESOURCE_ARTICLE_HEROES
+    ] ?? RESOURCES_HERO
+  );
+}
