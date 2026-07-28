@@ -11,6 +11,7 @@ import {
   normalizePlan,
 } from "@/lib/stripe/plan-prices";
 import { shouldOfferStripeIntroTrial } from "@/lib/subscription-entitlement";
+import { sanitizeNext } from "@/lib/auth/sanitize-next";
 import { SubscribePanel } from "./subscribe-panel";
 import { SubscribeActivating } from "./subscribe-activating";
 
@@ -35,6 +36,7 @@ export default async function SubscribePage({
     typeof sp.session_id === "string" && sp.session_id.startsWith("cs_")
       ? sp.session_id
       : null;
+  const preferredNext = sanitizeNext(sp.next);
   const selectedPlan = normalizePlan(sp.plan);
   const selectedInterval = normalizeBillingInterval(
     typeof sp.interval === "string" ? sp.interval : undefined,
@@ -42,9 +44,12 @@ export default async function SubscribePage({
   const planNextParams = new URLSearchParams();
   if (selectedPlan) planNextParams.set("plan", selectedPlan);
   if (selectedInterval === "year") planNextParams.set("interval", "year");
+  if (preferredNext) planNextParams.set("next", preferredNext);
   const planNext = selectedPlan
     ? `/subscribe?${planNextParams.toString()}`
-    : null;
+    : preferredNext
+      ? `/subscribe?next=${encodeURIComponent(preferredNext)}`
+      : null;
 
   const resolved = await resolveStage();
   if (resolved.stage !== "needs_plan" && resolved.stage !== "ready") {
@@ -63,6 +68,9 @@ export default async function SubscribePage({
     redirect(redirectForStage(resolved));
   }
   if (resolved.stage === "ready") {
+    if (preferredNext) {
+      redirect(preferredNext);
+    }
     if (checkout === "success") {
       const next = new URLSearchParams();
       next.set("checkout", "success");
@@ -102,6 +110,7 @@ export default async function SubscribePage({
           selectedPlan={selectedPlan}
           selectedInterval={selectedInterval}
           isReturningSubscriber={isReturningSubscriber}
+          returnNext={preferredNext}
         />
         <p className="mt-8 text-center text-sm text-zinc-500">
           <Link href="/pricing" className="underline">

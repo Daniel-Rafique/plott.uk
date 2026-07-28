@@ -96,11 +96,13 @@ export function SubscribePanel({
   selectedPlan,
   selectedInterval = "month",
   isReturningSubscriber,
+  returnNext = null,
 }: {
   companyName: string;
   selectedPlan?: PaidPlanId | null;
   selectedInterval?: BillingInterval;
   isReturningSubscriber: boolean;
+  returnNext?: string | null;
 }) {
   const [plans, setPlans] = useState<ClientPlan[]>(FALLBACK_PLANS);
   const [interval, setInterval] = useState<BillingInterval>(selectedInterval);
@@ -135,7 +137,11 @@ export function SubscribePanel({
         const res = await fetch("/api/stripe/checkout", {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ plan, interval: billingInterval }),
+          body: JSON.stringify({
+            plan,
+            interval: billingInterval,
+            ...(returnNext ? { next: returnNext } : {}),
+          }),
         });
         const data = (await res.json().catch(() => ({}))) as {
           url?: string;
@@ -163,7 +169,7 @@ export function SubscribePanel({
         setLoadingPlan(null);
       }
     },
-    [interval, isReturningSubscriber],
+    [interval, isReturningSubscriber, returnNext],
   );
 
   useEffect(() => {

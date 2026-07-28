@@ -16,6 +16,7 @@ import {
 } from "@/lib/stripe/trial-upgrade";
 import { trackKlaviyoEvent } from "@/lib/klaviyo-marketing";
 import { shouldOfferStripeIntroTrial } from "@/lib/subscription-entitlement";
+import { sanitizeNext } from "@/lib/auth/sanitize-next";
 
 export const runtime = "nodejs";
 
@@ -141,8 +142,11 @@ export async function POST(req: Request) {
   }
 
   let body: PriceRequest = {};
+  let returnNext: string | null = null;
   try {
-    body = (await req.json()) as PriceRequest;
+    const raw = (await req.json()) as PriceRequest & { next?: unknown };
+    body = raw;
+    returnNext = sanitizeNext(raw.next);
   } catch {
     // empty body is fine — we fall back to default price
   }
@@ -259,19 +263,29 @@ export async function POST(req: Request) {
   // those are in place makes every Checkout Session fail.
   const managedPayments = process.env.STRIPE_MANAGED_PAYMENTS === "true";
 
+  // Keep `{CHECKOUT_SESSION_ID}` literal — Stripe substitutes it; do not encode.
+  let successUrl = `${origin}/subscribe?checkout=success&session_id={CHECKOUT_SESSION_ID}`;
+  let cancelUrl = `${origin}/subscribe?checkout=cancelled`;
+  if (returnNext) {
+    const encodedNext = encodeURIComponent(returnNext);
+    successUrl += `&next=${encodedNext}`;
+    cancelUrl += `&next=${encodedNext}`;
+  }
+
   const sessionParams: Stripe.Checkout.SessionCreateParams = {
     mode: "subscription",
     customer: customerId,
     line_items: lineItems,
     // Land back on /subscribe — it detects `?checkout=success` and shows
     // an activating spinner while the webhook catches up, then redirects
-    // forward to /app/dashboard once resolveStage() sees the subscription.
-    success_url: `${origin}/subscribe?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
-    cancel_url: `${origin}/subscribe?checkout=cancelled`,
+    // forward (dashboard or preserved MCP OAuth next) once ready.
+    success_url: successUrl,
+    cancel_url: cancelUrl,
     client_reference_id: ctx.company.id,
     metadata: {
       userId: ctx.user.id,
       companyId: ctx.company.id,
+      ...(returnNext ? { returnNext } : {}),
     },
     subscription_data: {
       metadata: {

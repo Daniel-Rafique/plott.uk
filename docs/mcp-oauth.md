@@ -98,6 +98,21 @@ For clients with built-in remote MCP and OAuth support, add
 registration, PKCE and token exchange, while the user signs in to Plott,
 selects a workspace and approves the requested permissions.
 
+### New users (no workspace or subscription yet)
+
+MCP consent requires an **active/trialing workspace**. Brand-new users are not
+shown the Authorize button until onboarding and billing are complete:
+
+1. `/oauth/authorize` signs them in (Neon), verifies email, and runs 2FA if
+   needed — always with `next` pointing back at the authorize URL.
+2. Incomplete setup redirects to `/onboarding?next=/oauth/authorize?...` then
+   `/subscribe?next=/oauth/authorize?...` (Stripe checkout preserves `next`).
+3. After the subscription is active, `/subscribe` returns them to consent.
+4. Only workspaces with subscription access appear in the workspace picker.
+   Approve still re-checks `hasSubscriptionAccess` server-side.
+
+Existing ready users skip setup and land directly on consent.
+
 ## Release checklist
 
 1. Run `npx prisma migrate deploy`, `npm test`, `npm run lint`, and `npm run build`.

@@ -11,9 +11,14 @@ import { ensureUserAndPersonalCompany } from "@/lib/tenant";
 import { prisma } from "@/lib/prisma";
 import { hasSubscriptionAccess } from "@/lib/subscription-entitlement";
 import { userNeedsSecondFactor } from "@/lib/auth/second-factor";
-import { sanitizeNext } from "@/lib/auth/sanitize-next";
+import {
+  isMcpOAuthReturnPath,
+  sanitizeNext,
+} from "@/lib/auth/sanitize-next";
 import type { Company, Membership, User } from "@prisma/client";
 import type { SessionUser } from "@/lib/auth/session";
+
+export { resolveMcpOAuthSetupPath } from "@/lib/auth/mcp-oauth-setup";
 
 export type OnboardingStage =
   | { stage: "unauthenticated" }
@@ -84,14 +89,16 @@ export async function resolvePostAuthPath(
 
   if (stage.stage === "ready") {
     if (await userNeedsSecondFactor(stage.dbUser.id)) {
-      return "/auth/two-factor";
+      return next
+        ? `/auth/two-factor?next=${encodeURIComponent(next)}`
+        : "/auth/two-factor";
     }
     if (next) return next;
     return STAGE_REDIRECTS.ready;
   }
 
   if (stage.stage === "needs_company") {
-    if (next?.startsWith("/subscribe")) {
+    if (next?.startsWith("/subscribe") || isMcpOAuthReturnPath(next)) {
       return `/onboarding?next=${encodeURIComponent(next)}`;
     }
     return STAGE_REDIRECTS.needs_company;
@@ -99,6 +106,9 @@ export async function resolvePostAuthPath(
 
   if (stage.stage === "needs_plan") {
     if (next?.startsWith("/subscribe")) return next;
+    if (isMcpOAuthReturnPath(next)) {
+      return `/subscribe?next=${encodeURIComponent(next)}`;
+    }
     return STAGE_REDIRECTS.needs_plan;
   }
 

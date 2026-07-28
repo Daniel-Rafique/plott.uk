@@ -66,7 +66,12 @@ export async function POST(request: Request) {
   });
   if (!membership || !hasSubscriptionAccess(membership.company)) {
     return Response.json(
-      { error: "access_denied", error_description: "Active workspace required" },
+      {
+        error: "access_denied",
+        error_description:
+          "Active workspace subscription required. Subscribe at /subscribe, then return to authorize.",
+        billing_url: "/subscribe",
+      },
       { status: 403 },
     );
   }
