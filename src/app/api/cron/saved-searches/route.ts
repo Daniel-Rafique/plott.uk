@@ -34,6 +34,7 @@ import {
 } from "@/lib/digest-ranking";
 import { upsertPipelineLead } from "@/lib/pipeline";
 import { ensureLeadAndEstimate, shouldIncludeBallparkInOutreach } from "@/lib/ai/agents/job-estimator";
+import { withPrismaRetry } from "@/lib/prisma-retry";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -80,9 +81,24 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const searches = await prisma.savedSearch.findMany({
-    include: { company: true },
-  });
+  let searches;
+  try {
+    searches = await withPrismaRetry(
+      () =>
+        prisma.savedSearch.findMany({
+          include: { company: true },
+        }),
+      { label: "saved_searches_cron.findMany" },
+    );
+  } catch (err) {
+    // Neon pooler blips (P1001) after retries — return handled 503 so the next
+    // cron tick retries instead of surfacing an unhandled Sentry exception.
+    logger.error({ err }, "cron_saved_searches_db_unreachable");
+    return NextResponse.json(
+      { ok: false, error: "database_unreachable" },
+      { status: 503 },
+    );
+  }
 
   const results: {
     id: string;
@@ -249,10 +265,14 @@ export async function GET(req: Request) {
         isAgentKindAllowed(tier, "job_estimator") &&
         topLeads.length > 0
       ) {
-        const hasRateCard = await prisma.companyRateCard.findUnique({
-          where: { companyId: s.companyId },
-          select: { id: true },
-        });
+        const hasRateCard = await withPrismaRetry(
+          () =>
+            prisma.companyRateCard.findUnique({
+              where: { companyId: s.companyId },
+              select: { id: true },
+            }),
+          { label: "saved_searches_cron.rate_card" },
+        );
         if (hasRateCard) {
           for (const app of topLeads.slice(0, DIGEST_EMAIL_MAX_LEADS)) {
             try {
@@ -402,19 +422,23 @@ export async function GET(req: Request) {
         );
       }
 
-      await prisma.savedSearch.update({
-        where: { id: s.id },
-        data: {
-          lastRunAt: new Date(),
-          lastRunCount: newOnes.length,
-          lastSeenIds: Array.from(
-            new Set([
-              ...s.lastSeenIds.map((id) => BigInt(id)),
-              ...entityBigIntsForSeen,
-            ]),
-          ).slice(-2000),
-        },
-      });
+      await withPrismaRetry(
+        () =>
+          prisma.savedSearch.update({
+            where: { id: s.id },
+            data: {
+              lastRunAt: new Date(),
+              lastRunCount: newOnes.length,
+              lastSeenIds: Array.from(
+                new Set([
+                  ...s.lastSeenIds.map((id) => BigInt(id)),
+                  ...entityBigIntsForSeen,
+                ]),
+              ).slice(-2000),
+            },
+          }),
+        { label: "saved_searches_cron.update" },
+      );
 
       results.push({ id: s.id, ran: true, newCount: newOnes.length });
     } catch (e) {
