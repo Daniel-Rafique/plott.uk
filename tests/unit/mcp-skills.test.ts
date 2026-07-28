@@ -111,12 +111,20 @@ describe("Plott MCP skills", () => {
       ]);
 
       const index = await client.readResource({ uri: "skill://index.json" });
-      expect(JSON.parse(String(index.contents[0]?.text))).toEqual(PLOTT_SKILL_INDEX);
+      const indexContent = index.contents[0];
+      if (!indexContent || !("text" in indexContent)) {
+        throw new Error("expected text skill index resource");
+      }
+      expect(JSON.parse(indexContent.text)).toEqual(PLOTT_SKILL_INDEX);
 
       const skill = PLOTT_SKILLS[0];
       const resource = await client.readResource({ uri: skill.uri });
-      expect(resource.contents[0]?.mimeType).toBe("text/markdown");
-      expect(resource.contents[0]?.text).toBe(skill.source);
+      const skillContent = resource.contents[0];
+      if (!skillContent || !("text" in skillContent)) {
+        throw new Error("expected text skill resource");
+      }
+      expect(skillContent.mimeType).toBe("text/markdown");
+      expect(skillContent.text).toBe(skill.source);
     } finally {
       await client.close();
       await server.close();
