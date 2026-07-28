@@ -98,7 +98,10 @@ export async function resolvePostAuthPath(
   }
 
   if (stage.stage === "needs_company") {
-    if (next?.startsWith("/subscribe") || isMcpOAuthReturnPath(next)) {
+    if (
+      next &&
+      (next.startsWith("/subscribe") || isMcpOAuthReturnPath(next))
+    ) {
       return `/onboarding?next=${encodeURIComponent(next)}`;
     }
     return STAGE_REDIRECTS.needs_company;

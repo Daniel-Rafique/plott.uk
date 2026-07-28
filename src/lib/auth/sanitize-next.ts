@@ -7,7 +7,9 @@ export function sanitizeNext(raw: unknown): string | null {
 }
 
 /** True when `next` should return the user to MCP OAuth consent. */
-export function isMcpOAuthReturnPath(path: string | null | undefined): boolean {
+export function isMcpOAuthReturnPath(
+  path: string | null | undefined,
+): path is string {
   return Boolean(path?.startsWith("/oauth/authorize"));
 }
 
