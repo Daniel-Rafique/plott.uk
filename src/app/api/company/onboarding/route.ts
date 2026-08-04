@@ -16,6 +16,8 @@ import {
   optionalTrimmedString,
   optionalWebsiteUrlSchema,
 } from "@/lib/auth/form-validation";
+import { trackKlaviyoEvent, upsertKlaviyoProfile } from "@/lib/klaviyo-marketing";
+import { logger } from "@/lib/logger";
 
 export const runtime = "nodejs";
 
@@ -56,6 +58,7 @@ export async function POST(req: Request) {
   }
   const { name, websiteUrl, addressLines, phone } = parsed.data;
 
+  const alreadyOnboarded = Boolean(ctx.company.onboardingCompletedAt);
   const company = await prisma.company.update({
     where: { id: ctx.company.id },
     data: {
@@ -67,8 +70,64 @@ export async function POST(req: Request) {
     },
   });
 
+  const subscribed = hasActiveSubscription(company);
+  const nextPath = subscribed ? "/app/dashboard" : "/subscribe";
+
+  // Trigger for Klaviyo "finished signup / didn't pay" flow. Skip re-fires when
+  // the wizard is re-saved after onboarding was already stamped.
+  if (!alreadyOnboarded && !subscribed && ctx.user.email) {
+    try {
+      const profile = await upsertKlaviyoProfile({
+        email: ctx.user.email,
+        name: ctx.user.name,
+        company: company.name,
+        properties: {
+          company_id: company.id,
+          company_name: company.name,
+          funnel_stage: "needs_plan",
+          has_paid: false,
+          website_url: company.websiteUrl,
+        },
+      });
+      if (profile.status === "skipped") {
+        logger.warn(
+          { reason: profile.reason, companyId: company.id },
+          "klaviyo_onboarding_completed_skipped",
+        );
+      }
+
+      const event = await trackKlaviyoEvent({
+        email: ctx.user.email,
+        event: "Onboarding Completed",
+        uniqueId: `onboarding-completed:${company.id}`,
+        properties: {
+          company_id: company.id,
+          company_name: company.name,
+          funnel_stage: "needs_plan",
+          has_paid: false,
+          next_path: nextPath,
+          website_url: company.websiteUrl,
+        },
+      });
+      if (event.status === "skipped") {
+        logger.warn(
+          { reason: event.reason, companyId: company.id },
+          "klaviyo_onboarding_completed_skipped",
+        );
+      }
+    } catch (err) {
+      logger.warn(
+        {
+          err: err instanceof Error ? err.message : String(err),
+          companyId: company.id,
+        },
+        "klaviyo_onboarding_completed_failed",
+      );
+    }
+  }
+
   return NextResponse.json({
     ok: true,
-    nextPath: hasActiveSubscription(company) ? "/app/dashboard" : "/subscribe",
+    nextPath,
   });
 }

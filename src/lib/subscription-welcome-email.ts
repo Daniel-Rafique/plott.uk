@@ -63,6 +63,8 @@ export async function trySendSubscriptionWelcomeEmail(
       properties: {
         company_id: companyId,
         company_name: company.name,
+        funnel_stage: "ready",
+        has_paid: true,
         subscription_status: sub.status,
         subscription_price_id: firstPriceId(sub),
         trial_ends_at: trialEndsAt?.toISOString() ?? null,
@@ -86,6 +88,8 @@ export async function trySendSubscriptionWelcomeEmail(
         subscription_status: sub.status,
         subscription_price_id: firstPriceId(sub),
         trial_ends_at: trialEndsAt?.toISOString() ?? null,
+        funnel_stage: "ready",
+        has_paid: true,
       },
     });
     if (event.status === "skipped") {

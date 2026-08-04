@@ -83,11 +83,64 @@ as `KLAVIYO_WEBHOOK_SECRET` if Klaviyo asks for the Stripe signing secret.
 Plott also sends custom app events through `src/lib/klaviyo-marketing.ts`.
 These are not billing primitives and should stay in the app:
 
-- marketing lead capture
-- checkout started
-- subscription welcome lifecycle
+- marketing lead capture (`Marketing Lead Submitted`)
+- onboarding finished (`Onboarding Completed`) — workspace set up, not yet paid
+- checkout started (`Checkout Started`)
+- subscription welcome lifecycle (`Subscription Started` / `Trial Started`)
 - saved search created
 - onboarding/product activity that Stripe cannot observe
+
+### Profile properties used by lifecycle flows
+
+| Property | Set when | Meaning |
+|----------|----------|---------|
+| `funnel_stage` | onboarding / paid | `needs_plan` or `ready` |
+| `has_paid` | onboarding / paid | `false` until first paid/trialing sub |
+| `company_id` / `company_name` | both | Tenant context for personalisation |
+| `subscription_status` | paid | Stripe status string |
+
+## Finished signup / didn't pay flow
+
+Build this in Klaviyo (Flows → Create Flow → Metric). Plott cannot create the
+flow via API from this repo; the app only emits the metrics.
+
+**Trigger metric:** `Onboarding Completed`
+
+**Flow filters (recommended):**
+
+- Profile `has_paid` is not `true` (or is unset / `false`)
+- Optionally: has not done `Checkout Started` in the last 1 hour (avoid
+  emailing someone mid-checkout)
+
+**Exit / conversion criteria:**
+
+- Anyone who receives `Subscription Started` **or** `Trial Started`
+- Anyone whose profile `has_paid` becomes `true`
+
+**Suggested timing (UK contractors, weekday-friendly):**
+
+1. **+30 minutes** — “Your workspace is ready — pick a plan”
+   CTA: `https://plott.uk/subscribe`
+2. **+1 day** — Short reminder: Pro for growing contractors, cancel anytime
+3. **+3 days** — Last nudge; mention letter templates / ICP starter filters
+   from onboarding
+
+**Copy notes:**
+
+- Do not promise a free trial unless `STRIPE_TRIAL_DAYS` is > 0 in production.
+- Current marketing copy: billed at checkout, cancel anytime.
+- Prefer transactional / service messaging for account-completion reminders if
+  the profile has not opted into marketing email. Lead-magnet subscribers
+  already have marketing consent via `/api/marketing/subscribe`.
+
+**Smoke test:**
+
+1. Complete onboarding on a test account without paying.
+2. Confirm Klaviyo Activity shows `Onboarding Completed` and
+   `funnel_stage=needs_plan`, `has_paid=false`.
+3. Complete checkout; confirm `Subscription Started` (or `Trial Started`) and
+   `has_paid=true`.
+4. Confirm the flow exits and no further abandon emails send.
 
 ## Validation
 
