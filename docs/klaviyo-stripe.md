@@ -101,46 +101,43 @@ These are not billing primitives and should stay in the app:
 
 ## Finished signup / didn't pay flow
 
-Build this in Klaviyo (Flows → Create Flow → Metric). Plott cannot create the
-flow via API from this repo; the app only emits the metrics.
+Create/update the draft flow via the Flows API:
 
-**Trigger metric:** `Onboarding Completed`
+```bash
+npm run klaviyo:ensure-signup-abandon-flow
+# optional: rewrite CODE HTML templates
+npm run klaviyo:ensure-signup-abandon-flow -- --force-templates
+```
 
-**Flow filters (recommended):**
+Script: `scripts/ensure-klaviyo-signup-abandon-flow.ts`
 
-- Profile `has_paid` is not `true` (or is unset / `false`)
-- Optionally: has not done `Checkout Started` in the last 1 hour (avoid
-  emailing someone mid-checkout)
+What it provisions (idempotent):
 
-**Exit / conversion criteria:**
+- Metric `Onboarding Completed` (seeds a one-off event if the metric is missing)
+- Three CODE HTML templates (CTA → `https://plott.uk/subscribe`)
+- Draft flow **Finished signup / didn't pay**
+  - Trigger: `Onboarding Completed`
+  - Profile + per-email filters: zero `Subscription Started` and zero
+    `Trial Started` since flow start
+  - Delays: 30 minutes → Email 1 → 1 day → Email 2 → 2 days → Email 3
+  - Messages marked `transactional: true` (account-completion, not promo)
 
-- Anyone who receives `Subscription Started` **or** `Trial Started`
-- Anyone whose profile `has_paid` becomes `true`
-
-**Suggested timing (UK contractors, weekday-friendly):**
-
-1. **+30 minutes** — “Your workspace is ready — pick a plan”
-   CTA: `https://plott.uk/subscribe`
-2. **+1 day** — Short reminder: Pro for growing contractors, cancel anytime
-3. **+3 days** — Last nudge; mention letter templates / ICP starter filters
-   from onboarding
+Flows are always created in **Draft**. Review copy in Klaviyo, then set Live.
 
 **Copy notes:**
 
 - Do not promise a free trial unless `STRIPE_TRIAL_DAYS` is > 0 in production.
 - Current marketing copy: billed at checkout, cancel anytime.
-- Prefer transactional / service messaging for account-completion reminders if
-  the profile has not opted into marketing email. Lead-magnet subscribers
-  already have marketing consent via `/api/marketing/subscribe`.
 
 **Smoke test:**
 
-1. Complete onboarding on a test account without paying.
-2. Confirm Klaviyo Activity shows `Onboarding Completed` and
+1. Deploy app changes that emit `Onboarding Completed`.
+2. Complete onboarding on a test account without paying.
+3. Confirm Klaviyo Activity shows `Onboarding Completed` and
    `funnel_stage=needs_plan`, `has_paid=false`.
-3. Complete checkout; confirm `Subscription Started` (or `Trial Started`) and
+4. Complete checkout; confirm `Subscription Started` (or `Trial Started`) and
    `has_paid=true`.
-4. Confirm the flow exits and no further abandon emails send.
+5. Confirm the flow exits and no further abandon emails send.
 
 ## Validation
 
