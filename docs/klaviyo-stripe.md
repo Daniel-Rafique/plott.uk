@@ -105,7 +105,7 @@ Create/update the draft flow via the Flows API:
 
 ```bash
 npm run klaviyo:ensure-signup-abandon-flow
-# optional: rewrite CODE HTML templates
+# rewrite library CODE HTML + re-point live flow emails (Klaviyo clones templates)
 npm run klaviyo:ensure-signup-abandon-flow -- --force-templates
 ```
 
@@ -121,6 +121,10 @@ What it provisions (idempotent):
     `Trial Started` since flow start
   - Delays: 30 minutes → Email 1 → 1 day → Email 2 → 2 days → Email 3
   - Messages marked `transactional: true` (account-completion, not promo)
+
+`--force-templates` updates the library templates **and** reassigns each flow
+email to those templates. Flow-owned clones cannot be PATCHed directly (API
+404), so reassignment is required for live copy to change.
 
 Flows are always created in **Draft**. Review copy in Klaviyo, then set Live.
 
@@ -138,6 +142,33 @@ Flows are always created in **Draft**. Review copy in Klaviyo, then set Live.
 4. Complete checkout; confirm `Subscription Started` (or `Trial Started`) and
    `has_paid=true`.
 5. Confirm the flow exits and no further abandon emails send.
+
+## Hunter construction warm list flow
+
+For warm imports (e.g. Hunter construction profiles), use a **list-triggered**
+nurture series — not the signup-abandon metric flow.
+
+```bash
+npm run klaviyo:ensure-hunter-warm-flow
+```
+
+Script: `scripts/ensure-klaviyo-hunter-warm-flow.ts`
+
+Provisions:
+
+- List **Hunter Construction Warm**
+- Draft flow **Hunter construction warm nurture**
+  - Trigger: Added to that list
+  - Skips anyone who already has `Subscription Started` or `Trial Started`
+  - Emails: immediate intro → +2 days → +3 days
+  - CTAs → `plott.uk` / sign-up (not subscribe)
+
+**Import steps:**
+
+1. Set the flow Live after reviewing copy.
+2. Import the CSV into **Hunter Construction Warm** (not the main Email List).
+3. Mark email marketing consent for profiles you are allowed to email.
+4. Adding someone to the list is what starts the flow.
 
 ## Validation
 

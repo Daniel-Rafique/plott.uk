@@ -1,22 +1,20 @@
 /**
- * Ensures the Klaviyo "Finished signup / didn't pay" metric flow exists.
+ * Ensures a Klaviyo list + list-triggered nurture flow for Hunter warm
+ * construction imports.
  *
- * Creates CODE HTML templates + a draft metric-triggered flow via the Flows API:
- *   trigger: Onboarding Completed
- *   exit filter: no Subscription Started / Trial Started since flow start
- *   emails: +30m, +1d, +3d (relative delays)
+ * Creates:
+ *   - List: "Hunter Construction Warm"
+ *   - Draft flow: "Hunter construction warm nurture"
+ *     trigger: Added to List
+ *     exit: already has Subscription Started or Trial Started (all-time)
+ *     emails: immediate → +2d → +3d
  *
  * Required env:
  *   KLAVIYO_API_KEY
  *
- * Optional:
- *   KLAVIYO_API_REVISION (default 2026-04-15)
- *   KLAVIYO_FROM_EMAIL (default hi@plott.uk)
- *   KLAVIYO_FROM_LABEL (default Plott)
- *
  * Usage:
- *   npm run klaviyo:ensure-signup-abandon-flow
- *   npm run klaviyo:ensure-signup-abandon-flow -- --force-templates
+ *   npm run klaviyo:ensure-hunter-warm-flow
+ *   npm run klaviyo:ensure-hunter-warm-flow -- --force-templates
  */
 
 import { config as loadEnv } from "dotenv";
@@ -27,46 +25,48 @@ loadEnv({ path: resolve(process.cwd(), ".env.local"), override: true });
 
 const API_BASE = "https://a.klaviyo.com/api";
 const DEFAULT_REVISION = "2026-04-15";
-const FLOW_NAME = "Finished signup / didn't pay";
-const METRIC_NAME = "Onboarding Completed";
-const SEED_EMAIL = "klaviyo-seed+onboarding@plott.uk";
+const LIST_NAME = "Hunter Construction Warm";
+const FLOW_NAME = "Hunter construction warm nurture";
+const SIGNUP_URL = "https://plott.uk/auth/sign-up";
+const RESOURCE_URL = "https://plott.uk/#free-resource";
 
 const TEMPLATE_SPECS = [
   {
     key: "email1",
-    name: "Plott · Signup abandon · Email 1 (workspace ready)",
-    subject: "Your Plott workspace is ready — pick a plan",
-    preview: "Finish setup and start finding planning leads.",
-    heading: "Your workspace is ready",
-    body: "You've set up your company details. Choose a plan to open the map, pin applications, and start outreach.",
-    cta: "Choose a plan",
+    name: "Plott · Hunter warm · Email 1 (intro)",
+    subject: "Planning leads for UK builders — without the portal grind",
+    preview: "See nearby applications before your competitors do.",
+    heading: "Find planning leads before they go cold",
+    body: "Plott maps UK planning applications so loft, extension, roofing and general builders can spot work nearby, filter by trade, and reach out with letters that stay behind your review step.",
+    cta: "See how Plott works",
+    href: "https://plott.uk",
   },
   {
     key: "email2",
-    name: "Plott · Signup abandon · Email 2 (reminder)",
-    subject: "Still deciding? Pro is built for growing contractors",
-    preview: "Ballpark outreach that stays behind your review step.",
-    heading: "A quick reminder",
-    body: "Plott helps you spot planning leads nearby, draft letters, and keep outreach behind your review step. Cancel anytime.",
-    cta: "View plans",
+    name: "Plott · Hunter warm · Email 2 (how it works)",
+    subject: "Draw a radius. Pin applications. Send the letter.",
+    preview: "Built for contractors who win work from planning activity.",
+    heading: "From map to outreach in minutes",
+    body: "Draw a search area, pin the applications that match your trade, and generate outreach that uses your company details. Starter filters and letter defaults get you moving faster — you stay in control before anything goes out.",
+    cta: "Create your workspace",
+    href: SIGNUP_URL,
   },
   {
     key: "email3",
-    name: "Plott · Signup abandon · Email 3 (last nudge)",
-    subject: "Last nudge — your Plott workspace is waiting",
-    preview: "Starter ICP filters and letter templates are already set.",
-    heading: "One last nudge",
-    body: "Your starter filters and letter defaults are already in place from onboarding. Pick a plan when you're ready — billed at checkout, cancel anytime.",
-    cta: "Continue to plans",
+    name: "Plott · Hunter warm · Email 3 (CTA)",
+    subject: "Ready when you are — start with Plott",
+    preview: "Cancel anytime. No free-trial promise — billed when you choose a plan.",
+    heading: "Start finding leads this week",
+    body: "If you're chasing loft conversions, extensions or roofing work from planning activity, Plott is built for that workflow. Create an account free, then pick a plan when you're ready — billed at checkout, cancel anytime.",
+    cta: "Get started",
+    href: SIGNUP_URL,
   },
 ] as const;
 
 type Json = Record<string, unknown>;
 
 function parseArgs(argv: string[]) {
-  return {
-    forceTemplates: argv.includes("--force-templates"),
-  };
+  return { forceTemplates: argv.includes("--force-templates") };
 }
 
 function config() {
@@ -105,7 +105,9 @@ async function klaviyoFetch(
   });
   const text = await res.text();
   if (!res.ok) {
-    throw new Error(`${init?.method ?? "GET"} ${path} → ${res.status} ${text.slice(0, 1200)}`);
+    throw new Error(
+      `${init?.method ?? "GET"} ${path} → ${res.status} ${text.slice(0, 1200)}`,
+    );
   }
   return text ? (JSON.parse(text) as Json) : {};
 }
@@ -134,8 +136,8 @@ function emailHtml(args: {
   heading: string;
   body: string;
   cta: string;
+  href: string;
 }): string {
-  const subscribeUrl = "https://plott.uk/subscribe";
   return `<!DOCTYPE html>
 <html>
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
@@ -148,9 +150,9 @@ function emailHtml(args: {
         <tr><td style="padding-top:12px;font-size:16px;line-height:1.55;color:#3f3f46;">Hi {{ first_name|default:"there" }},</td></tr>
         <tr><td style="padding-top:8px;font-size:16px;line-height:1.55;color:#3f3f46;">${args.body}</td></tr>
         <tr><td style="padding-top:24px;">
-          <a href="${subscribeUrl}" style="display:inline-block;background:#18181b;color:#ffffff;text-decoration:none;padding:12px 20px;border-radius:999px;font-size:14px;font-weight:600;">${args.cta}</a>
+          <a href="${args.href}" style="display:inline-block;background:#18181b;color:#ffffff;text-decoration:none;padding:12px 20px;border-radius:999px;font-size:14px;font-weight:600;">${args.cta}</a>
         </td></tr>
-        <tr><td style="padding-top:28px;font-size:12px;line-height:1.5;color:#a1a1aa;">Billed at checkout. Cancel anytime.<br>Questions? Reply to this email or write to hi@plott.uk.</td></tr>
+        <tr><td style="padding-top:28px;font-size:12px;line-height:1.5;color:#a1a1aa;">Built for UK builders and planning consultants.<br>Prefer a free resource first? <a href="${RESOURCE_URL}" style="color:#52525b;">Grab the checklist</a>.<br>Questions? Reply to this email.</td></tr>
       </table>
     </td></tr>
   </table>
@@ -158,50 +160,25 @@ function emailHtml(args: {
 </html>`;
 }
 
-async function ensureMetric(
-  cfg: ReturnType<typeof config>,
-): Promise<{ id: string; created: boolean }> {
-  const metrics = await listAll(cfg, "metrics/");
-  const existing = metrics.find((m) => m.attributes?.name === METRIC_NAME);
-  if (existing) return { id: existing.id, created: false };
-
-  await klaviyoFetch(cfg, "events/", {
+async function ensureList(cfg: ReturnType<typeof config>): Promise<string> {
+  const lists = await listAll(cfg, "lists/");
+  const existing = lists.find((l) => l.attributes?.name === LIST_NAME);
+  if (existing) {
+    console.log(`OK list exists: ${LIST_NAME} (${existing.id})`);
+    return existing.id;
+  }
+  const created = await klaviyoFetch(cfg, "lists/", {
     method: "POST",
     body: JSON.stringify({
       data: {
-        type: "event",
-        attributes: {
-          properties: {
-            seeded: true,
-            funnel_stage: "needs_plan",
-            has_paid: false,
-          },
-          metric: {
-            data: {
-              type: "metric",
-              attributes: { name: METRIC_NAME },
-            },
-          },
-          profile: {
-            data: {
-              type: "profile",
-              attributes: { email: SEED_EMAIL },
-            },
-          },
-          unique_id: `seed-${METRIC_NAME.toLowerCase().replace(/\s+/g, "-")}`,
-        },
+        type: "list",
+        attributes: { name: LIST_NAME },
       },
     }),
   });
-
-  // Metric indexing can lag briefly after first event.
-  for (let attempt = 0; attempt < 8; attempt++) {
-    await new Promise((r) => setTimeout(r, 1500));
-    const again = await listAll(cfg, "metrics/");
-    const found = again.find((m) => m.attributes?.name === METRIC_NAME);
-    if (found) return { id: found.id, created: true };
-  }
-  throw new Error(`Seeded ${METRIC_NAME} but metric ID not visible yet.`);
+  const id = (created.data as { id: string }).id;
+  console.log(`Created list: ${LIST_NAME} (${id})`);
+  return id;
 }
 
 async function findMetricId(
@@ -211,9 +188,7 @@ async function findMetricId(
   const metrics = await listAll(cfg, "metrics/");
   const found = metrics.find((m) => m.attributes?.name === name);
   if (!found) {
-    throw new Error(
-      `Metric "${name}" not found. Complete a paid checkout once so Subscription Started exists, or seed it.`,
-    );
+    throw new Error(`Metric "${name}" not found in Klaviyo.`);
   }
   return found.id;
 }
@@ -242,7 +217,7 @@ async function ensureTemplates(
             id: existing.id,
             attributes: {
               html: emailHtml(spec),
-              text: `${spec.heading}\n\n${spec.body}\n\n${spec.cta}: https://plott.uk/subscribe`,
+              text: `${spec.heading}\n\n${spec.body}\n\n${spec.cta}: ${spec.href}`,
             },
           },
         }),
@@ -261,7 +236,7 @@ async function ensureTemplates(
             name: spec.name,
             editor_type: "CODE",
             html: emailHtml(spec),
-            text: `${spec.heading}\n\n${spec.body}\n\n${spec.cta}: https://plott.uk/subscribe`,
+            text: `${spec.heading}\n\n${spec.body}\n\n${spec.cta}: ${spec.href}`,
           },
         },
       }),
@@ -274,7 +249,7 @@ async function ensureTemplates(
   return ids;
 }
 
-function metricNeverSinceFlowStart(metricId: string) {
+function metricNeverAllTime(metricId: string) {
   return {
     type: "profile-metric",
     metric_id: metricId,
@@ -286,41 +261,32 @@ function metricNeverSinceFlowStart(metricId: string) {
     },
     timeframe_filter: {
       type: "date",
-      operator: "flow-start",
+      operator: "alltime",
     },
     metric_filters: null,
   };
 }
 
-function delayAction(
-  temporaryId: string,
-  next: string,
-  unit: "minutes" | "hours" | "days",
-  value: number,
-) {
+function delayDays(temporaryId: string, next: string, value: number) {
   return {
     temporary_id: temporaryId,
     type: "time-delay",
     links: { next },
     data: {
-      unit,
+      unit: "days",
       value,
       secondary_value: 0,
       timezone: "profile",
-      ...(unit === "days"
-        ? {
-            delay_until_time: null,
-            delay_until_weekdays: [
-              "monday",
-              "tuesday",
-              "wednesday",
-              "thursday",
-              "friday",
-              "saturday",
-              "sunday",
-            ],
-          }
-        : {}),
+      delay_until_time: null,
+      delay_until_weekdays: [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "sunday",
+      ],
     },
   };
 }
@@ -353,16 +319,15 @@ function emailAction(args: {
         preview_text: args.preview,
         template_id: args.templateId,
         smart_sending_enabled: true,
-        // Account-completion reminder — not a promo blast.
-        transactional: true,
+        transactional: false,
         add_tracking_params: true,
         custom_tracking_params: null,
         additional_filters: {
           condition_groups: [
             {
               conditions: [
-                metricNeverSinceFlowStart(args.subscriptionMetricId),
-                metricNeverSinceFlowStart(args.trialMetricId),
+                metricNeverAllTime(args.subscriptionMetricId),
+                metricNeverAllTime(args.trialMetricId),
               ],
             },
           ],
@@ -453,7 +418,7 @@ async function syncFlowEmailTemplates(
 async function ensureFlow(
   cfg: ReturnType<typeof config>,
   args: {
-    onboardingMetricId: string;
+    listId: string;
     subscriptionMetricId: string;
     trialMetricId: string;
     templateIds: Record<(typeof TEMPLATE_SPECS)[number]["key"], string>;
@@ -468,13 +433,10 @@ async function ensureFlow(
     if (args.forceTemplates) {
       await syncFlowEmailTemplates(cfg, existing.id, args.templateIds);
     }
-    console.log(
-      `Open: https://www.klaviyo.com/flow/${existing.id}/edit`,
-    );
+    console.log(`Open: https://www.klaviyo.com/flow/${existing.id}/edit`);
     return existing.id;
   }
 
-  const entry = "delay-30m";
   const created = await klaviyoFetch(cfg, "flows/", {
     method: "POST",
     body: JSON.stringify({
@@ -485,27 +447,25 @@ async function ensureFlow(
           definition: {
             triggers: [
               {
-                type: "metric",
-                id: args.onboardingMetricId,
-                trigger_filter: null,
+                type: "list",
+                id: args.listId,
               },
             ],
             profile_filter: {
               condition_groups: [
                 {
                   conditions: [
-                    metricNeverSinceFlowStart(args.subscriptionMetricId),
-                    metricNeverSinceFlowStart(args.trialMetricId),
+                    metricNeverAllTime(args.subscriptionMetricId),
+                    metricNeverAllTime(args.trialMetricId),
                   ],
                 },
               ],
             },
             actions: [
-              delayAction(entry, "email-1", "minutes", 30),
               emailAction({
                 temporaryId: "email-1",
-                next: "delay-1d",
-                name: "Email #1 — workspace ready",
+                next: "delay-2d",
+                name: "Email #1 — intro",
                 subject: TEMPLATE_SPECS[0].subject,
                 preview: TEMPLATE_SPECS[0].preview,
                 templateId: args.templateIds.email1,
@@ -514,11 +474,11 @@ async function ensureFlow(
                 subscriptionMetricId: args.subscriptionMetricId,
                 trialMetricId: args.trialMetricId,
               }),
-              delayAction("delay-1d", "email-2", "days", 1),
+              delayDays("delay-2d", "email-2", 2),
               emailAction({
                 temporaryId: "email-2",
-                next: "delay-2d",
-                name: "Email #2 — reminder",
+                next: "delay-3d",
+                name: "Email #2 — how it works",
                 subject: TEMPLATE_SPECS[1].subject,
                 preview: TEMPLATE_SPECS[1].preview,
                 templateId: args.templateIds.email2,
@@ -527,11 +487,11 @@ async function ensureFlow(
                 subscriptionMetricId: args.subscriptionMetricId,
                 trialMetricId: args.trialMetricId,
               }),
-              delayAction("delay-2d", "email-3", "days", 2),
+              delayDays("delay-3d", "email-3", 3),
               emailAction({
                 temporaryId: "email-3",
                 next: null,
-                name: "Email #3 — last nudge",
+                name: "Email #3 — get started",
                 subject: TEMPLATE_SPECS[2].subject,
                 preview: TEMPLATE_SPECS[2].preview,
                 templateId: args.templateIds.email3,
@@ -541,7 +501,7 @@ async function ensureFlow(
                 trialMetricId: args.trialMetricId,
               }),
             ],
-            entry_action_id: entry,
+            entry_action_id: "email-1",
           },
         },
       },
@@ -551,7 +511,7 @@ async function ensureFlow(
   const id = (created.data as { id: string }).id;
   console.log(`Created draft flow: ${FLOW_NAME} (${id})`);
   console.log(`Open: https://www.klaviyo.com/flow/${id}/edit`);
-  console.log("Review copy, then set Live in Klaviyo.");
+  console.log("Review copy, set Live, then import into the list.");
   return id;
 }
 
@@ -560,23 +520,25 @@ async function main() {
   const cfg = config();
 
   console.log(`Using Klaviyo revision ${cfg.revision}`);
-  const onboarding = await ensureMetric(cfg);
-  console.log(
-    `${onboarding.created ? "Seeded" : "Found"} metric ${METRIC_NAME} (${onboarding.id})`,
-  );
-
+  const listId = await ensureList(cfg);
   const subscriptionMetricId = await findMetricId(cfg, "Subscription Started");
   const trialMetricId = await findMetricId(cfg, "Trial Started");
-  console.log(`Exit metrics: Subscription Started=${subscriptionMetricId}, Trial Started=${trialMetricId}`);
-
   const templateIds = await ensureTemplates(cfg, args.forceTemplates);
   await ensureFlow(cfg, {
-    onboardingMetricId: onboarding.id,
+    listId,
     subscriptionMetricId,
     trialMetricId,
     templateIds,
     forceTemplates: args.forceTemplates,
   });
+
+  console.log("");
+  console.log("Import target list:");
+  console.log(`  ${LIST_NAME} (${listId})`);
+  console.log(`  https://www.klaviyo.com/list/${listId}`);
+  console.log(
+    "When importing: subscribe profiles to email marketing, or only consented contacts will receive the series.",
+  );
 }
 
 main().catch((err) => {
