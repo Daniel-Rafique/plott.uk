@@ -12,30 +12,18 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { getTenantContext, hasActiveSubscription } from "@/lib/tenant";
+import {
+  optionalTrimmedString,
+  optionalWebsiteUrlSchema,
+} from "@/lib/auth/form-validation";
 
 export const runtime = "nodejs";
 
 const Body = z.object({
   name: z.string().trim().min(2).max(120),
-  websiteUrl: z
-    .string()
-    .trim()
-    .url()
-    .max(200)
-    .optional()
-    .or(z.literal("").transform(() => undefined)),
-  addressLines: z
-    .string()
-    .trim()
-    .max(500)
-    .optional()
-    .or(z.literal("").transform(() => undefined)),
-  phone: z
-    .string()
-    .trim()
-    .max(40)
-    .optional()
-    .or(z.literal("").transform(() => undefined)),
+  websiteUrl: optionalWebsiteUrlSchema,
+  addressLines: optionalTrimmedString(500),
+  phone: optionalTrimmedString(40),
 });
 
 export async function POST(req: Request) {
@@ -53,8 +41,16 @@ export async function POST(req: Request) {
 
   const parsed = Body.safeParse(raw);
   if (!parsed.success) {
+    const flat = parsed.error.flatten();
+    const first =
+      flat.fieldErrors.name?.[0] ??
+      flat.fieldErrors.websiteUrl?.[0] ??
+      flat.fieldErrors.addressLines?.[0] ??
+      flat.fieldErrors.phone?.[0] ??
+      flat.formErrors[0] ??
+      "Invalid fields";
     return NextResponse.json(
-      { error: "Invalid fields", issues: parsed.error.flatten() },
+      { error: first, issues: flat },
       { status: 400 },
     );
   }

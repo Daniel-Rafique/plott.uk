@@ -146,8 +146,8 @@ export function OnboardingWizard({
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
-          name: name.trim(),
-          websiteUrl: websiteUrl.trim(),
+          name: parsed.data.name,
+          websiteUrl: parsed.data.websiteUrl ?? "",
           addressLines: addressLines.trim(),
           phone: phone.trim(),
         }),
@@ -155,8 +155,20 @@ export function OnboardingWizard({
       const body = (await res.json().catch(() => ({}))) as {
         error?: string;
         nextPath?: string;
+        issues?: { fieldErrors?: Record<string, string[] | undefined> };
       };
       if (!res.ok) {
+        const fieldErrors = body.issues?.fieldErrors;
+        if (fieldErrors?.name?.[0] || fieldErrors?.websiteUrl?.[0]) {
+          setStep("company");
+          setError(
+            fieldErrors.websiteUrl?.[0] ??
+              fieldErrors.name?.[0] ??
+              body.error ??
+              "Please check your company details.",
+          );
+          return;
+        }
         throw new Error(body.error ?? `Request failed (${res.status})`);
       }
       if (playbookId) {
@@ -271,7 +283,7 @@ export function OnboardingWizard({
                   value={websiteUrl}
                   onChange={(e) => setWebsiteUrl(e.target.value)}
                   className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm"
-                  placeholder="https://acmeplanning.co.uk"
+                  placeholder="acmeplanning.co.uk"
                 />
               </Field>
             </>
