@@ -28,7 +28,7 @@ const DEFAULT_REVISION = "2026-04-15";
 const LIST_NAME = "Hunter Construction Warm";
 const FLOW_NAME = "Hunter construction warm nurture";
 const SIGNUP_URL = "https://plott.uk/auth/sign-up";
-const RESOURCE_URL = "https://plott.uk/#free-resource";
+const RESOURCE_URL = "https://plott.uk/resources";
 
 const TEMPLATE_SPECS = [
   {

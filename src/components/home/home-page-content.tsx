@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import dynamic from "next/dynamic";
 import { motion } from "framer-motion";
 import { ArrowRight, Compass, Ruler, ShieldCheck } from "lucide-react";
 import { ByTheNumbers } from "./by-the-numbers";
@@ -28,16 +27,7 @@ import {
 } from "@/lib/trial";
 import { FunnelCtaButton } from "@/components/auth/funnel-cta-button";
 import { WorkspaceEntryCta } from "@/components/auth/workspace-entry-cta";
-
-const Map3DHero = dynamic(
-  () => import("./map3d-hero").then((m) => m.Map3DHero),
-  {
-    ssr: false,
-    loading: () => (
-      <div className="absolute inset-0 animate-pulse bg-gradient-to-br from-zinc-900 via-zinc-950 to-black" />
-    ),
-  },
-);
+import { Map3DHeroMount } from "./map3d-hero-mount";
 
 type Props = {
   heroFontClassName: string;
@@ -58,7 +48,7 @@ export function HomePageContent({ heroFontClassName }: Props) {
         data-bg="#0a0a0a"
         className="relative flex min-h-[100svh] items-center justify-center overflow-hidden bg-black"
       >
-        <Map3DHero />
+        <Map3DHeroMount />
 
         <div className="relative z-10 mx-auto w-full max-w-7xl px-6 py-24 md:py-32">
           <motion.div
