@@ -7,9 +7,9 @@ import {
   type PlanningSearchResponse,
 } from "@/lib/planning-data";
 import { MapCanvas, type Bounds, type MapCanvasHandle } from "./map-canvas";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { gsap } from "gsap";
-import { MapPin, Calendar, Building, Download, Search, Settings2, User, Mail, UserCircle2, Bookmark, X, Pin, RadioTower } from "lucide-react";
+import { MapPin, Calendar, Building, Download, Search, User, Mail, UserCircle2, Bookmark, X, Pin, RadioTower, PanelLeft } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import posthog from "posthog-js";
@@ -17,7 +17,10 @@ import { cn } from "@/lib/utils";
 import { ApplicantModal, type ApplicantModalHandoff } from "@/components/applicant-modal";
 import { ProprietorLetterModal } from "@/components/proprietor-letter-modal";
 import type { OutreachContact } from "@/lib/outreach-contact";
-import { NlSearchBar, type NlFilterResult, type NlFilterChip } from "./nl-search-bar";
+import type { PlanningQaContext } from "@/components/agent-chat";
+import { type NlFilterResult, type NlFilterChip } from "./nl-search-bar";
+import { AgentRail } from "./agent-rail";
+import { ExploreDrawer } from "./explore-drawer";
 import { buildNlFiltersFromDashboardState } from "@/lib/ai/build-nl-filters-from-dashboard";
 import { consumeDeepSearchStream } from "@/lib/ai/deep-search-stream";
 import {
@@ -166,49 +169,6 @@ function csv(v: string | number | undefined) {
   return `"${s}"`;
 }
 
-function FilterMulti({
-  label,
-  values,
-  onChange,
-  options,
-}: {
-  label: string;
-  values: string[];
-  onChange: (v: string[]) => void;
-  options: string[];
-}) {
-  const toggle = (opt: string) => {
-    onChange(
-      values.includes(opt) ? values.filter((v) => v !== opt) : [...values, opt],
-    );
-  };
-  return (
-    <div>
-      <p className="mb-1 text-xs font-medium text-zinc-700">{label}</p>
-      <div className="flex flex-wrap gap-1.5">
-        {options.map((opt) => {
-          const active = values.includes(opt);
-          return (
-            <button
-              key={opt}
-              type="button"
-              onClick={() => toggle(opt)}
-              className={cn(
-                "rounded-full border px-2.5 py-0.5 text-xs capitalize transition-colors",
-                active
-                  ? "border-zinc-900 bg-zinc-900 text-white"
-                  : "border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-100",
-              )}
-            >
-              {opt}
-            </button>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
 export function DashboardClient({ features }: { features: PlanFeatures }) {
   const searchParams = useSearchParams();
   const [results, setResults] = useState<PlanningApplicationEntity[]>([]);
@@ -228,6 +188,7 @@ export function DashboardClient({ features }: { features: PlanFeatures }) {
   const [saveSearchPending, setSaveSearchPending] = useState(false);
   const [selectedEntityId, setSelectedEntityId] = useState<number | null>(null);
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [exploreOpen, setExploreOpen] = useState(false);
   const [nlSummary, setNlSummary] = useState<string | null>(null);
   // Area + reference prompt for a `?pinned=<id>` deep link, resolved async
   // from the pinned application record and fed into the NL search bar.
@@ -341,6 +302,9 @@ export function DashboardClient({ features }: { features: PlanFeatures }) {
       setOffset(0);
       setError(null);
       setSearching(false);
+      if (entities.length > 0 || meta.total > 0) {
+        setExploreOpen(true);
+      }
       posthog.capture("deep_search_completed", {
         mode: meta.mode,
         total: meta.total,
@@ -439,6 +403,7 @@ export function DashboardClient({ features }: { features: PlanFeatures }) {
   const handleQaViewApplicant = useCallback(
     (row: PlanningApplicationEntity) => {
       if (!row.reference) return;
+      if (row.entity != null) setSelectedEntityId(row.entity);
       openApplicantModal(row.reference, row["organisation-entity"] ?? null, {
         planningEntity: row.entity ?? null,
         siteAddress: row["address-text"] ?? null,
@@ -926,6 +891,23 @@ export function DashboardClient({ features }: { features: PlanFeatures }) {
     0,
   );
 
+  const focusedApplication = useMemo((): PlanningQaContext | null => {
+    if (selectedEntityId == null) return null;
+    const row = results.find((r) => r.entity === selectedEntityId);
+    if (!row) return null;
+    return {
+      reference: row.reference ?? undefined,
+      planningEntity: row.entity ?? undefined,
+      organisationEntity: row["organisation-entity"] ?? null,
+      siteAddress: row["address-text"] ?? null,
+      description: row.description ?? null,
+      status: row["planning-application-status"] ?? null,
+      applicationType: row["planning-application-type"] ?? null,
+      postcode: row.postcode ?? null,
+      applicantName: row.enrichment?.applicantName ?? null,
+    };
+  }, [results, selectedEntityId]);
+
   useEffect(() => {
     resultsListRef.current?.scrollTo({ top: 0 });
   }, [offset, showTrackedOnly, trackedResultCount]);
@@ -994,6 +976,9 @@ export function DashboardClient({ features }: { features: PlanFeatures }) {
         setResults(data.entities ?? []);
         setMeta(data);
         setOffset(nextOffset);
+        if ((data.entities ?? []).length > 0) {
+          setExploreOpen(true);
+        }
         return data;
       } catch (e) {
         setError(e instanceof Error ? e.message : "Unknown error");
@@ -1304,6 +1289,9 @@ export function DashboardClient({ features }: { features: PlanFeatures }) {
           // stripped at persist time and is always === results.
           setMeta({ ...state.meta, entities: restoredResults });
         }
+        if (restoredResults.length > 0) {
+          setExploreOpen(true);
+        }
 
         // Pan the map to the saved area once the imperative handle is
         // available. The MapCanvas ref is set after its first render, so we
@@ -1604,158 +1592,79 @@ export function DashboardClient({ features }: { features: PlanFeatures }) {
 
   return (
     <div className="flex h-full min-h-0 w-full min-w-0 flex-1 items-stretch overflow-hidden bg-white">
-      {/* Sidebar: header + pagination fixed; only the list region scrolls (prevents page scroll) */}
-      <aside className="z-10 flex h-full min-h-0 w-96 shrink-0 flex-col overflow-hidden border-r border-zinc-200 bg-zinc-50 shadow-sm">
-        <div className="shrink-0 border-b border-zinc-200 bg-zinc-50 p-4 pb-3">
-          <p className="editorial-chapter-label mb-1 text-zinc-500">
-            01 — Map
-          </p>
-          <div className="flex items-center justify-between mb-2">
-            <h1 className="font-[family-name:var(--font-display)] text-[22px] font-normal leading-none tracking-tight text-zinc-950">
-              Explore
-            </h1>
-            <button
-              type="button"
-              aria-label={filtersOpen ? "Close filters" : "Open filters"}
-              aria-expanded={filtersOpen}
-              onClick={() => setFiltersOpen(!filtersOpen)}
-              className={cn(
-                "p-2 rounded-md hover:bg-zinc-200 transition-colors text-zinc-600",
-                filtersOpen && "bg-zinc-200 text-zinc-900"
-              )}
-            >
-              <Settings2 className="h-4 w-4" aria-hidden />
-            </button>
-          </div>
-          
-          <AnimatePresence>
-            {filtersOpen && (
-              <motion.div
-                initial={{ height: 0, opacity: 0 }}
-                animate={{ height: "auto", opacity: 1 }}
-                exit={{ height: 0, opacity: 0 }}
-                className="overflow-hidden"
-              >
-                <div className="pt-2 pb-4 space-y-3">
-                  <FilterMulti
-                    label="Status"
-                    values={statuses}
-                    onChange={(v) => {
-                      markManualFilterChange();
-                      setStatuses(v);
-                    }}
-                    options={[
-                      "approved",
-                      "granted",
-                      "refused",
-                      "withdrawn",
-                      "pending",
-                    ]}
-                  />
-                  <FilterMulti
-                    label="Application type"
-                    values={applicationTypes}
-                    onChange={(v) => {
-                      markManualFilterChange();
-                      setApplicationTypes(v);
-                    }}
-                    options={[
-                      "full",
-                      "outline",
-                      "reserved matters",
-                      "householder",
-                      "listed building",
-                      "prior approval",
-                    ]}
-                  />
-                  <FilterMulti
-                    label="Development type"
-                    values={developmentTypes}
-                    onChange={(v) => {
-                      markManualFilterChange();
-                      setDevelopmentTypes(v);
-                    }}
-                    options={[
-                      "residential",
-                      "commercial",
-                      "change of use",
-                      "extension",
-                      "new build",
-                      "mixed use",
-                    ]}
-                  />
-                  <div className="grid grid-cols-2 gap-2">
-                    <label className="text-xs text-zinc-600">
-                      Decision from
-                      <input
-                        type="date"
-                        value={decisionFrom}
-                        onChange={(e) => {
-                          markManualFilterChange();
-                          setDecisionFrom(e.target.value);
-                        }}
-                        className="mt-1 block w-full rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-xs"
-                      />
-                    </label>
-                    <label className="text-xs text-zinc-600">
-                      Decision to
-                      <input
-                        type="date"
-                        value={decisionTo}
-                        onChange={(e) => {
-                          markManualFilterChange();
-                          setDecisionTo(e.target.value);
-                        }}
-                        className="mt-1 block w-full rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-xs"
-                      />
-                    </label>
-                  </div>
-                </div>
-              </motion.div>
+      {/* Map canvas — Explore overlays; Agent rail is a permanent right column */}
+      <div className="relative z-0 flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-zinc-100">
+        <MapCanvas
+          ref={mapRef}
+          results={results}
+          onSearchArea={(bounds) => {
+            setExploreOpen(true);
+            onSearchArea(bounds);
+          }}
+          searching={searching}
+          selectedEntityId={selectedEntityId}
+          onSelectEntity={setSelectedEntityId}
+          onTagFilter={toggleApplicantLikeFromTag}
+        />
+
+        {!exploreOpen ? (
+          <button
+            type="button"
+            onClick={() => setExploreOpen(true)}
+            className={cn(
+              "absolute left-4 top-[3.75rem] z-10 inline-flex items-center gap-1.5 rounded-xl border border-zinc-200/80 px-3 py-2 text-xs font-medium text-zinc-900 shadow-sm transition-transform active:scale-[0.97]",
+              "bg-white/75 backdrop-blur-xl backdrop-saturate-150",
+              "supports-[backdrop-filter]:bg-white/55",
+              "motion-reduce:bg-white motion-reduce:backdrop-filter-none",
+              "hover:bg-white/90",
             )}
-          </AnimatePresence>
+            aria-label="Open Explore"
+          >
+            <PanelLeft className="h-3.5 w-3.5" aria-hidden />
+            Explore
+            {results.length > 0 ? (
+              <span className="rounded-full bg-zinc-100 px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-zinc-700">
+                {results.length > 999 ? "999+" : results.length}
+              </span>
+            ) : null}
+          </button>
+        ) : null}
 
-          <div className="mt-2">
-            <NlSearchBar
-              onParsed={applyNlFilters}
-              onViewport={handleDeepSearchViewport}
-              onResults={handleDeepSearchResults}
-              onStreamStart={handleStreamStart}
-              onStreamEnd={handleStreamEnd}
-              getCurrentBounds={getCurrentBounds}
-              chips={nlChips}
-              initialPrompt={
-                searchParams.get("q") ?? pinnedDeepLinkPrompt ?? undefined
-              }
-            />
-            {nlSummary && (
-              <p className="mt-1 text-[11px] text-zinc-500 italic">
-                {nlSummary}
-              </p>
-            )}
-          </div>
-
-          {error ? (
-            <p className="mt-2 rounded-md border border-red-200 bg-red-50 px-2 py-1.5 text-xs text-red-800">
-              {error}
-            </p>
-          ) : null}
-
-          <div className="flex items-center justify-between mt-2">
-            <p className="text-xs text-zinc-500 font-medium">
-              {searching ? (
-                "Searching..."
-              ) : showTrackedOnly && results.length > 0 ? (
-                `${visibleResults.length} tracked · ${results.length} in these results`
-              ) : totalCount != null ? (
-                `${totalCount.toLocaleString()} total · showing ${offset + 1}–${offset + results.length}`
-              ) : results.length ? (
-                `Showing ${results.length}`
-              ) : (
-                "No results"
-              )}
-            </p>
-            <div className="flex items-center gap-2">
+        <ExploreDrawer
+          open={exploreOpen}
+          onClose={() => setExploreOpen(false)}
+          filtersOpen={filtersOpen}
+          onToggleFilters={() => setFiltersOpen((v) => !v)}
+          statuses={statuses}
+          onStatusesChange={setStatuses}
+          applicationTypes={applicationTypes}
+          onApplicationTypesChange={setApplicationTypes}
+          developmentTypes={developmentTypes}
+          onDevelopmentTypesChange={setDevelopmentTypes}
+          decisionFrom={decisionFrom}
+          decisionTo={decisionTo}
+          onDecisionFromChange={setDecisionFrom}
+          onDecisionToChange={setDecisionTo}
+          markManualFilterChange={markManualFilterChange}
+          chips={nlChips}
+          nlSummary={nlSummary}
+          error={error}
+          listRef={resultsListRef}
+          countLabel={
+            searching ? (
+              "Searching..."
+            ) : showTrackedOnly && results.length > 0 ? (
+              `${visibleResults.length} tracked · ${results.length} in these results`
+            ) : totalCount != null ? (
+              `${totalCount.toLocaleString()} total · showing ${offset + 1}–${offset + results.length}`
+            ) : results.length ? (
+              `Showing ${results.length}`
+            ) : (
+              "No results"
+            )
+          }
+          toolbar={
+            <>
               {features.canPinApplications && results.length > 0 && (
                 <button
                   type="button"
@@ -1806,14 +1715,40 @@ export function DashboardClient({ features }: { features: PlanFeatures }) {
                   <X className="h-3 w-3" /> Clear
                 </button>
               )}
-            </div>
-          </div>
-        </div>
-
-        {/* Only this region scrolls — keeps app header + map + sidebar chrome fixed */}
-        <div
-          ref={resultsListRef}
-          className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain p-4 [scrollbar-gutter:stable]"
+            </>
+          }
+          pagination={
+            showPagination ? (
+              <>
+                <div className="mb-2 text-center text-[10px] font-semibold uppercase tracking-[0.22em] leading-snug text-zinc-500">
+                  <span className="text-zinc-700">Page {pageNum}</span>
+                  <span className="mx-2 text-zinc-300">/</span>
+                  <span>rows {rowRangeLabel}</span>
+                  {totalCount != null ? (
+                    <span className="text-zinc-400"> of {totalCount.toLocaleString()}</span>
+                  ) : null}
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handlePrevPage}
+                    disabled={searching || !canPrev}
+                    className="flex-1 rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm font-medium text-zinc-900 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    Previous
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleNextPage}
+                    disabled={searching || !canNext}
+                    className="flex-1 rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm font-medium text-zinc-900 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    Next
+                  </button>
+                </div>
+              </>
+            ) : null
+          }
         >
           {searching && !results.length ? (
             Array.from({ length: 6 }).map((_, i) => (
@@ -2051,57 +1986,33 @@ export function DashboardClient({ features }: { features: PlanFeatures }) {
                 {showTrackedOnly && results.length > 0
                   ? "Turn off Tracked only to see all results in this search."
                   : lastBounds
-                    ? "Try panning the map or clearing the since-year chip below."
-                    : "Pan and zoom the map, then search to surface applications."}
+                    ? "Try panning the map, clearing a filter chip, or asking the agent."
+                    : "Ask the agent, or pan and zoom the map then search this area."}
               </p>
             </div>
           )}
-        </div>
-
-        {showPagination ? (
-          <div className="shrink-0 border-t border-zinc-200 bg-zinc-50 px-4 py-3 shadow-[0_-4px_14px_-2px_rgba(0,0,0,0.06)]">
-            <div className="mb-2 text-center text-[10px] font-semibold uppercase tracking-[0.22em] leading-snug text-zinc-500">
-              <span className="text-zinc-700">Page {pageNum}</span>
-              <span className="mx-2 text-zinc-300">/</span>
-              <span>rows {rowRangeLabel}</span>
-              {totalCount != null ? (
-                <span className="text-zinc-400"> of {totalCount.toLocaleString()}</span>
-              ) : null}
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={handlePrevPage}
-                disabled={searching || !canPrev}
-                className="flex-1 rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm font-medium text-zinc-900 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                Previous
-              </button>
-              <button
-                type="button"
-                onClick={handleNextPage}
-                disabled={searching || !canNext}
-                className="flex-1 rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm font-medium text-zinc-900 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                Next
-              </button>
-            </div>
-          </div>
-        ) : null}
-      </aside>
-
-      {/* Map: fills remaining width; does not scroll with the list */}
-      <div className="relative z-0 flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-zinc-100">
-        <MapCanvas
-          ref={mapRef}
-          results={results}
-          onSearchArea={onSearchArea}
-          searching={searching}
-          selectedEntityId={selectedEntityId}
-          onSelectEntity={setSelectedEntityId}
-          onTagFilter={toggleApplicantLikeFromTag}
-        />
+        </ExploreDrawer>
       </div>
+
+      <AgentRail
+        onParsed={applyNlFilters}
+        onViewport={handleDeepSearchViewport}
+        onResults={handleDeepSearchResults}
+        onStreamStart={handleStreamStart}
+        onStreamEnd={handleStreamEnd}
+        getCurrentBounds={getCurrentBounds}
+        focusedApplication={focusedApplication}
+        onClearFocus={() => setSelectedEntityId(null)}
+        onViewApplicant={handleQaViewApplicant}
+        onChatResults={handleQaSearchResults}
+        pinActions={qaPinActions}
+        exploreOpen={exploreOpen}
+        onToggleExplore={() => setExploreOpen((v) => !v)}
+        resultCount={results.length}
+        initialPrompt={
+          searchParams.get("q") ?? pinnedDeepLinkPrompt ?? undefined
+        }
+      />
 
       <ApplicantModal
         isOpen={applicantModalOpen}
