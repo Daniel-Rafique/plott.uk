@@ -30,7 +30,7 @@ const LIST_NAME = "Hunter Construction Warm";
 const FLOW_NAMES = ["Nuture", "Hunter construction warm nurture"] as const;
 const FLOW_NAME = FLOW_NAMES[0];
 const SIGNUP_URL = "https://plott.uk/auth/sign-up";
-const RESOURCE_URL = "https://plott.uk/#free-resource";
+const RESOURCE_URL = "https://plott.uk/resources";
 const PROMO_CODE = "10OFF";
 const PRICING_URL = "https://plott.uk/pricing";
 

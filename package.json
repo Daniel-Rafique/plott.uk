@@ -32,6 +32,7 @@
     "stripe:ensure-klaviyo-webhook": "tsx scripts/ensure-klaviyo-stripe-webhook.ts",
     "klaviyo:ensure-signup-abandon-flow": "tsx scripts/ensure-klaviyo-signup-abandon-flow.ts",
     "klaviyo:ensure-hunter-warm-flow": "tsx scripts/ensure-klaviyo-hunter-warm-flow.ts",
+    "klaviyo:train-customer-agent": "tsx scripts/train-klaviyo-customer-agent.ts",
     "stripe:create-products": "tsx scripts/create-stripe-products.ts",
     "stripe:migrate-account": "npm run stripe:verify && npm run stripe:create-products && npm run stripe:ensure-prices -- --fix && npm run stripe:ensure-ai-meter && npm run stripe:ensure-app-webhook && npm run stripe:ensure-klaviyo-webhook"
   },

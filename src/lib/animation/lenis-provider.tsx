@@ -46,6 +46,31 @@ export function isMarketingRoute(pathname: string | null): boolean {
   );
 }
 
+/**
+ * Resolve a URL hash to an element without throwing on invalid CSS selectors.
+ * Malformed hashes (e.g. `#free-r=` from truncated email links) are not valid
+ * for `querySelector`, so prefer `getElementById` + `CSS.escape`.
+ */
+export function elementFromHash(hash: string): Element | null {
+  if (!hash || hash === "#") return null;
+  let id: string;
+  try {
+    id = decodeURIComponent(hash.startsWith("#") ? hash.slice(1) : hash);
+  } catch {
+    return null;
+  }
+  if (!id) return null;
+
+  const byId = document.getElementById(id);
+  if (byId) return byId;
+
+  try {
+    return document.querySelector(`#${CSS.escape(id)}`);
+  } catch {
+    return null;
+  }
+}
+
 export function LenisScrollProvider({
   children,
 }: {
@@ -115,7 +140,7 @@ export function LenisScrollProvider({
       const hash = href.includes("#") ? `#${href.split("#")[1]}` : null;
       if (!hash) return;
 
-      const targetEl = document.querySelector(hash);
+      const targetEl = elementFromHash(hash);
       if (!targetEl) return;
 
       e.preventDefault();
@@ -170,7 +195,7 @@ export function LenisScrollProvider({
 
         const hash = window.location.hash;
         if (hash && lenis) {
-          const target = document.querySelector(hash);
+          const target = elementFromHash(hash);
           if (target) {
             setTimeout(() => {
               lenis?.scrollTo(target as HTMLElement, {
